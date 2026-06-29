@@ -1,0 +1,116 @@
+.bars-loader-fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(70vh, 520px);
+  width: 100%;
+}
+
+.bars-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 15, 26, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.bars-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.bars-loader__track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+}
+
+.bars-loader__slider {
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.06);
+  margin: 0 8px;
+  height: 80px;
+  width: 20px;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.25),
+    inset -3px -3px 8px rgba(240, 180, 41, 0.06),
+    inset 3px 3px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.bars-loader__slider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  width: 20px;
+  border-radius: 100%;
+  box-shadow:
+    inset 0 0 0 rgba(0, 0, 0, 0.2),
+    0 420px 0 400px #f0b429,
+    inset 0 0 0 rgba(0, 0, 0, 0.15);
+  animation: bars-bounce 2.5s ease-in-out infinite;
+  animation-delay: calc(-0.5s * var(--i));
+}
+
+.bars-loader__label {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.bars-loader--compact .bars-loader__slider {
+  height: 48px;
+  width: 12px;
+  margin: 0 4px;
+  border-radius: 20px;
+}
+
+.bars-loader--compact .bars-loader__slider::before {
+  height: 12px;
+  width: 12px;
+  box-shadow:
+    inset 0 0 0 rgba(0, 0, 0, 0.2),
+    0 260px 0 248px #f0b429,
+    inset 0 0 0 rgba(0, 0, 0, 0.15);
+  animation-name: bars-bounce-compact;
+}
+
+@keyframes bars-bounce {
+  0% {
+    transform: translateY(250px);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(250px);
+    filter: hue-rotate(35deg);
+  }
+}
+
+@keyframes bars-bounce-compact {
+  0% {
+    transform: translateY(150px);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(150px);
+    filter: hue-rotate(35deg);
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "أولمبياد النخبة 1448 هــ",
+  "short_name": "أولمبياد النخبة",
+  "description": "نحو القمة بالتميز — نقاط، أنشطة، اختبارات، وحضور",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#162e54",
+  "theme_color": "#162e54",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icon.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
+  ]
+}
