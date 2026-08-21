@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>أولمبياد النخبة 1448 هـ — إعلان المجلة</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: #0a0f24;
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    .ad {
+      width: 1080px;
+      max-width: 100%;
+      background: linear-gradient(165deg, #111c44 0%, #0d1638 45%, #1a1040 100%);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+      border: 1px solid rgba(240,180,41,0.15);
+      position: relative;
+    }
+    .ad::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(117,81,255,0.22) 0%, transparent 42%),
+        radial-gradient(circle at 85% 90%, rgba(240,180,41,0.18) 0%, transparent 45%);
+      pointer-events: none;
+    }
+    .inner { position: relative; padding: 48px 52px 44px; }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .platform-logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-mark {
+      width: 56px; height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #f0b429, #d4a017);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 18px; color: #111c44;
+      box-shadow: 0 8px 24px rgba(240,180,41,0.35);
+    }
+    .logo-text { color: #fff; }
+    .logo-text strong { display: block; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+    .logo-text span { font-size: 12px; color: #A3AED0; }
+    .badge-1448 {
+      background: linear-gradient(135deg, rgba(240,180,41,0.2), rgba(240,180,41,0.08));
+      border: 1px solid rgba(240,180,41,0.4);
+      color: #f0d878;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    /* Hero */
+    .hero { text-align: center; margin-bottom: 40px; }
+    .trophy { font-size: 52px; margin-bottom: 12px; filter: drop-shadow(0 4px 12px rgba(240,180,41,0.4)); }
+    .hero h1 {
+      font-size: clamp(36px, 5vw, 52px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #fff 30%, #f0b429 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.25;
+      margin-bottom: 12px;
+    }
+    .hero .tagline {
+      font-size: 20px;
+      color: #c4b5fd;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .hero .school {
+      font-size: 17px;
+      color: #A3AED0;
+      font-weight: 500;
+    }
+
+    /* Info strip */
+    .info-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 700px) { .info-strip { grid-template-columns: 1fr; } }
+    .info-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .info-card .label { font-size: 12px; color: #A3AED0; margin-bottom: 6px; }
+    .info-card .value { font-size: 16px; font-weight: 700; color: #fff; line-height: 1.5; }
+
+    /* Pillars */
+    .section-title {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f0b429;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 18px;
+    }
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 800px) { .pillars { grid-template-columns: repeat(2, 1fr); } }
+    .pillar {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 20px 14px;
+      text-align: center;
+    }
+    .pillar .icon { font-size: 28px; margin-bottom: 8px; }
+    .pillar h3 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .pillar p { font-size: 11px; color: #A3AED0; line-height: 1.5; }
+
+    /* Body */
+    .body-text {
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 28px;
+      border-right: 4px solid #7551FF;
+    }
+    .body-text p {
+      font-size: 15px;
+      color: #d0d8f0;
+      line-height: 1.9;
+      margin-bottom: 12px;
+    }
+    .body-text p:last-child { margin-bottom: 0; }
+
+    /* Prizes */
+    .prizes {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .prize {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, rgba(1,181,116,0.12), rgba(1,181,116,0.04));
+      border: 1px solid rgba(1,181,116,0.3);
+      border-radius: 14px;
+      padding: 14px 24px;
+    }
+    .prize span { font-size: 28px; }
+    .prize div strong { display: block; color: #01B574; font-size: 16px; }
+    .prize div small { color: #A3AED0; font-size: 12px; }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 28px;
+      background: linear-gradient(135deg, rgba(240,180,41,0.12), rgba(117,81,255,0.1));
+      border-radius: 18px;
+      border: 1px solid rgba(240,180,41,0.2);
+    }
+    .cta .quote {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .cta .platform-link {
+      display: inline-block;
+      background: linear-gradient(135deg, #f0b429, #d4a017);
+      color: #111c44;
+      font-weight: 800;
+      font-size: 18px;
+      padding: 14px 36px;
+      border-radius: 12px;
+      text-decoration: none;
+      box-shadow: 0 8px 28px rgba(240,180,41,0.3);
+    }
+    .cta .note {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #A3AED0;
+    }
+
+    .footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(163,174,208,0.5);
+    }
+
+    @media print {
+      body { background: #111c44; padding: 0; }
+      .ad { box-shadow: none; border-radius: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <article class="ad">
+    <div class="inner">
+      <header class="header">
+        <div class="platform-logo">
+          <div class="logo-mark">ERB</div>
+          <div class="logo-text">
+            <strong>ERB Elite</strong>
+            <span>منصة إدارة المدرسة الذكية</span>
+          </div>
+        </div>
+        <div class="badge-1448">العام الدراسي 1448 هـ</div>
+      </header>
+
+      <section class="hero">
+        <div class="trophy">🏆</div>
+        <h1>أولمبياد النخبة 1448 هـ</h1>
+        <p class="tagline">من التميّز إلى النخبة — تنافس… تعلّم… تميّز</p>
+        <p class="school">متوسطة نخبة الشمال الأهلية · المرحلة المتوسطة</p>
+      </section>
+
+      <div class="info-strip">
+        <div class="info-card">
+          <div class="label">تاريخ البداية</div>
+          <div class="value">24 أغسطس 2026</div>
+        </div>
+        <div class="info-card">
+          <div class="label">تاريخ النهاية</div>
+          <div class="value">1 يونيو 2027</div>
+        </div>
+        <div class="info-card">
+          <div class="label">الفئة المستهدفة</div>
+          <div class="value">طلاب المرحلة المتوسطة</div>
+        </div>
+      </div>
+
+      <p class="section-title">محاور المنافسة</p>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="icon">📚</div>
+          <h3>التحصيل الأكاديمي</h3>
+          <p>اختبارات دورية وتحليل نقاط القوة والضعف</p>
+        </div>
+        <div class="pillar">
+          <div class="icon">⭐</div>
+          <h3>النقاط والإنجاز</h3>
+          <p>مكافآت السلوك والمشاركة والتحديات الأسبوعية</p>
+        </div>
+        <div class="pillar">
+          <div class="icon">🎯</div>
+          <h3>الأنشطة والفعاليات</h3>
+          <p>مشاركة فعّالة في الأنشطة الثقافية والرياضية</p>
+        </div>
+        <div class="pillar">
+          <div class="icon">🏅</div>
+          <h3>الترتيب والتكريم</h3>
+          <p>لوحة متصدرين حيّة وتكريم المتميزين</p>
+        </div>
+      </div>
+
+      <div class="body-text">
+        <p>
+          تعلن <strong style="color:#f0b429">متوسطة نخبة الشمال الأهلية</strong> عن انطلاق
+          <strong style="color:#fff">أولمبياد النخبة 1448 هـ</strong> — الحدث الأبرز في رحلتنا التعليمية
+          لهذا العام الدراسي، والمخصّص لطلاب <strong style="color:#fff">المرحلة المتوسطة</strong>.
+        </p>
+        <p>
+          يجمع الأولمبياد بين التحصيل الأكاديمي والمهارات والأنشطة والسلوك الإيجابي في منظومة واحدة
+          عادلة وشفافة، يُتابَع فيها تقدّم كل طالب عبر منصة <strong style="color:#c4b5fd">ERB Elite</strong>
+          الإلكترونية — من النقاط والاختبارات إلى لوحة المتصدرين والتقارير.
+        </p>
+        <p>
+          شاركوا في رحلة التميّز، تنافسوا بشرف، واصنعوا قصة نجاح تليق بنخبة المستقبل.
+        </p>
+      </div>
+
+      <p class="section-title">الجوائز والتكريم</p>
+      <div class="prizes">
+        <div class="prize">
+          <span>📜</span>
+          <div>
+            <strong>شهادات تقدير وتميّز</strong>
+            <small>للمتفوقين والمتميزين في المحاور المختلفة</small>
+          </div>
+        </div>
+        <div class="prize">
+          <span>✈️</span>
+          <div>
+            <strong>رحلة تكريمية</strong>
+            <small>للفائزين وطلاب النخبة في نهاية الأولمبياد</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta">
+        <p class="quote">«كل نقطة خطوة نحو القمة — ونخبة المستقبل تُصنَع اليوم»</p>
+        <a class="platform-link" href="https://northelite.tech">northelite.tech</a>
+        <p class="note">تابع نقاطك وترتيبك عبر منصة ERB Elite</p>
+      </div>
+
+      <footer class="footer">
+        أولمبياد النخبة 1448 هـ · متوسطة نخبة الشمال الأهلية · ERB Elite
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

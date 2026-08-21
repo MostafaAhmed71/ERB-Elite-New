@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مسابقة النخبة</string>
+    <string name="setup_title">إعداد شاشة الفصل</string>
+    <string name="base_url_hint">رابط الموقع (مثال: http://192.168.8.108:5173)</string>
+    <string name="pick_class">اختر الفصل</string>
+    <string name="screen_mode">نوع الشاشة</string>
+    <string name="mode_answer">شاشة الإجابة (اختيار من الهاتف)</string>
+    <string name="mode_class">شاشة العرض فقط (مثل BenQ)</string>
+    <string name="auto_open">فتح تلقائي يومياً عند وقت السؤال</string>
+    <string name="alarm_time">وقت الفتح التلقائي (ساعة : دقيقة) — نفس وقت السؤال في لوحة الإدارة</string>
+    <string name="demo_mode">وضع تجريبي (بدون انتظار الوقت)</string>
+    <string name="open_screen">حفظ وفتح الشاشة</string>
+    <string name="change_settings">تغيير الإعدادات</string>
+    <string name="setup_help">شاشة الفصل للعرض فقط. للإجابة اختر «شاشة الإجابة». اجعل وقت الفتح مطابقاً لوقت السؤال في لوحة المسابقة. امنح التطبيق إذن التنبيهات الدقيقة من إعدادات الهاتف إن طُلب.</string>
+</resources>

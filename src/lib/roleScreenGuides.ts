@@ -59,6 +59,50 @@ export const ROLE_SCREEN_GUIDES: Record<string, AdminScreenGuide> = {
     ],
   },
 
+  '/academic/templates': {
+    title: 'مركز القوالب الأكاديمية',
+    summary: 'مدخل موحّد للتصدير وقوالب AI وخطة الدرس مع تفضيل المشاركة الرقمية.',
+    sections: [
+      {
+        title: 'الاستخدام',
+        items: [
+          { label: 'مشاركة رقمية', description: 'انسخ رابط بوابة ولي الأمر بدل الطباعة عند الإمكان.' },
+          { label: 'التصدير', description: 'كشوف وملفات للأرشفة الرسمية عند الحاجة.' },
+        ],
+      },
+    ],
+  },
+
+  '/parent/academic': {
+    title: 'المركز الأكاديمي لولي الأمر',
+    summary: 'متابعة الواجبات والملاحظات والاختبارات لابنك من مكان واحد.',
+    sections: [
+      {
+        title: 'التبويبات',
+        items: [
+          { label: 'واجبات', description: 'ما طُلب من الطالب اليوم/الأسبوع.' },
+          { label: 'اختبارات', description: 'نتائج وتواريخ الاختبارات.' },
+          { label: 'إشعارات', description: 'فعّل تفضيلات الملخص والتنبيهات من لوحتك.' },
+        ],
+      },
+    ],
+  },
+
+  '/dev': {
+    title: 'مساحة مطور المنصة',
+    summary: 'Workspace تقني منفصل عن تشغيل المدرسة — مراقبة وصيانة فقط.',
+    sections: [
+      {
+        title: 'المراكز',
+        items: [
+          { label: 'Jobs / Errors', description: 'طابور المهام ومركز الأخطاء العالمي.' },
+          { label: 'Knowledge / Pipeline', description: 'قاعدة المعرفة ومراجعة المحتوى.' },
+          { label: 'Debug Mode', description: 'طبقة تشخيص عائمة بدون أسرار.' },
+        ],
+      },
+    ],
+  },
+
   // ─── مدير المدرسة ─────────────────────────────────────────
   '/principal/executive': {
     title: 'اللوحة التنفيذية',
@@ -591,6 +635,12 @@ export function getRoleScreenGuide(path: string): AdminScreenGuide | null {
     const tab = path.replace('/analytics/', '');
     const key = `/analytics/${tab}`;
     return ROLE_SCREEN_GUIDES[key] ?? null;
+  }
+  if (path.startsWith('/dev')) {
+    return ROLE_SCREEN_GUIDES['/dev'] ?? null;
+  }
+  if (path.startsWith('/parent/academic')) {
+    return ROLE_SCREEN_GUIDES['/parent/academic'] ?? null;
   }
 
   return null;

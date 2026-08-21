@@ -1,8 +1,10 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { resolveIsFirstLogin } from '../lib/auth';
+import { needsWhatsAppPhoneSetup } from '../lib/setupWhatsAppPhone';
+import { PromoTourOverlay } from '../components/promo/PromoTourOverlay';
 
-/** يوجّه المستخدمين ذوي is_first_login إلى صفحة تغيير كلمة المرور */
+/** أول دخول: كلمة المرور → ثم جوال واتساب (طالب/ولي) قبل المنصة */
 export function FirstLoginGate() {
   const { user, session } = useAuthStore();
 
@@ -10,5 +12,14 @@ export function FirstLoginGate() {
     return <Navigate to="/force-password-change" replace />;
   }
 
-  return <Outlet />;
+  if (needsWhatsAppPhoneSetup(user)) {
+    return <Navigate to="/setup-whatsapp" replace />;
+  }
+
+  return (
+    <>
+      <Outlet />
+      <PromoTourOverlay />
+    </>
+  );
 }

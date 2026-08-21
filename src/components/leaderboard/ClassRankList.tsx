@@ -1,73 +1,90 @@
+import { useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { School, Users } from 'lucide-react';
 import type { ClassRankEntry } from './types';
-import { RankBadge, ClassAvatar, getPodiumStyle } from './RankBadge';
+import { GamingPodium } from './GamingPodium';
+import { LeaderboardEmptyState, RelativeProgressBar } from './LeaderboardShared';
+import { ClassPhotoClickable } from './ClassPhotoClickable';
 
-const PODIUM_HEIGHTS = ['h-24', 'h-32', 'h-20'];
+function slotFor(
+  entry: ClassRankEntry | undefined,
+  allowUpload: boolean,
+  onPhotoUploaded: (grade: string, className: string, url: string) => void,
+) {
+  if (!entry) return undefined;
+  const wrapAvatar = allowUpload
+    ? (avatar: ReactNode) => (
+        <ClassPhotoClickable
+          grade={entry.grade}
+          classNameLabel={entry.class_name}
+          onUploaded={(url) => onPhotoUploaded(entry.grade, entry.class_name, url)}
+        >
+          {avatar}
+        </ClassPhotoClickable>
+      )
+    : undefined;
 
-export function ClassPodium({ classes }: { classes: ClassRankEntry[] }) {
-  if (classes.length < 3) return null;
-  const podium = [classes[1], classes[0], classes[2]];
+  return {
+    id: entry.id,
+    title: `فصل ${entry.class_name}`,
+    subtitle: entry.grade,
+    points: entry.total_points,
+    photoUrl: entry.photo_url,
+    initial: entry.class_name?.charAt(0) ?? 'ف',
+    wrapAvatar,
+  };
+}
 
+export function ClassPodium({
+  classes,
+  allowUpload = false,
+  onPhotoUploaded,
+}: {
+  classes: ClassRankEntry[];
+  allowUpload?: boolean;
+  onPhotoUploaded?: (grade: string, className: string, url: string) => void;
+}) {
+  if (classes.length === 0) return null;
+  const notify = onPhotoUploaded ?? (() => undefined);
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-b from-navy-800/60 to-navy-950/40 p-6 backdrop-blur-sm">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.08),transparent_60%)]" />
-      <div className="relative flex items-end justify-center gap-4 sm:gap-8 min-h-[240px]">
-        {podium.map((entry, idx) => {
-          if (!entry) return null;
-          const realRank = (idx === 0 ? 2 : idx === 1 ? 1 : 3) as 1 | 2 | 3;
-          const style = getPodiumStyle(realRank);
-          return (
-            <motion.div
-              key={entry.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className={clsx('flex flex-col items-center gap-2 flex-1 max-w-[150px]', idx === 1 && '-mt-4')}
-            >
-              <ClassAvatar
-                grade={entry.grade}
-                className={entry.class_name}
-                photoUrl={entry.photo_url}
-                rank={realRank}
-                large
-              />
-              <p className="text-white text-sm font-bold text-center truncate w-full">فصل {entry.class_name}</p>
-              <p className="text-white/40 text-[10px] truncate w-full text-center">{entry.grade}</p>
-              <p className={clsx('font-black text-xl tabular-nums', style.text)}>
-                {entry.total_points.toLocaleString('ar-SA')}
-              </p>
-              <div
-                className={clsx(
-                  'w-full rounded-t-2xl border border-white/10 flex flex-col items-center justify-end pb-2 bg-gradient-to-t',
-                  style.bg,
-                  PODIUM_HEIGHTS[idx]
-                )}
-              >
-                <span className={clsx('text-3xl font-black', style.text)}>{realRank}</span>
-                {entry.student_count != null && (
-                  <span className="text-[9px] text-white/35">{entry.student_count} طالب</span>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+    <GamingPodium
+      first={slotFor(classes[0], allowUpload, notify)}
+      second={slotFor(classes[1], allowUpload, notify)}
+      third={slotFor(classes[2], allowUpload, notify)}
+    />
+  );
+}
+
+function CircleRank({ rank }: { rank: number }) {
+  return (
+    <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-xs font-bold text-white/50 tabular-nums shrink-0">
+      {rank}
     </div>
   );
 }
 
-function ProgressBar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+function ClassCircleAvatar({
+  classNameLabel,
+  photoUrl,
+}: {
+  classNameLabel: string;
+  photoUrl?: string | null;
+}) {
+  const [broken, setBroken] = useState(false);
+  const show = !!photoUrl && !broken;
   return (
-    <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{ width: `${pct}%` }}
-        transition={{ duration: 0.6 }}
-        className="h-full rounded-full bg-gold-400/80"
-      />
+    <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-indigo-800 to-navy-900 border border-white/15 flex items-center justify-center shrink-0">
+      {show ? (
+        <img
+          src={photoUrl!}
+          alt={`فصل ${classNameLabel}`}
+          className="w-full h-full object-cover"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <School className="w-4 h-4 text-white/50" />
+      )}
     </div>
   );
 }
@@ -78,17 +95,25 @@ export function ClassRankList({
   hideHeader,
   fillHeight,
   className,
+  startFromRank = 1,
+  allowUpload = false,
+  onPhotoUploaded,
 }: {
   classes: ClassRankEntry[];
   compact?: boolean;
   hideHeader?: boolean;
   fillHeight?: boolean;
   className?: string;
+  startFromRank?: number;
+  allowUpload?: boolean;
+  onPhotoUploaded?: (grade: string, className: string, url: string) => void;
 }) {
-  const maxPoints = classes[0]?.total_points ?? 1;
+  const list = classes.filter((c) => c.rank >= startFromRank);
+  const maxPoints = Math.max(1, ...classes.map((c) => c.total_points));
+  const notify = onPhotoUploaded ?? (() => undefined);
 
   return (
-    <div className={clsx('glass-card overflow-hidden flex flex-col min-h-0', className)}>
+    <div className={clsx('overflow-hidden flex flex-col min-h-0', className)}>
       {!hideHeader && (
         <div className="p-4 border-b border-white/5 shrink-0">
           <div className="flex items-center gap-2">
@@ -101,60 +126,83 @@ export function ClassRankList({
       )}
       <div
         className={clsx(
-          'overflow-y-auto p-3 space-y-2',
-          fillHeight ? 'flex-1 min-h-0' : compact ? 'max-h-[420px]' : 'max-h-[560px]'
+          'overflow-y-auto',
+          fillHeight ? 'flex-1 min-h-0' : compact ? 'max-h-[420px]' : 'max-h-[560px]',
         )}
       >
         {classes.length === 0 ? (
-          <p className="p-8 text-center text-white/30 text-sm">لا توجد منح جماعية معتمدة بعد</p>
+          <LeaderboardEmptyState variant="classes" />
+        ) : list.length === 0 ? (
+          <p className="p-6 text-center text-white/30 text-xs">الثلاثة الأوائل على المنصة أعلاه</p>
         ) : (
-          classes.map((entry) => (
-            <div
-              key={entry.id}
-              className={clsx(
-                'rounded-xl border p-4 transition-colors',
-                entry.rank <= 3
-                  ? 'border-gold-400/25 bg-gradient-to-l from-gold-400/[0.06] to-transparent'
-                  : 'border-white/6 bg-white/[0.02] hover:bg-white/[0.04]'
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <RankBadge rank={entry.rank} />
-                <ClassAvatar
-                  grade={entry.grade}
-                  className={entry.class_name}
-                  photoUrl={entry.photo_url}
-                  rank={entry.rank <= 3 ? (entry.rank as 1 | 2 | 3) : undefined}
-                />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="text-white font-bold text-sm">فصل {entry.class_name}</p>
-                      <p className="text-white/40 text-xs">{entry.grade}</p>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-gold-400 font-black text-lg tabular-nums leading-none">
-                        {entry.total_points.toLocaleString('ar-SA')}
-                      </p>
-                      <p className="text-white/30 text-[10px]">نقطة جماعية</p>
-                    </div>
-                  </div>
-                  <ProgressBar value={entry.total_points} max={maxPoints} />
-                  {(entry.student_count != null || entry.grant_count != null) && (
-                    <div className="flex gap-4 text-[10px] text-white/45">
-                      {entry.student_count != null && (
-                        <span className="inline-flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {entry.student_count} طالب
-                        </span>
-                      )}
-                      {entry.grant_count != null && <span>{entry.grant_count} منحة</span>}
-                    </div>
-                  )}
-                </div>
-              </div>
+          <>
+            <div className="hidden sm:grid grid-cols-[2rem_1fr_auto] gap-3 px-3 pb-2 text-[10px] text-white/30 font-medium">
+              <span>#</span>
+              <span>الفصل</span>
+              <span className="text-left">النقاط</span>
             </div>
-          ))
+            <ul className="space-y-1.5 px-0.5">
+              {list.map((entry) => {
+                const avatar = (
+                  <ClassCircleAvatar
+                    classNameLabel={entry.class_name}
+                    photoUrl={entry.photo_url}
+                  />
+                );
+                return (
+                  <motion.li
+                    layout
+                    key={entry.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                    className="rounded-xl border border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.055] transition-colors px-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CircleRank rank={entry.rank} />
+                      {allowUpload ? (
+                        <ClassPhotoClickable
+                          grade={entry.grade}
+                          classNameLabel={entry.class_name}
+                          onUploaded={(url) => notify(entry.grade, entry.class_name, url)}
+                        >
+                          {avatar}
+                        </ClassPhotoClickable>
+                      ) : (
+                        avatar
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-bold truncate">فصل {entry.class_name}</p>
+                        <p className="text-white/40 text-[11px] truncate">{entry.grade}</p>
+                      </div>
+                      <div className="text-left shrink-0">
+                        <p className="text-gold-400 font-black tabular-nums text-base leading-none">
+                          {entry.total_points.toLocaleString('ar-SA')}
+                        </p>
+                        <p className="text-white/30 text-[10px]">نقطة جماعية</p>
+                      </div>
+                    </div>
+                    <RelativeProgressBar
+                      value={entry.total_points}
+                      max={maxPoints}
+                      className="mt-2"
+                    />
+                    {(entry.student_count != null || entry.grant_count != null) && (
+                      <div className="flex gap-3 mt-1.5 text-[10px] text-white/40">
+                        {entry.student_count != null && (
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {entry.student_count} طالب
+                          </span>
+                        )}
+                        {entry.grant_count != null && <span>{entry.grant_count} منحة</span>}
+                      </div>
+                    )}
+                  </motion.li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
     </div>

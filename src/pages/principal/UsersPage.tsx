@@ -8,6 +8,7 @@ import { AddUserModal } from '../../components/users/AddUserModal';
 import { InviteUserModal } from '../../components/users/InviteUserModal';
 import { DeleteUserDialog } from '../../components/users/DeleteUserDialog';
 import { UserTable } from '../../components/users/UserTable';
+import { FamilyDirectoryPanel } from '../../components/users/FamilyDirectoryPanel';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { SearchInput } from '../../components/ui';
@@ -27,6 +28,7 @@ export function UsersPage() {
   const [bulkDeleteTargets, setBulkDeleteTargets] = useState<DbUser[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
+  const [view, setView] = useState<'users' | 'family'>('users');
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ['users'],
@@ -53,6 +55,8 @@ export function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['academic-teachers'] });
+      queryClient.invalidateQueries({ queryKey: ['academic-staff'] });
       showSuccess('تم تحديث حالة المستخدم');
     },
     onError: (e: Error) => showError(e),
@@ -69,6 +73,8 @@ export function UsersPage() {
     },
     onSuccess: (_, { is_active }) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['academic-teachers'] });
+      queryClient.invalidateQueries({ queryKey: ['academic-staff'] });
       setSelected(new Set());
       showSuccess(is_active ? 'تم تفعيل المحددين' : 'تم تعطيل المحددين');
     },
@@ -155,6 +161,22 @@ export function UsersPage() {
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button
+              variant={view === 'users' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setView('users')}
+            >
+              المستخدمون
+            </Button>
+            <Button
+              variant={view === 'family' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setView('family')}
+            >
+              الطلاب وأولياء الأمور
+            </Button>
+            {view === 'users' && (
+            <>
+            <Button
               variant="secondary"
               size="sm"
               onClick={() => {
@@ -219,10 +241,16 @@ export function UsersPage() {
             >
               إضافة مستخدم
             </Button>
+            </>
+            )}
           </div>
         }
       />
 
+      {view === 'family' ? (
+        <FamilyDirectoryPanel />
+      ) : (
+      <>
       <SearchInput
         value={search}
         onChange={setSearch}
@@ -262,6 +290,8 @@ export function UsersPage() {
             onClose={() => { setShowAddModal(false); setEditUser(null); }}
             onSuccess={() => {
               queryClient.invalidateQueries({ queryKey: ['users'] });
+              queryClient.invalidateQueries({ queryKey: ['academic-teachers'] });
+              queryClient.invalidateQueries({ queryKey: ['academic-staff'] });
               setShowAddModal(false);
               setEditUser(null);
             }}
@@ -287,6 +317,8 @@ export function UsersPage() {
           />
         )}
       </AnimatePresence>
+      </>
+      )}
     </div>
   );
 }

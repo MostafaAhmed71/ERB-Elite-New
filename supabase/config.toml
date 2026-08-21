@@ -1,0 +1,29 @@
+# Supabase local / CLI config — مشروع ESP
+project_id = "gjgezdbbnezsvsmygpcd"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+
+[db.migrations]
+enabled = true
+
+# دخول/تسجيل OTP قبل وجود جلسة مستخدم — anon key يكفي
+[functions.auth-phone-otp]
+verify_jwt = false

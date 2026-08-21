@@ -57,8 +57,8 @@ function excelRowsToPending(rows: StudentExcelRow[]): PendingStudent[] {
 
 function accountNamesTemplateRows(): Record<string, string>[] {
   return [
-    { الاسم: 'أحمد محمد العتيبي', 'رقم القيد': '1448001' },
-    { الاسم: 'سعد عبدالله القحطاني', 'رقم القيد': '1448002' },
+    { الاسم: 'مثال طالب ١', 'رقم القيد': '1000000001' },
+    { الاسم: 'مثال طالب ٢', 'رقم القيد': '1000000002' },
   ];
 }
 
@@ -450,7 +450,7 @@ export function BulkAccountGenerator({ embedded = false }: { embedded?: boolean 
                 setResults(null);
               }}
               rows={8}
-              placeholder={'أحمد محمد العتيبي\nسعد عبدالله القحطاني\n...'}
+              placeholder={'مثال طالب ١\nمثال طالب ٢\n...'}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm resize-y"
             />
             <p className="text-xs text-[#A3AED0]">

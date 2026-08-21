@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, MessageSquare, ClipboardList, Pencil } from 'lucide-react';
+import { CheckCircle, XCircle, MessageSquare, ClipboardList, Pencil, Paperclip } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { logAction } from '../../lib/auth';
 import { useAuthStore } from '../../stores/authStore';
@@ -20,6 +20,7 @@ interface PendingPoint {
   student_id: string;
   points: number;
   note: string | null;
+  evidence_urls: string[] | null;
   rejection_reason: string | null;
   status: string;
   created_at: string;
@@ -510,6 +511,22 @@ export function ApprovePointsPage({ embedded = false }: ApprovePointsPageProps) 
                 )}
                 {point.note && (
                   <p className="text-white/30 text-xs mt-1 italic">&ldquo;{point.note}&rdquo;</p>
+                )}
+                {point.evidence_urls && point.evidence_urls.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {point.evidence_urls.map((url, i) => (
+                      <a
+                        key={`${point.id}-ev-${i}`}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gold-300/90 hover:text-gold-200"
+                      >
+                        <Paperclip className="w-3 h-3" />
+                        شاهد {i + 1}
+                      </a>
+                    ))}
+                  </div>
                 )}
                 {filter === 'rejected' && point.rejection_reason && (
                   <p className="text-red-400/80 text-xs mt-1 flex items-center gap-1">

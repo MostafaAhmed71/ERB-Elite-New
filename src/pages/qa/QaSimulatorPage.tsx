@@ -565,14 +565,19 @@ export function QaSimulatorPage() {
           <Panel className="p-4 text-sm text-white/60">
             <p>
               لمحاكاة <strong className="text-white/90">كل الأدوار</strong>، سجّل الخروج ثم ادخل بكل حساب
-              على حدة وكرّر الاختبارات. الحسابات التجريبية من{' '}
-              <code className="text-gold-400">seed-demo-users.sql</code>.
+              حقيقي على حدة وكرّر الاختبارات.
+            </p>
+            <p className="mt-2 text-white/40">
+              تم إزالة الحسابات التجريبية من المنصة — أنشئ المستخدمين من إدارة المستخدمين.
             </p>
             <p className="mt-2 text-white/40">
               المستخدم الحالي: {user?.full_name ?? '—'} ({user?.email ?? '—'})
             </p>
           </Panel>
 
+          {QA_DEMO_ACCOUNTS.length === 0 ? (
+            <Panel className="p-4 text-sm text-white/45">لا توجد حسابات تجريبية مضمّنة في الكود.</Panel>
+          ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {QA_DEMO_ACCOUNTS.map((acc) => (
               <Panel key={acc.email} className="p-4 space-y-3">
@@ -617,11 +622,12 @@ export function QaSimulatorPage() {
               </Panel>
             ))}
           </div>
+          )}
 
           <Panel className="p-4">
             <SectionTitle>أدوار يجب اختبارها يدوياً</SectionTitle>
             <ul className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-white/65">
-              {(['principal', 'admin', 'supervisor', 'teacher', 'student', 'parent'] as const).map((r) => (
+              {(['principal', 'admin', 'supervisor', 'teacher', 'deputy', 'reviewer', 'student', 'parent'] as const).map((r) => (
                 <li key={r} className="flex items-center gap-2">
                   <span
                     className={clsx(

@@ -1,52 +1,75 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { Users } from 'lucide-react';
 import type { StudentRankEntry } from './types';
-import { RankBadge, StudentAvatar, getPodiumStyle } from './RankBadge';
-
-const PODIUM_HEIGHTS = ['h-24', 'h-32', 'h-20'];
+import { GamingPodium } from './GamingPodium';
+import { LeaderboardEmptyState, RelativeProgressBar } from './LeaderboardShared';
 
 export function StudentPodium({ students }: { students: StudentRankEntry[] }) {
-  if (students.length < 3) return null;
-  const podium = [students[1], students[0], students[2]];
-
+  if (students.length === 0) return null;
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-b from-navy-800/60 to-navy-950/40 p-6 backdrop-blur-sm">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(191,160,84,0.1),transparent_60%)]" />
-      <div className="relative flex items-end justify-center gap-4 sm:gap-8 min-h-[240px]">
-        {podium.map((student, idx) => {
-          if (!student) return null;
-          const realRank = (idx === 0 ? 2 : idx === 1 ? 1 : 3) as 1 | 2 | 3;
-          const style = getPodiumStyle(realRank);
-          return (
-            <motion.div
-              key={student.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className={clsx('flex flex-col items-center gap-2 flex-1 max-w-[150px]', idx === 1 && '-mt-4')}
-            >
-              <StudentAvatar name={student.full_name} photoUrl={student.photo_url} rank={realRank} large />
-              <p className="text-white text-sm font-bold text-center truncate w-full">{student.full_name}</p>
-              <p className="text-white/40 text-[10px] truncate w-full text-center">
-                {student.grade} — {student.class_name}
-              </p>
-              <p className={clsx('font-black text-xl tabular-nums', style.text)}>
-                {student.total_points.toLocaleString('ar-SA')}
-              </p>
-              <div
-                className={clsx(
-                  'w-full rounded-t-2xl border border-white/10 flex items-center justify-center bg-gradient-to-t',
-                  style.bg,
-                  PODIUM_HEIGHTS[idx]
-                )}
-              >
-                <span className={clsx('text-3xl font-black', style.text)}>{realRank}</span>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+    <GamingPodium
+      first={
+        students[0]
+          ? {
+              id: students[0].id,
+              title: students[0].full_name,
+              subtitle: `${students[0].grade} — ${students[0].class_name}`,
+              points: students[0].total_points,
+              photoUrl: students[0].photo_url ?? students[0].avatar_url,
+            }
+          : undefined
+      }
+      second={
+        students[1]
+          ? {
+              id: students[1].id,
+              title: students[1].full_name,
+              subtitle: `${students[1].grade} — ${students[1].class_name}`,
+              points: students[1].total_points,
+              photoUrl: students[1].photo_url ?? students[1].avatar_url,
+            }
+          : undefined
+      }
+      third={
+        students[2]
+          ? {
+              id: students[2].id,
+              title: students[2].full_name,
+              subtitle: `${students[2].grade} — ${students[2].class_name}`,
+              points: students[2].total_points,
+              photoUrl: students[2].photo_url ?? students[2].avatar_url,
+            }
+          : undefined
+      }
+    />
+  );
+}
+
+function CircleRank({ rank }: { rank: number }) {
+  return (
+    <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-xs font-bold text-white/50 tabular-nums shrink-0">
+      {rank}
+    </div>
+  );
+}
+
+function CircleAvatar({ name, photoUrl }: { name: string; photoUrl?: string | null }) {
+  const [broken, setBroken] = useState(false);
+  const show = !!photoUrl && !broken;
+  return (
+    <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#1B3B86] to-indigo-700 border border-white/15 flex items-center justify-center text-sm font-black text-white shrink-0">
+      {show ? (
+        <img
+          src={photoUrl!}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        name.charAt(0)
+      )}
     </div>
   );
 }
@@ -57,15 +80,20 @@ export function StudentRankList({
   hideHeader,
   fillHeight,
   className,
+  startFromRank = 1,
 }: {
   students: StudentRankEntry[];
   compact?: boolean;
   hideHeader?: boolean;
   fillHeight?: boolean;
   className?: string;
+  startFromRank?: number;
 }) {
+  const list = students.filter((s) => s.rank >= startFromRank);
+  const maxPoints = Math.max(1, ...students.map((s) => s.total_points));
+
   return (
-    <div className={clsx('glass-card overflow-hidden flex flex-col min-h-0', className)}>
+    <div className={clsx('overflow-hidden flex flex-col min-h-0', className)}>
       {!hideHeader && (
         <div className="p-4 border-b border-white/5 flex items-center gap-2 shrink-0">
           <Users className="w-4 h-4 text-gold-400" />
@@ -75,47 +103,61 @@ export function StudentRankList({
       )}
       <div
         className={clsx(
-          'overflow-y-auto divide-y divide-white/5',
-          fillHeight ? 'flex-1 min-h-0' : compact ? 'max-h-[420px]' : 'max-h-[560px]'
+          'overflow-y-auto',
+          fillHeight ? 'flex-1 min-h-0' : compact ? 'max-h-[420px]' : 'max-h-[560px]',
         )}
       >
         {students.length === 0 ? (
-          <p className="p-10 text-center text-white/30 text-sm">لا توجد نقاط معتمدة بعد</p>
+          <LeaderboardEmptyState variant="students" />
+        ) : list.length === 0 ? (
+          <p className="p-6 text-center text-white/30 text-xs">الثلاثة الأوائل على المنصة أعلاه</p>
         ) : (
-          students.map((s) => (
-            <div
-              key={s.id}
-              className={clsx(
-                'flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.03] transition-colors',
-                s.rank <= 3 && 'bg-gradient-to-l from-gold-400/[0.05] to-transparent'
-              )}
-            >
-              <RankBadge rank={s.rank} size="sm" />
-              <StudentAvatar
-                name={s.full_name}
-                photoUrl={s.photo_url ?? s.avatar_url}
-                rank={s.rank <= 3 ? (s.rank as 1 | 2 | 3) : undefined}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-semibold truncate">{s.full_name}</p>
-                <p className="text-white/35 text-[11px]">
-                  {s.grade} — فصل {s.class_name}
-                </p>
-              </div>
-              <div className="text-left shrink-0">
-                <p
-                  className={clsx(
-                    'font-black tabular-nums',
-                    compact ? 'text-sm' : 'text-base',
-                    s.rank === 1 ? 'text-gold-400' : s.rank === 2 ? 'text-slate-300' : s.rank === 3 ? 'text-amber-500' : 'text-white/70'
-                  )}
-                >
-                  {s.total_points.toLocaleString('ar-SA')}
-                </p>
-                <p className="text-white/25 text-[10px]">نقطة</p>
-              </div>
+          <>
+            <div className="hidden sm:grid grid-cols-[2rem_1fr_auto] gap-3 px-3 pb-2 text-[10px] text-white/30 font-medium">
+              <span>#</span>
+              <span>الطالب</span>
+              <span className="text-left">النقاط</span>
             </div>
-          ))
+            <ul className="space-y-1.5 px-0.5">
+              {list.map((s) => (
+                <motion.li
+                  layout
+                  key={s.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                  className="rounded-xl border border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.055] transition-colors px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-3">
+                    <CircleRank rank={s.rank} />
+                    <CircleAvatar name={s.full_name} photoUrl={s.photo_url ?? s.avatar_url} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">{s.full_name}</p>
+                      <p className="text-white/35 text-[11px] truncate">
+                        {s.grade} — فصل {s.class_name}
+                      </p>
+                    </div>
+                    <div className="text-left shrink-0">
+                      <p
+                        className={clsx(
+                          'font-black tabular-nums text-sky-300',
+                          compact ? 'text-sm' : 'text-base',
+                        )}
+                      >
+                        {s.total_points.toLocaleString('ar-SA')}
+                      </p>
+                      <p className="text-white/25 text-[10px]">نقطة</p>
+                    </div>
+                  </div>
+                  <RelativeProgressBar
+                    value={s.total_points}
+                    max={maxPoints}
+                    className="mt-2"
+                  />
+                </motion.li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

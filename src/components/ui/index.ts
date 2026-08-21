@@ -13,3 +13,7 @@ export { AuthIllustrationPanel } from './AuthIllustrationPanel';
 export { DocumentPageLoader } from './DocumentPageLoader';
 export { TapHandLoader } from './TapHandLoader';
 export { BarsLoader } from './BarsLoader';
+export { RolePageShell } from './RolePageShell';
+export { HubTabs } from './HubTabs';
+export type { HubTabItem } from './HubTabs';
+export { NavSection } from './NavSection';

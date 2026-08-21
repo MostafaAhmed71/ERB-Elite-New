@@ -440,13 +440,22 @@ export function Leaderboard() {
         actions={
           <div className="flex items-center gap-2">
             <Link
-              to="/board/leaderboard"
+              to="/display/leaderboard"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 text-xs font-semibold transition-colors"
             >
               <Monitor className="w-4 h-4" />
-              عرض شاشة كبيرة
+              شاشة كبيرة — لوحة فقط
+            </Link>
+            <Link
+              to="/board/leaderboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/80 hover:bg-white/10 text-xs font-semibold transition-colors"
+            >
+              <Monitor className="w-4 h-4" />
+              شاشة كاملة G2
             </Link>
             <ScreenGuideButton path="/admin/leaderboard" />
           </div>

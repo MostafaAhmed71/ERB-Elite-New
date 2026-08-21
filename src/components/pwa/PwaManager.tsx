@@ -23,12 +23,8 @@ export function triggerAndroidInstall(): void {
   androidInstallHandler?.();
 }
 
-export function PwaManager() {
-  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showAndroidInstall, setShowAndroidInstall] = useState(false);
-  const [showIosGuide, setShowIosGuide] = useState(false);
-  const dismissedAndroid = useRef(false);
-
+/** تسجيل SW للتحديثات — إنتاج فقط (التطوير يُكسر بـ Workbox على /src و Vite) */
+function PwaUpdateBanner() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -42,6 +38,45 @@ export function PwaManager() {
       /* optional */
     },
   });
+
+  if (!needRefresh) return null;
+
+  return (
+    <div
+      className={clsx(
+        'fixed top-16 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-md z-[70]',
+        'p-3 rounded-xl border border-cyan-500/25 bg-navy-900/95 backdrop-blur-xl shadow-xl pt-safe-offset',
+      )}
+      dir="rtl"
+    >
+      <div className="flex items-center gap-3">
+        <RefreshCw className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+        <p className="text-white/80 text-xs flex-1">يتوفر تحديث جديد للتطبيق</p>
+        <button
+          type="button"
+          onClick={() => updateServiceWorker(true)}
+          className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-semibold border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors"
+        >
+          تحديث
+        </button>
+        <button
+          type="button"
+          onClick={() => setNeedRefresh(false)}
+          className="p-1 text-white/30 hover:text-white/60"
+          aria-label="تجاهل"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function PwaManager() {
+  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showAndroidInstall, setShowAndroidInstall] = useState(false);
+  const [showIosGuide, setShowIosGuide] = useState(false);
+  const dismissedAndroid = useRef(false);
 
   useEffect(() => {
     androidInstallHandler = () => {
@@ -141,35 +176,7 @@ export function PwaManager() {
 
       <IosInstallGuide open={showIosGuide} onClose={dismissIos} />
 
-      {needRefresh && (
-        <div
-          className={clsx(
-            'fixed top-16 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-md z-[70]',
-            'p-3 rounded-xl border border-cyan-500/25 bg-navy-900/95 backdrop-blur-xl shadow-xl pt-safe-offset',
-          )}
-          dir="rtl"
-        >
-          <div className="flex items-center gap-3">
-            <RefreshCw className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-            <p className="text-white/80 text-xs flex-1">يتوفر تحديث جديد للتطبيق</p>
-            <button
-              type="button"
-              onClick={() => updateServiceWorker(true)}
-              className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-semibold border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors"
-            >
-              تحديث
-            </button>
-            <button
-              type="button"
-              onClick={() => setNeedRefresh(false)}
-              className="p-1 text-white/30 hover:text-white/60"
-              aria-label="تجاهل"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {import.meta.env.PROD ? <PwaUpdateBanner /> : null}
     </>
   );
 }

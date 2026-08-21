@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { TapHandLoader } from '../components/ui/TapHandLoader';
+import { getLoginPathForRole, getPreferredLoginPath } from '../lib/auth';
 import type { UserRole } from '../types';
 
 interface ProtectedRouteProps {
@@ -19,7 +20,8 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    const loginPath = role ? getLoginPathForRole(role) : getPreferredLoginPath();
+    return <Navigate to={loginPath} replace />;
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {

@@ -1,5 +1,12 @@
 import { supabase } from './supabase';
 import type { DbStudent, DbTeacher } from '../types';
+import {
+  classesMatch,
+  gradesMatch,
+  normalizeClassName,
+  normalizeGradeLabel,
+} from './academic/gradeBridge';
+import { syncTeacherOlympiadFromAcademic, buildOlympiadSyncPayload } from './academic/olympiadSyncService';
 
 export type TeacherClassAssignment = {
   id?: string;
@@ -125,10 +132,53 @@ export async function fetchTeacherClassAssignments(teacherId: string): Promise<T
   return (data ?? []) as TeacherClassAssignment[];
 }
 
-export async function fetchTeacherClassAssignmentsByUserId(userId: string): Promise<TeacherClassAssignment[]> {
-  const teacher = await fetchTeacherProfile(userId);
-  if (!teacher) return [];
-  return fetchTeacherClassAssignments(teacher.id);
+export async function fetchTeacherClassAssignmentsByUserId(
+  userId: string,
+  options?: { syncIfEmpty?: boolean },
+): Promise<TeacherClassAssignment[]> {
+  const syncIfEmpty = options?.syncIfEmpty !== false;
+
+  let teacher = await fetchTeacherProfile(userId);
+  let assignments = teacher ? await fetchTeacherClassAssignments(teacher.id) : [];
+
+  if (assignments.length > 0) return assignments;
+  if (!syncIfEmpty) return [];
+
+  // مزامنة تلقائية من الإعداد/الإسناد الأكاديمي
+  try {
+    const sync = await syncTeacherOlympiadFromAcademic(userId);
+    teacher = await fetchTeacherProfile(userId);
+    if (teacher) {
+      assignments = await fetchTeacherClassAssignments(teacher.id);
+      if (assignments.length > 0) return assignments;
+    }
+
+    // إن فشلت الكتابة (RPC قديمة) — استخدم الحمولة الأكاديمية كتعيينات مؤقتة للواجهة
+    if (sync.reason === 'rpc_missing' || sync.reason === 'empty_payload') {
+      const payload = await buildOlympiadSyncPayload(userId);
+      if (payload.classes.length > 0) {
+        return payload.classes.map((c) => ({
+          grade: c.grade,
+          class_name: c.class_name,
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn('auto sync teacher classes:', e);
+    try {
+      const payload = await buildOlympiadSyncPayload(userId);
+      if (payload.classes.length > 0) {
+        return payload.classes.map((c) => ({
+          grade: c.grade,
+          class_name: c.class_name,
+        }));
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return assignments;
 }
 
 export async function saveTeacherClassAssignments(
@@ -162,12 +212,48 @@ export function filterStudentsByAssignments(
 ): DbStudent[] {
   if (assignments.length === 0) return [];
 
-  const keys = new Set(assignments.map((a) => `${a.grade}__${a.class_name}`));
-  return students.filter((s) => keys.has(`${s.grade}__${s.class_name}`));
+  const keys = new Set(
+    assignments.map(
+      (a) => `${normalizeGradeLabel(a.grade)}__${normalizeClassName(a.class_name)}`,
+    ),
+  );
+  return students.filter((s) =>
+    keys.has(`${normalizeGradeLabel(s.grade)}__${normalizeClassName(s.class_name)}`),
+  );
+}
+
+/** درجات المعلم من التعيينات فقط (بدون كتالوج المدرسة كاملاً) */
+export function gradesFromAssignments(assignments: TeacherClassAssignment[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const a of assignments) {
+    const n = normalizeGradeLabel(a.grade);
+    if (seen.has(n)) continue;
+    seen.add(n);
+    out.push(a.grade);
+  }
+  return out.sort((a, b) => a.localeCompare(b, 'ar'));
+}
+
+/** فصول المعلم لصف معيّن من التعيينات فقط */
+export function classesFromAssignments(
+  assignments: TeacherClassAssignment[],
+  grade: string,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const a of assignments) {
+    if (!gradesMatch(a.grade, grade)) continue;
+    const n = normalizeClassName(a.class_name);
+    if (seen.has(n)) continue;
+    seen.add(n);
+    out.push(a.class_name);
+  }
+  return out.sort((a, b) => a.localeCompare(b, 'ar'));
 }
 
 export function assignmentKey(grade: string, className: string): string {
-  return `${grade}__${className}`;
+  return `${normalizeGradeLabel(grade)}__${normalizeClassName(className)}`;
 }
 
 export function toggleAssignment(
@@ -189,7 +275,7 @@ export function isAssignmentSelected(
   className: string
 ): boolean {
   return assignments.some(
-    (a) => a.grade === grade && a.class_name === className
+    (a) => gradesMatch(a.grade, grade) && classesMatch(a.class_name, className),
   );
 }
 

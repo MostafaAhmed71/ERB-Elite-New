@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { DbUser, UserRole } from '../types';
+import { needsFamilyOnboarding } from './familyOnboarding';
+import { needsTeacherProfileOnboarding } from './teacherSignup';
 import { SELECTABLE_USER_ROLES } from '../types';
 import { extractErrorMessage } from './errors';
 
@@ -10,8 +12,11 @@ const ALL_ROLES: UserRole[] = [
   'admin',
   'supervisor',
   'teacher',
+  'deputy',
+  'reviewer',
   'parent',
   'student',
+  'platform_developer',
 ];
 
 export function parseRoleFromMetadata(value: unknown): UserRole | null {
@@ -27,7 +32,26 @@ export function readIsFirstLoginFromMetadata(metadata: Record<string, unknown> |
   return metadata?.is_first_login === true;
 }
 
+/** حسابات Google/OAuth لا تحتاج تغيير كلمة المرور الإجباري */
+export function isOAuthSession(session: Session | null | undefined): boolean {
+  if (!session?.user) return false;
+
+  const identities = session.user.identities ?? [];
+  if (identities.some((identity) => identity.provider !== 'email')) {
+    return true;
+  }
+
+  const provider = session.user.app_metadata?.provider;
+  if (typeof provider === 'string' && provider !== 'email') {
+    return true;
+  }
+
+  const providers = session.user.app_metadata?.providers;
+  return Array.isArray(providers) && providers.some((p) => p !== 'email');
+}
+
 export function resolveIsFirstLogin(profile: DbUser | null, session?: Session | null): boolean {
+  if (isOAuthSession(session)) return false;
   if (profile?.is_first_login === true) return true;
   if (session) return readIsFirstLoginFromMetadata(session.user.user_metadata);
   return false;
@@ -59,48 +83,126 @@ export interface CreateUserData {
   grade?: string;
   class_name?: string;
   is_first_login?: boolean;
+  /** افتراضياً true — حساب إداري لا يمر بشاشة اختيار طالب/ولي */
+  onboarding_completed?: boolean;
+  /** مرحلة الوكيل / المشرف: متوسط أو ثانوي */
+  staff_education_level?: 'middle' | 'high' | null;
 }
 
 // =============================================================
 // Create user from admin panel (edge function with fallbacks)
 // =============================================================
-export async function createUser(data: CreateUserData): Promise<string> {
-  const { data: result, error: invokeError } = await supabase.functions.invoke('create-user', {
-    body: {
+async function readFunctionsInvokeError(invokeError: unknown): Promise<string> {
+  const err = invokeError as {
+    message?: string;
+    context?: Response;
+  };
+  try {
+    const ctx = err?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const body = (await ctx.clone().json()) as { error?: string; message?: string };
+      if (body?.error) return String(body.error);
+      if (body?.message) return String(body.message);
+    }
+  } catch {
+    try {
+      const ctx = err?.context;
+      if (ctx && typeof ctx.text === 'function') {
+        const text = (await ctx.clone().text()).trim();
+        if (text) return text.slice(0, 300);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return extractErrorMessage(err?.message ?? invokeError);
+}
+
+/** استدعاء مباشر — أوضح من functions.invoke عند فشل البوابة */
+async function createUserViaFetch(data: CreateUserData): Promise<string> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const session = sessionData.session;
+  if (!session?.access_token) {
+    throw new Error('يجب تسجيل الدخول أولاً');
+  }
+
+  const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '');
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const res = await fetch(`${baseUrl}/functions/v1/create-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: anonKey,
+    },
+    body: JSON.stringify({
       email: data.email,
       password: data.password,
       full_name: data.full_name,
       role: data.role,
       is_first_login: data.is_first_login === true,
-    },
+      onboarding_completed: data.onboarding_completed !== false,
+      staff_education_level: data.staff_education_level ?? null,
+    }),
   });
 
-  if (result?.error) {
-    const errorMsg = extractErrorMessage(result.error);
-    const isPermissionError = /Forbidden|Unauthorized|غير مصرح|only principals/i.test(errorMsg);
-    if (!isPermissionError) {
-      throw new Error(errorMsg);
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    message?: string;
+    user?: { id?: string };
+  };
+
+  if (!res.ok) {
+    throw new Error(body.error || body.message || `create-user HTTP ${res.status}`);
+  }
+  if (!body.user?.id) {
+    throw new Error('استجابة غير متوقعة من create-user');
+  }
+  return body.user.id;
+}
+
+export async function createUser(data: CreateUserData): Promise<string> {
+  // 1) مسار مباشر (أكثر موثوقية مع CORS/البوابة)
+  try {
+    return await createUserViaFetch(data);
+  } catch (directErr) {
+    const directMsg = extractErrorMessage(directErr);
+    // إن كان خطأ صلاحية/تحقق واضح — لا نجرّب invoke
+    if (/غير مصرح|Unauthorized|Invalid token|Missing required|already registered|User already/i.test(directMsg)) {
+      throw new Error(directMsg);
     }
-  }
 
-  if (!invokeError && result?.user?.id) {
-    return result.user.id as string;
-  }
+    // 2) احتياطي: supabase.functions.invoke
+    const { data: result, error: invokeError } = await supabase.functions.invoke('create-user', {
+      body: {
+        email: data.email,
+        password: data.password,
+        full_name: data.full_name,
+        role: data.role,
+        is_first_login: data.is_first_login === true,
+        onboarding_completed: data.onboarding_completed !== false,
+        staff_education_level: data.staff_education_level ?? null,
+      },
+    });
 
-  if (invokeError) {
-    const msg = extractErrorMessage(invokeError.message);
-    throw new Error(
-      /failed to fetch|edge function|functionsfetcherror|failed to send/i.test(msg)
-        ? 'يجب نشر دالة create-user على Supabase: supabase functions deploy create-user'
-        : msg
-    );
-  }
+    if (!invokeError && result?.user?.id) {
+      return result.user.id as string;
+    }
 
-  if (result?.error) {
-    throw new Error(extractErrorMessage(result.error));
-  }
+    if (result?.error) {
+      throw new Error(extractErrorMessage(result.error));
+    }
 
-  throw new Error('فشل إنشاء المستخدم — تحقق من دالة create-user');
+    if (invokeError) {
+      const invokeMsg = await readFunctionsInvokeError(invokeError);
+      throw new Error(
+        `${directMsg} | احتياطي invoke: ${invokeMsg}`,
+      );
+    }
+
+    throw new Error(directMsg);
+  }
 }
 
 // =============================================================
@@ -126,7 +228,12 @@ export async function registerUser(data: RegisterUserData) {
     email: data.email,
     password: data.password,
     options: {
-      data: { full_name: data.full_name, role: data.role },
+      data: {
+        full_name: data.full_name,
+        role: data.role,
+        onboarding_completed: false,
+        is_first_login: false,
+      },
     },
   });
   if (signUpError) {
@@ -155,6 +262,7 @@ export async function registerUser(data: RegisterUserData) {
     });
   }
 
+  // الطالب لا يُنشئ سجلاً هنا — يربط سجلاً مرفوعاً من الإدارة عبر رقم الهوية في /onboarding
   if (data.role === 'teacher') {
     const { data: limitsRow } = await supabase
       .from('school_settings')
@@ -181,23 +289,11 @@ export async function registerUser(data: RegisterUserData) {
     );
   }
 
-  if (data.role === 'student' && data.admission_number && data.grade && data.class_name) {
-    await supabase.from('students').upsert(
-      {
-        user_id: userId,
-        admission_number: data.admission_number,
-        full_name: data.full_name,
-        grade: data.grade,
-        class_name: data.class_name,
-      },
-      { onConflict: 'admission_number' }
-    );
-  }
-
   return { userId, session: signUpData.session };
 }
 
 export function getHomePathForRole(role: UserRole): string {
+  if (role === 'platform_developer') return '/dev';
   if (role === 'admin' || role === 'activity_leader') return '/admin';
   if (role === 'student') return '/student';
   return '/dashboard';
@@ -209,6 +305,12 @@ export function getPostLoginPath(role: UserRole, isFirstLogin: boolean): string 
 }
 
 export function resolveLoginTarget(session: Session, profile: DbUser | null = null): string {
+  if (needsFamilyOnboarding(profile) || (!profile && isOAuthSession(session))) {
+    return '/onboarding';
+  }
+  if (needsTeacherProfileOnboarding(profile)) {
+    return '/teacher/onboarding';
+  }
   const role =
     resolveAuthRole(session, profile) ??
     parseRoleFromMetadata(session.user.user_metadata?.role) ??
@@ -257,6 +359,63 @@ export async function signIn(email: string, password: string) {
 }
 
 // =============================================================
+// Login paths — عائلة vs طاقم
+// =============================================================
+const FAMILY_LOGIN_ROLES = new Set<UserRole>(['student', 'parent']);
+
+/** بعد الخروج: الطاقم → /login/staff ، الطالب/ولي الأمر → /login */
+export function getLoginPathForRole(role: UserRole | null | undefined): '/login' | '/login/staff' {
+  if (!role) return '/login';
+  if (FAMILY_LOGIN_ROLES.has(role)) return '/login';
+  return '/login/staff';
+}
+
+const LOGIN_PREF_KEY = 'erb_preferred_login_path';
+
+export function rememberPreferredLoginPath(path: string) {
+  try {
+    sessionStorage.setItem(LOGIN_PREF_KEY, path);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** لصفحات الحماية بعد انتهاء الجلسة */
+export function getPreferredLoginPath(): string {
+  try {
+    const saved = sessionStorage.getItem(LOGIN_PREF_KEY);
+    if (saved === '/login/staff' || saved === '/login') return saved;
+  } catch {
+    /* ignore */
+  }
+  return '/login';
+}
+
+// =============================================================
+// Sign in with Google (OAuth)
+// =============================================================
+export function getAuthRedirectUrl(path = '/login'): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${window.location.origin}${normalized}`;
+}
+
+export async function signInWithGoogle(redirectPath = '/auth/callback') {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: getAuthRedirectUrl(redirectPath),
+      queryParams: {
+        access_type: 'online',
+        prompt: 'select_account',
+      },
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+// =============================================================
 // Sign out
 // =============================================================
 export async function signOut() {
@@ -268,7 +427,7 @@ export async function signOut() {
 // Get current user's profile from public.users
 // =============================================================
 const USER_PROFILE_SELECT =
-  'id, email, full_name, role, avatar_url, is_active, weekly_email_opt_in, absence_push_opt_in, created_at, updated_at';
+  'id, email, full_name, role, avatar_url, is_active, staff_education_level, weekly_email_opt_in, absence_push_opt_in, phone, national_id, onboarding_completed, created_at, updated_at';
 
 export async function getCurrentUserProfile(): Promise<DbUser | null> {
   // getSession لا يتعارض مع signIn — getUser قد يعلّق أثناء تسجيل الدخول
@@ -278,7 +437,7 @@ export async function getCurrentUserProfile(): Promise<DbUser | null> {
 
   const isFirstLogin = readIsFirstLoginFromMetadata(user.user_metadata);
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('users')
     .select(USER_PROFILE_SELECT)
     .eq('id', user.id)
@@ -287,7 +446,27 @@ export async function getCurrentUserProfile(): Promise<DbUser | null> {
   if (error || !data) {
     if (error) console.error('Error fetching user profile:', error);
     const metaRole = parseRoleFromMetadata(user.user_metadata?.role);
+    // حساب Google جديد بلا صف في users بعد — يحتاج onboarding
+    if (!metaRole && isOAuthSession(session)) {
+      return {
+        id: user.id,
+        email: user.email ?? '',
+        full_name: String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? 'مستخدم'),
+        role: 'student',
+        avatar_url: null,
+        is_active: true,
+        is_first_login: false,
+        weekly_email_opt_in: false,
+        absence_push_opt_in: true,
+        phone: null,
+        national_id: null,
+        onboarding_completed: false,
+        created_at: user.created_at,
+        updated_at: user.updated_at ?? user.created_at,
+      };
+    }
     if (!metaRole) return null;
+    const metaOnboarding = user.user_metadata?.onboarding_completed === true;
     return {
       id: user.id,
       email: user.email ?? '',
@@ -298,14 +477,39 @@ export async function getCurrentUserProfile(): Promise<DbUser | null> {
       is_first_login: isFirstLogin,
       weekly_email_opt_in: false,
       absence_push_opt_in: true,
+      phone: null,
+      national_id: null,
+      onboarding_completed:
+        metaOnboarding || (metaRole !== 'student' && metaRole !== 'parent'),
       created_at: user.created_at,
       updated_at: user.updated_at ?? user.created_at,
     };
   }
 
+  // حسابات مولَّدة إدارياً ومرتبطة بسجل طلاب — أغلق onboarding دون شاشة اختيار الدور
+  if (
+    data.onboarding_completed !== true &&
+    (data.role === 'student' || data.role === 'parent')
+  ) {
+    try {
+      const { data: fixed } = await supabase.rpc('finish_admin_family_onboarding_if_linked');
+      if (fixed) {
+        const refreshed = await supabase
+          .from('users')
+          .select(USER_PROFILE_SELECT)
+          .eq('id', user.id)
+          .maybeSingle();
+        if (refreshed.data) data = refreshed.data;
+      }
+    } catch {
+      /* الدالة قد لا تكون منشورة بعد */
+    }
+  }
+
   return {
     ...data,
     is_first_login: isFirstLogin,
+    onboarding_completed: data.onboarding_completed === true,
   } as DbUser;
 }
 

@@ -189,6 +189,9 @@
 .login-actions {
   width: 100%;
   margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
 }
 
 .login-submit {
@@ -217,6 +220,53 @@
   cursor: not-allowed;
 }
 
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.8rem;
+  margin: 0.15rem 0;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.login-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1f2937;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  padding: 0.72rem 1rem;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.login-google:hover:not(:disabled) {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.login-google:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .login-error {
   width: 100%;
   margin-bottom: 0.75rem;
@@ -227,6 +277,23 @@
   color: #fca5a5;
   font-size: 0.85em;
   text-align: right;
+}
+
+.login-error p {
+  margin: 0;
+}
+
+.login-error-cta {
+  display: inline-block;
+  margin-top: 0.55rem;
+  color: #f0b429;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login-error-cta:hover {
+  color: #ffd666;
 }
 
 .login-register {
@@ -278,6 +345,165 @@
   font-size: 0.72rem;
   margin-top: 0.35rem;
 }
+
+.login-audience-badge {
+  margin: 0.5rem 0 0;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f0b429;
+  background: rgba(240, 180, 41, 0.12);
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+}
+
+.login-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.5rem;
+  flex-wrap: wrap;
+}
+
+.login-tab {
+  flex: 1;
+  min-width: 5.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.45);
+  color: rgba(255, 255, 255, 0.65);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.login-tab.active {
+  border-color: rgba(240, 180, 41, 0.55);
+  color: #f0b429;
+  background: rgba(240, 180, 41, 0.12);
+}
+
+.login-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.25rem;
+}
+
+.login-info {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0.5rem 0;
+}
+
+.login-links {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 1.15rem;
+}
+
+.login-link {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+}
+
+.login-link:hover {
+  color: #f0b429;
+}
+
+.login-link--accent {
+  color: #f0b429;
+}
+
+.login-teacher-register-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(240, 180, 41, 0.18), rgba(240, 180, 41, 0.06));
+  border: 1.5px solid rgba(240, 180, 41, 0.55);
+  box-shadow: 0 0 0 1px rgba(240, 180, 41, 0.08), 0 8px 24px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.login-teacher-register-cta:hover {
+  border-color: #f0b429;
+  background: linear-gradient(135deg, rgba(240, 180, 41, 0.28), rgba(240, 180, 41, 0.1));
+  transform: translateY(-1px);
+}
+
+.login-teacher-register-cta__icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: #f0b429;
+  flex-shrink: 0;
+}
+
+.login-teacher-register-cta__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.login-teacher-register-cta__text strong {
+  color: #f8d56a;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.login-teacher-register-cta__text small {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.login-link-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 0.65rem;
+  padding: 0;
+}
+
+.login-link-btn:hover {
+  color: #f0b429;
+}
+
+.login-container--staff {
+  width: min(640px, 99vw);
+}
+
+.login-form-side--wide {
+  width: 64%;
+}
+
+@media (max-width: 720px) {
+  .login-form-side--wide {
+    width: 100%;
+  }
+}
+
 
 .login-field-hint {
   font-size: 0.72rem;

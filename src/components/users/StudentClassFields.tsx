@@ -17,6 +17,8 @@ interface StudentClassFieldsProps {
   onClassNameChange: (value: string) => void;
   compact?: boolean;
   variant?: 'default' | 'auth';
+  /** إخفاء رقم القيد عند استخدام رقم الهوية في حقل منفصل */
+  hideAdmission?: boolean;
 }
 
 const selectClass = clsx(
@@ -33,6 +35,7 @@ export function StudentClassFields({
   onClassNameChange,
   compact = false,
   variant = 'default',
+  hideAdmission = false,
 }: StudentClassFieldsProps) {
   const [options, setOptions] = useState<GradeClassOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,18 +60,20 @@ export function StudentClassFields({
   if (variant === 'auth') {
     return (
       <div className="login-student-box">
-        <div className="login-field">
-          <label className="login-field-label flex items-center gap-1.5">
-            <Hash className="w-3.5 h-3.5" /> رقم القيد
-          </label>
-          <input
-            type="text"
-            value={admissionNumber}
-            onChange={(e) => onAdmissionNumberChange(e.target.value)}
-            placeholder="مثال: 1448001"
-            className="login-input"
-          />
-        </div>
+        {!hideAdmission && (
+          <div className="login-field">
+            <label className="login-field-label flex items-center gap-1.5">
+              <Hash className="w-3.5 h-3.5" /> رقم القيد
+            </label>
+            <input
+              type="text"
+              value={admissionNumber}
+              onChange={(e) => onAdmissionNumberChange(e.target.value)}
+              placeholder="مثال: 1448001"
+              className="login-input"
+            />
+          </div>
+        )}
 
         <div className="login-field-row">
           <div className="login-field" style={{ marginBottom: 0 }}>

@@ -12,6 +12,8 @@ import { PrincipalDashboard } from './principal/PrincipalDashboard';
 import { SupervisorDashboard } from './supervisor/SupervisorDashboard';
 import { TeacherDashboard } from './teacher/TeacherDashboard';
 import { ParentDashboard } from '../components/parent/ParentDashboard';
+import { ReviewerDashboard } from './reviewer/ReviewerDashboard';
+import { DeputyDashboard } from './deputy/DeputyDashboard';
 import { PLATFORM_NAME } from '../lib/branding';
 
 export function DashboardPage() {
@@ -83,12 +85,18 @@ export function DashboardPage() {
   ];
 
   useEffect(() => {
-    if (role === 'admin' || role === 'activity_leader') {
+    if (role === 'platform_developer') {
+      navigate('/dev', { replace: true });
+    } else if (role === 'admin' || role === 'activity_leader') {
       navigate('/admin', { replace: true });
     } else if (role === 'student') {
       navigate('/student', { replace: true });
     }
   }, [role, navigate]);
+
+  if (role === 'platform_developer') {
+    return null;
+  }
 
   if (role === 'principal') {
     return <PrincipalDashboard />;
@@ -100,6 +108,14 @@ export function DashboardPage() {
 
   if (role === 'teacher') {
     return <TeacherDashboard />;
+  }
+
+  if (role === 'deputy') {
+    return <DeputyDashboard />;
+  }
+
+  if (role === 'reviewer') {
+    return <ReviewerDashboard />;
   }
 
   if (role === 'parent') {

@@ -1,10 +1,13 @@
 import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { ArrowRight, RefreshCw } from 'lucide-react';
 import { HumaaansIllustration } from '../components/ui/HumaaansIllustration';
+import { reportPlatformError } from '../lib/platformErrors';
 
 export function RouteErrorPage() {
   const error = useRouteError();
   const navigate = useNavigate();
+  const reported = useRef(false);
 
   const is404 = isRouteErrorResponse(error) && error.status === 404;
   const title = is404 ? '404 — الصفحة غير موجودة' : 'حدث خطأ غير متوقع';
@@ -12,7 +15,26 @@ export function RouteErrorPage() {
     ? 'الرابط الذي طلبته غير صحيح أو لم يعد متاحاً'
     : error instanceof Error
       ? error.message
-      : 'حاول تحديث الصفحة أو العودة للرئيسية';
+      : isRouteErrorResponse(error)
+        ? error.statusText || 'حاول تحديث الصفحة أو العودة للرئيسية'
+        : 'حاول تحديث الصفحة أو العودة للرئيسية';
+
+  useEffect(() => {
+    if (reported.current) return;
+    reported.current = true;
+    const stack = error instanceof Error ? error.stack : undefined;
+    void reportPlatformError({
+      source: 'frontend',
+      severity: is404 ? 'info' : 'error',
+      message: String(message).slice(0, 2000),
+      stack: stack?.slice(0, 8000),
+      context: {
+        kind: is404 ? 'soft_404' : 'route-error',
+        type: is404 ? 'navigation' : 'route-error',
+        status: isRouteErrorResponse(error) ? error.status : undefined,
+      },
+    });
+  }, [error, is404, message]);
 
   return (
     <div className="min-h-screen bg-navy-950 flex items-center justify-center font-cairo p-6" dir="rtl">

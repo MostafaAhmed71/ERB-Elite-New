@@ -60,7 +60,8 @@ export function TeacherAnalyticsPage() {
           <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto mb-3" />
           <p className="text-white font-semibold">لم يُربَط حسابك بمادة بعد</p>
           <p className="text-white/40 text-sm mt-1">
-            يقوم المشرف التربوي بربط المعلمين بالمواد من صفحة «المواد حسب الصف»
+            أكمل إعداد ملفك التعليمي من الشؤون الأكاديمية، أو اطلب من المدير إسناد المواد.
+            تُزامَن بياناتك تلقائياً مع نظام النقاط والاختبارات.
           </p>
         </div>
       </div>
@@ -153,7 +154,15 @@ export function TeacherAnalyticsPage() {
             )}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="glass-card p-6 text-center">
+          <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+          <p className="text-white font-semibold text-sm">لا توجد بيانات اختبارات لهذه المادة بعد</p>
+          <p className="text-white/40 text-xs mt-1">
+            تظهر التحليلات بعد رصد نتائج اختبارات لطلاب فصولك في هذه المادة
+          </p>
+        </div>
+      )}
     </div>
   );
 }

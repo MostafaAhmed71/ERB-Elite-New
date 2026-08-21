@@ -40,23 +40,23 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\s+/g, '').replace(/^\+/, '');
 }
 
-/** صفوف نموذج التحميل */
+/** صفوف نموذج التحميل (أمثلة توضيحية فقط — ليست بيانات حقيقية) */
 export function studentTemplateRows(): Record<string, string>[] {
   return [
     {
-      nationalId: '2490603186',
-      name: 'احمد الصديق احمد محمد',
+      nationalId: '1000000001',
+      name: 'مثال طالب ١',
       class: 'أ',
       grade: 'الأول المتوسط',
-      phone: '966501514623',
+      phone: '0500000001',
       stage: 'متوسط',
     },
     {
-      nationalId: '2490603187',
-      name: 'فاطمة علي حسن',
+      nationalId: '1000000002',
+      name: 'مثال طالبة ٢',
       class: 'ب',
       grade: 'الأول المتوسط',
-      phone: '966501514624',
+      phone: '0500000002',
       stage: 'متوسط',
     },
   ];

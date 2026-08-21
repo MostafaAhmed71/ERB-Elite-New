@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { QrCode, Camera, Keyboard, AlertCircle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { parseStudentQRUrl } from '../../lib/qr';
+import { parseStudentQRPayload } from '../../lib/qr';
 import type { DbStudent } from '../../types';
 import clsx from 'clsx';
 
@@ -28,27 +28,26 @@ export function QRQuickGrant({ students, onStudentFound }: QRQuickGrantProps) {
       const trimmed = raw.trim();
       if (!trimmed) return null;
 
-      const fromUrl = parseStudentQRUrl(trimmed);
-      if (fromUrl) {
-        return students.find((s) => s.id === fromUrl) ?? null;
+      const parsed = parseStudentQRPayload(trimmed);
+      if (parsed?.qrToken) {
+        return (
+          students.find((s) => (s as DbStudent & { qr_token?: string | null }).qr_token === parsed.qrToken) ??
+          null
+        );
       }
-
-      const uuidMatch = trimmed.match(
-        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-      );
-      if (uuidMatch) {
-        return students.find((s) => s.id === uuidMatch[0]) ?? null;
+      if (parsed?.studentId) {
+        return students.find((s) => s.id === parsed.studentId) ?? null;
       }
 
       return (
         students.find(
           (s) =>
             s.admission_number === trimmed ||
-            s.admission_number.includes(trimmed)
+            s.admission_number.includes(trimmed),
         ) ?? null
       );
     },
-    [students]
+    [students],
   );
 
   const handleFound = useCallback(

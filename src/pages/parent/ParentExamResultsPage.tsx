@@ -1,7 +1,6 @@
 import { ClipboardList, AlertCircle, CheckCircle, XCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { useParentChildren } from '../../hooks/useParentChildren';
 import { ParentPageShell } from '../../components/parent/ParentPageShell';
-import { ParentChildSelector } from '../../components/parent/ParentChildSelector';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import clsx from 'clsx';
@@ -75,7 +74,7 @@ function ExamSkillAnalysis({
 }
 
 export function ParentExamResultsPage() {
-  const { children, isLoading: childrenLoading, selectedChild, selectedChildId, setSelectedChildId } = useParentChildren();
+  const { children, isLoading: childrenLoading, selectedChild, selectedChildId } = useParentChildren();
 
   const { data: skills = [] } = useQuery({
     queryKey: ['skills-all'],
@@ -118,7 +117,7 @@ export function ParentExamResultsPage() {
 
   if (children.length === 0) {
     return (
-      <ParentPageShell>
+      <ParentPageShell showChildBar={false}>
         <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-6 glass-card">
           <AlertCircle className="w-12 h-12 text-gold-400 mb-3" />
           <h2 className="text-white font-bold text-lg">لا يوجد أبناء مرتبطين بحسابك</h2>
@@ -138,12 +137,6 @@ export function ParentExamResultsPage() {
           </h1>
           <p className="text-white/40 text-sm mt-1">تفاصيل النتائج مع تحليل نقاط القوة والضعف حسب المهارة</p>
         </div>
-
-        <ParentChildSelector
-          children={children}
-          selectedChildId={selectedChildId}
-          onChange={setSelectedChildId}
-        />
 
         {selectedChild && (
           <div className="space-y-4">

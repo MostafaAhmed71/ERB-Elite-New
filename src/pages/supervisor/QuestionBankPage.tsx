@@ -15,6 +15,7 @@ import { QuestionPsychometricBanner } from '../../components/supervisor/Question
 import { QuestionVersionComparePanel } from '../../components/supervisor/QuestionVersionComparePanel';
 import { AiQuestionSuggestPanel } from '../../components/supervisor/AiQuestionSuggestPanel';
 import { QtiExchangePanel } from '../../components/supervisor/QtiExchangePanel';
+import { getQuestionRepoStats } from '../../lib/platformAudit';
 
 interface QuestionForm {
   skill_id: string;
@@ -252,6 +253,13 @@ export function QuestionBankPage() {
     queryFn: async () => { const { data, error } = await supabase.from('skills').select('*').order('skill_name'); if (error) throw error; return data as DbSkill[]; },
   });
 
+  const { data: repoStats } = useQuery({
+    queryKey: ['question-repo-stats'],
+    queryFn: getQuestionRepoStats,
+    retry: false,
+    staleTime: 60_000,
+  });
+
   const subjectSkills = activeSubject
     ? skillsForGradeSubject(skills, activeGrade, activeSubject)
     : [];
@@ -328,9 +336,19 @@ export function QuestionBankPage() {
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <HelpCircle className="w-6 h-6 text-gold-400" /> بنك الأسئلة
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <HelpCircle className="w-6 h-6 text-gold-400" /> مستودع الأسئلة
+          </h1>
+          <p className="text-sm text-white/50 mt-1">
+            بنك الأسئلة المدرسي — استيراد · إصدارات · QTI · اقتراحات AI
+            {repoStats ? (
+              <span className="text-white/70">
+                {' '}· {repoStats.total} سؤال · {repoStats.skills_with_questions} مهارة · {repoStats.recent_7d} خلال أسبوع
+              </span>
+            ) : null}
+          </p>
+        </div>
         {activeSubject && (
           <button
             onClick={() => { setEditQ(null); setShowModal(true); }}

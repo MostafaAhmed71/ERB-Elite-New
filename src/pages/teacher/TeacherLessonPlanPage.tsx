@@ -214,9 +214,10 @@ export function TeacherLessonPlanPage() {
                 <button
                   type="button"
                   onClick={() => deleteMutation.mutate(p.id)}
-                  className="p-2 text-red-400/60 hover:text-red-400"
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-xl text-red-400/70 hover:text-red-300 hover:bg-red-500/10"
+                  aria-label="حذف الخطة"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>

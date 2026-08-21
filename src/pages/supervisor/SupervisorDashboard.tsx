@@ -10,6 +10,10 @@ import {
   Users,
   Flame,
   BarChart3,
+  Calendar,
+  Search,
+  School,
+  ScrollText,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -25,6 +29,8 @@ import {
 } from '../../lib/supervisorInsights';
 import { PageHeader, Panel, QuickLink, SectionTitle, TapHandLoader } from '../../components/ui';
 import clsx from 'clsx';
+import { fetchAcademicSnapshot } from '../../lib/unifiedDashboard';
+import { DailyOpsInbox, type DailyOpsItem } from '../../components/shared/DailyOpsInbox';
 
 function AlertList<T>({
   title,
@@ -98,6 +104,12 @@ export function SupervisorDashboard() {
     staleTime: 60_000,
   });
 
+  const { data: academic, isLoading: academicLoading } = useQuery({
+    queryKey: ['supervisor', 'academic-snapshot'],
+    queryFn: fetchAcademicSnapshot,
+    staleTime: 120_000,
+  });
+
   const weeklyGrouped = useMemo(() => {
     if (!data) return { active: 0, ended: 0 };
     return {
@@ -105,6 +117,36 @@ export function SupervisorDashboard() {
       ended: data.weeklyExams.filter((e) => e.status === 'ended').length,
     };
   }, [data]);
+
+  const dailyOps = useMemo((): DailyOpsItem[] => {
+    const items: DailyOpsItem[] = [];
+    if (data?.classAlerts?.length) {
+      items.push({
+        id: 'class-alerts',
+        title: `${data.classAlerts.length} تنبيه فصول`,
+        detail: 'أداء أو مشاركة تحتاج متابعة',
+        to: '/analytics/class',
+        tone: 'warn',
+      });
+    }
+    if (academic?.pendingParentRequests) {
+      items.push({
+        id: 'parent-req',
+        title: `${academic.pendingParentRequests} طلب ولي أمر`,
+        to: '/academic/observation-inbox',
+        tone: 'warn',
+      });
+    }
+    if (weeklyGrouped.active > 0) {
+      items.push({
+        id: 'weekly-active',
+        title: `${weeklyGrouped.active} اختبار نشط هذا الأسبوع`,
+        to: '/exams',
+        tone: 'info',
+      });
+    }
+    return items;
+  }, [data, academic, weeklyGrouped]);
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6" dir="rtl">
@@ -115,11 +157,13 @@ export function SupervisorDashboard() {
         avatar={user?.full_name?.charAt(0) ?? 'م'}
       />
 
+      <DailyOpsInbox items={dailyOps} title="مهام اليوم" />
+
       {isLoading ? (
         <TapHandLoader label="جاري تحميل لوحة المشرف..." fullScreen />
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
               <p className="text-white/40 text-xs">الطلاب</p>
               <p className="text-2xl font-bold text-white mt-1">{data?.stats.students ?? 0}</p>
@@ -139,13 +183,52 @@ export function SupervisorDashboard() {
           </div>
 
           <Panel className="p-6">
-            <SectionTitle icon={TrendingUp}>الإجراءات السريعة</SectionTitle>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+            <SectionTitle icon={TrendingUp}>التشخيص التربوي</SectionTitle>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-4">
+              <QuickLink icon={BarChart3} label="مركز التحليلات" to="/analytics" />
               <QuickLink icon={ClipboardList} label="إدارة الاختبارات" to="/exams" />
-              <QuickLink icon={TrendingUp} label="التحليلات" to="/analytics/class" />
               <QuickLink icon={HelpCircle} label="بنك الأسئلة" to="/questions" />
               <QuickLink icon={BookOpen} label="المواد حسب الصف" to="/grade-subjects" />
+              <QuickLink icon={School} label="تقرير الفصول" to="/admin/classes-report" />
+              <QuickLink icon={ScrollText} label="تقرير فصل" to="/admin/class-report" />
             </div>
+          </Panel>
+
+          <Panel className="p-6">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <SectionTitle icon={BookOpen}>مدخل أكاديمي</SectionTitle>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                عبر مركز الشؤون
+              </span>
+            </div>
+            {academicLoading ? (
+              <TapHandLoader label="جاري تحميل المؤشرات الأكاديمية..." />
+            ) : (
+              <>
+                <div className="mobile-stat-grid mt-4">
+                  <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
+                    <p className="text-white/40 text-xs">واجبات اليوم</p>
+                    <p className="text-2xl font-bold text-gold-400 mt-1">{academic?.homeworkToday ?? 0}</p>
+                  </div>
+                  <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
+                    <p className="text-white/40 text-xs">معلمون بلا واجب</p>
+                    <p className="text-2xl font-bold text-amber-400 mt-1">{academic?.teachersMissingHomeworkToday ?? 0}</p>
+                  </div>
+                  <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
+                    <p className="text-white/40 text-xs">مراجعات معلّقة</p>
+                    <p className="text-2xl font-bold text-cyan-400 mt-1">{academic?.pendingReviews ?? 0}</p>
+                  </div>
+                  <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
+                    <p className="text-white/40 text-xs">طلبات أولياء الأمور</p>
+                    <p className="text-2xl font-bold text-emerald-400 mt-1">{academic?.pendingParentRequests ?? 0}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-4">
+                  <QuickLink icon={BookOpen} label="الشؤون الأكاديمية" to="/academic" />
+                  <QuickLink icon={ClipboardList} label="صندوق الملاحظات" to="/academic/observation-inbox" />
+                </div>
+              </>
+            )}
           </Panel>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

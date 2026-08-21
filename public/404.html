@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>أولمبياد النخبة 1448 هــ</title>
+  <title>جاري التحميل…</title>
   <script>
     (function () {
       var path = window.location.pathname + window.location.search + window.location.hash;
-      if (path && path !== '/' && path !== '/index.html') {
-        try {
-          sessionStorage.setItem('__elite_spa_path__', path);
-        } catch (e) {}
+      if (path && path !== '/' && path !== '/index.html' && path !== '/404.html') {
+        try { sessionStorage.setItem('__elite_spa_path__', path); } catch (e) {}
       }
-      window.location.replace('/');
+      window.location.replace('/' + window.location.search + window.location.hash);
     })();
   </script>
+  <noscript><meta http-equiv="refresh" content="0;url=/" /></noscript>
 </head>
-<body></body>
+<body style="background:#0D1B2A;color:#fff;font-family:sans-serif;text-align:center;padding:3rem">
+  جاري فتح الصفحة…
+</body>
 </html>

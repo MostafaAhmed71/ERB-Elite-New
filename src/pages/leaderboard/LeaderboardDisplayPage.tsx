@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Trophy, X, RefreshCw, Maximize2, Minimize2, Zap } from 'lucide-react';
 import { SplitLeaderboardPanel } from '../../components/leaderboard/SplitLeaderboardPanel';
 import { useLeaderboardData } from '../../components/leaderboard/useLeaderboardData';
-import { MOCK_CLASS_RANKINGS, MOCK_STUDENT_RANKINGS } from '../../components/leaderboard/mockData';
 import { PLATFORM_NAME } from '../../lib/branding';
 import { TapHandLoader } from '../../components/ui/TapHandLoader';
 import { fetchWeeklyAssemblyData } from '../../lib/weeklyAssemblyReport';
@@ -35,10 +34,8 @@ function LiveClock() {
 
 /** G2 — وضع شاشة كبيرة للطابور والمتصدرين */
 export function LeaderboardDisplayPage() {
-  const { students: liveStudents, classes: liveClasses, isLoading, refetch } = useLeaderboardData();
-  const students = liveStudents.length > 0 ? liveStudents : MOCK_STUDENT_RANKINGS;
-  const classes = liveClasses.length > 0 ? liveClasses : MOCK_CLASS_RANKINGS;
-  const isMock = liveStudents.length === 0 && liveClasses.length === 0;
+  const { students, classes, isLoading, refetch } = useLeaderboardData();
+  const isEmpty = students.length === 0 && classes.length === 0;
   const [refreshKey, setRefreshKey] = useState(0);
   const [slide, setSlide] = useState<DisplaySlide>('leaderboard');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -112,9 +109,9 @@ export function LeaderboardDisplayPage() {
         </div>
         <div className="flex items-center gap-3">
           <LiveClock />
-          {isMock && (
-            <span className="hidden sm:inline text-xs px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">
-              بيانات تجريبية
+          {isEmpty && (
+            <span className="hidden sm:inline text-xs px-3 py-1 rounded-full bg-white/10 text-white/50 border border-white/15">
+              لا توجد بيانات بعد
             </span>
           )}
           <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10">

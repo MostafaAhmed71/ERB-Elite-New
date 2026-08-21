@@ -1,4 +1,4 @@
-import { AlertCircle, TrendingUp, HelpCircle, QrCode, ClipboardList, Gift } from 'lucide-react';
+import { AlertCircle, TrendingUp, HelpCircle, QrCode, ClipboardList, Gift, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
@@ -25,9 +25,10 @@ import { ClassAverageComparison } from '../shared/ClassAverageComparison';
 import { UpcomingExamsWidget } from '../shared/UpcomingExamsWidget';
 import { ActivityTimeline } from '../shared/ActivityTimeline';
 import { FeatureGate } from '../shared/FeatureGate';
+import { StudentNextTaskCard } from './StudentNextTaskCard';
 import { containerVariants, itemVariants } from '../../lib/motionVariants';
 import { PLATFORM_NAME, PLATFORM_NAME_SHORT } from '../../lib/branding';
-import { PageHeader, TapHandLoader } from '../ui';
+import { PageHeader, TapHandLoader, EmptyState } from '../ui';
 import { Panel, SectionTitle } from '../ui/Card';
 import { getPointsStatusLabel } from '../../lib/pointsStatusLabels';
 import clsx from 'clsx';
@@ -41,13 +42,23 @@ export function StudentDashboard() {
     queryKey: ['student', 'profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
+
+      const direct = await supabase
         .from('students')
         .select('*')
         .eq('user_id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
+        .maybeSingle();
+
+      if (direct.data) return direct.data;
+
+      // احتياط: RPC يتجاوز مشاكل RLS
+      const viaRpc = await supabase.rpc('get_my_student_profile');
+      if (viaRpc.error) {
+        if (direct.error) throw direct.error;
+        throw viaRpc.error;
+      }
+      const row = Array.isArray(viaRpc.data) ? viaRpc.data[0] : viaRpc.data;
+      return row ?? null;
     },
     enabled: !!user,
   });
@@ -61,16 +72,13 @@ export function StudentDashboard() {
 
   if (!profile) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="min-h-[400px] flex flex-col items-center justify-center text-center p-8 glass-card text-white"
-        dir="rtl"
-      >
-        <AlertCircle className="w-12 h-12 text-gold-400 mb-3" />
-        <h2 className="text-white font-bold text-lg">لم يتم العثور على ملف تعريف الطالب الأكاديمي</h2>
-        <p className="text-white/40 text-sm mt-1 max-w-md">يرجى الاتصال برائد النشاط أو الإدارة لربط بريدك بالرقم الأكاديمي.</p>
-      </motion.div>
+      <div className="py-8" dir="rtl">
+        <EmptyState
+          icon={AlertCircle}
+          title="لم يتم العثور على ملف الطالب"
+          description="يرجى الاتصال برائد النشاط أو الإدارة لربط بريدك بالرقم الأكاديمي."
+        />
+      </div>
     );
   }
 
@@ -109,6 +117,9 @@ export function StudentDashboard() {
             role={`${profile.grade} • ${profile.class_name}`}
             avatar={profile.full_name.charAt(0)}
           />
+          <div className="mt-3">
+            <StudentNextTaskCard studentId={profile.id} />
+          </div>
         </div>
 
         <FeatureGate featureId="widget:student:qr_card">
@@ -163,6 +174,26 @@ export function StudentDashboard() {
         </Link>
       </motion.div>
       </FeatureGate>
+
+      <motion.div variants={itemVariants}>
+        <Link
+          to="/student/academic"
+          className="block glass-card glass-card-hover p-5 border-gold-500/20 bg-gradient-to-l from-gold-900/20 to-navy-900/40 group"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-gold-400" />
+                واجباتي وخطتي الأسبوعية
+              </h3>
+              <p className="text-white/40 text-xs mt-1">واجب اليوم وخطة فصلك فقط</p>
+            </div>
+            <div className="w-12 h-12 bg-gold-500/10 rounded-xl flex items-center justify-center text-gold-400 group-hover:bg-gold-500/20 transition-all">
+              <BookOpen className="w-6 h-6" />
+            </div>
+          </div>
+        </Link>
+      </motion.div>
 
       <FeatureGate featureId="widget:student:class_challenge">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  AlertCircle, Award, CalendarCheck, ClipboardList, User,
+  AlertCircle, Award, CalendarCheck, ClipboardList, User, BookOpen,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useParentChildren } from '../../hooks/useParentChildren';
 import { useStudentMetrics } from '../../hooks/useStudentMetrics';
 import { ParentPageShell } from './ParentPageShell';
-import { ParentChildSelector } from './ParentChildSelector';
 import { ParentWeeklySummary } from './ParentWeeklySummary';
 import { ParentMonthlyReport } from './ParentMonthlyReport';
 import { ParentAbsenceAlert } from './ParentAbsenceAlert';
@@ -17,6 +16,8 @@ import { ParentProgressComparison } from './ParentProgressComparison';
 import { ParentFaqSection } from './ParentFaqSection';
 import { ParentVisualGuide } from './ParentVisualGuide';
 import { ContactSchoolButton } from './ContactSchoolButton';
+import { ParentNotificationPrefsCard } from './ParentNotificationPrefsCard';
+import { StudentNextTaskCard } from '../student/StudentNextTaskCard';
 import { FeatureGate } from '../shared/FeatureGate';
 import { StudentMetricsOverview } from '../shared/StudentMetricsOverview';
 import { ClassAverageComparison } from '../shared/ClassAverageComparison';
@@ -25,7 +26,6 @@ import { ActivityTimeline } from '../shared/ActivityTimeline';
 import { PageHeader, TapHandLoader } from '../ui';
 import { containerVariants, itemVariants } from '../../lib/motionVariants';
 import { summarizeAttendance } from '../../lib/attendanceScore';
-import { useParentChildStore } from '../../stores/parentChildStore';
 
 function ChildSummaryCard({
   child,
@@ -65,7 +65,6 @@ function ChildSummaryCard({
 
 export function ParentDashboard() {
   const { children, isLoading, selectedChild, selectedChildId, setSelectedChildId } = useParentChildren();
-  const storeSetChild = useParentChildStore((s) => s.setSelectedChildId);
   const metrics = useStudentMetrics(selectedChild?.id);
 
   if (isLoading) {
@@ -74,11 +73,14 @@ export function ParentDashboard() {
 
   if (children.length === 0) {
     return (
-      <ParentPageShell>
+      <ParentPageShell showChildBar={false}>
         <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-8 glass-card">
           <AlertCircle className="w-12 h-12 text-gold-400 mb-3" />
           <h2 className="text-white font-bold text-lg">لا يوجد أبناء مرتبطين بحسابك</h2>
           <p className="text-white/40 text-sm mt-1">يرجى مراجعة إدارة المدرسة لربط بيانات الأبناء.</p>
+          <Link to="/parent/link-child" className="mt-4 text-sm font-semibold text-gold-400 hover:text-gold-300">
+            ربط طالب بكود
+          </Link>
         </div>
       </ParentPageShell>
     );
@@ -115,33 +117,66 @@ export function ParentDashboard() {
           </FeatureGate>
         </div>
 
+        {selectedChild && (
+          <motion.div variants={itemVariants} className="grid sm:grid-cols-2 gap-3">
+            <StudentNextTaskCard studentId={selectedChild.id} audience="parent" />
+            <ParentNotificationPrefsCard />
+          </motion.div>
+        )}
+
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Link to="/parent/academic" className="glass-card glass-card-hover p-4 flex items-center gap-3 sm:col-span-2">
+            <BookOpen className="w-8 h-8 text-emerald-400 shrink-0" />
+            <div>
+              <p className="text-white font-semibold text-sm">أكاديمي الأبناء</p>
+              <p className="text-white/40 text-xs">واجبات · ملاحظات · مراجعات في مكان واحد</p>
+            </div>
+          </Link>
+          <Link to="/student-profile" className="glass-card glass-card-hover p-4 flex items-center gap-3">
+            <User className="w-8 h-8 text-blue-400 shrink-0" />
+            <div>
+              <p className="text-white font-semibold text-sm">ملف الطالب</p>
+              <p className="text-white/40 text-xs">نقاط ومستوى الابن المختار</p>
+            </div>
+          </Link>
+          <Link to="/attendance/view" className="glass-card glass-card-hover p-4 flex items-center gap-3">
+            <CalendarCheck className="w-8 h-8 text-cyan-400 shrink-0" />
+            <div>
+              <p className="text-white font-semibold text-sm">الحضور</p>
+              <p className="text-white/40 text-xs">سجل حضور الابن المختار</p>
+            </div>
+          </Link>
+          <Link to="/exams/results" className="glass-card glass-card-hover p-4 flex items-center gap-3">
+            <ClipboardList className="w-8 h-8 text-purple-300 shrink-0" />
+            <div>
+              <p className="text-white font-semibold text-sm">نتائج الاختبارات</p>
+              <p className="text-white/40 text-xs">درجات وتحليل المهارات</p>
+            </div>
+          </Link>
+          <Link to="/parent/link-child" className="glass-card glass-card-hover p-4 flex items-center gap-3">
+            <Award className="w-8 h-8 text-gold-400 shrink-0" />
+            <div>
+              <p className="text-white font-semibold text-sm">ربط طالب بكود</p>
+              <p className="text-white/40 text-xs">إضافة ابن إلى حسابك</p>
+            </div>
+          </Link>
+        </motion.div>
+
         {children.length > 1 && (
           <motion.div variants={itemVariants}>
-            <p className="text-white/50 text-xs mb-2">بطاقات الأبناء — اضغط للتبديل</p>
+            <p className="text-white/50 text-xs mb-2">ملخص سريع — اضغط لاختيار الابن</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {children.map((c) => (
                 <ChildSummaryCard
                   key={c.id}
                   child={c}
                   isSelected={c.id === selectedChildId}
-                  onSelect={() => {
-                    setSelectedChildId(c.id);
-                    storeSetChild(c.id);
-                  }}
+                  onSelect={() => setSelectedChildId(c.id)}
                 />
               ))}
             </div>
           </motion.div>
         )}
-
-        <ParentChildSelector
-          children={children}
-          selectedChildId={selectedChildId}
-          onChange={(id) => {
-            setSelectedChildId(id);
-            storeSetChild(id);
-          }}
-        />
 
         {selectedChild && (
           <FeatureGate featureId="widget:parent:absence_alert">

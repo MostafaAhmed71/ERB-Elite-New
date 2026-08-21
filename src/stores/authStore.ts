@@ -5,6 +5,8 @@ import { getCurrentUserProfile,
   parseRoleFromMetadata,
   resolveAuthRole,
   resolveLoginTarget,
+  getLoginPathForRole,
+  rememberPreferredLoginPath,
 } from '../lib/auth';
 import { touchUserLastSeen } from '../lib/platformAdoption';
 import type { DbUser, UserRole } from '../types';
@@ -33,6 +35,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+const PROFILE_TIMEOUT_MS = 15_000;
+const SESSION_TIMEOUT_MS = 10_000;
+
 let initPromise: Promise<void> | null = null;
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -55,15 +60,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   redirectAfterLogin: (session: Session) => {
-    const { user } = get();
-    const metaRole = parseRoleFromMetadata(session.user.user_metadata?.role);
-    set({
-      session,
-      role: resolveAuthRole(session, user) ?? metaRole,
-      loading: false,
-      initialized: true,
-    });
-    window.location.replace(resolveLoginTarget(session, user));
+    void (async () => {
+      try {
+        const profile = await get().setAuthSession(session);
+        window.location.replace(resolveLoginTarget(session, profile));
+      } catch {
+        window.location.replace(resolveLoginTarget(session, get().user));
+      }
+    })();
   },
 
   setAuthSession: async (session: Session) => {
@@ -71,7 +75,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const profile = await withTimeout(
         getCurrentUserProfile(),
-        8000,
+        PROFILE_TIMEOUT_MS,
         'getCurrentUserProfile'
       );
       set({
@@ -97,7 +101,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       try {
         const { data: { session } } = await withTimeout(
           supabase.auth.getSession(),
-          8000,
+          SESSION_TIMEOUT_MS,
           'getSession'
         );
 
@@ -117,7 +121,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         try {
           const profile = await withTimeout(
             getCurrentUserProfile(),
-            8000,
+            PROFILE_TIMEOUT_MS,
             'getCurrentUserProfile'
           );
           set({
@@ -126,7 +130,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           });
           void touchUserLastSeen();
         } catch (profileErr) {
-          console.warn('Profile load skipped:', profileErr);
+          // الشبكة البطيئة أو RLS — الجلسة تبقى صالحة بالدور من metadata
+          console.warn('Profile load skipped (session kept):', profileErr);
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
@@ -160,9 +165,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout: async () => {
+    const loginPath = getLoginPathForRole(get().role);
+    rememberPreferredLoginPath(loginPath);
+    try {
+      const { clearDevDebugMode } = await import('../lib/devDebugMode');
+      clearDevDebugMode();
+    } catch {
+      /* ignore */
+    }
     await supabase.auth.signOut();
     set({ session: null, user: null, role: null });
-    window.location.replace('/login');
+    window.location.replace(loginPath);
   },
 }));
 
@@ -185,5 +198,8 @@ supabase.auth.onAuthStateChange((event, session) => {
     return;
   }
 
-  // SIGNED_IN يُعالَج من صفحة الدخول عبر redirectAfterLogin — لا نفعل شيئاً هنا
+  // SIGNED_IN يُعالَج من /auth/callback أو LoginPage عبر navigate — لا نُعدّ التوجيه هنا
+  if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
+    void useAuthStore.getState().setAuthSession(session);
+  }
 });

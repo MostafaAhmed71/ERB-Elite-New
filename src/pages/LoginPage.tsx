@@ -1,25 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
-import { signIn } from '../lib/auth';
-import { toArabicErrorMessage } from '../lib/errors';
+import { signIn, resolveLoginTarget } from '../lib/auth';
+import { toLoginErrorMessage } from '../lib/errors';
+import { resolveTeacherPostLoginPath } from '../lib/teacherSignup';
 import { useAuthStore } from '../stores/authStore';
 import { LoginIllustration } from '../components/auth/LoginIllustration';
+import { TapHandLoader } from '../components/ui/TapHandLoader';
 import { PLATFORM_ICON, PLATFORM_NAME, PLATFORM_TAGLINE } from '../lib/branding';
 import './LoginPage.css';
 
+function hasOAuthReturnParams(): boolean {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('code') || params.has('error')) return true;
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash) return false;
+  const hashParams = new URLSearchParams(hash);
+  return hashParams.has('access_token') || hashParams.has('refresh_token');
+}
+
+/** شاشة دخول العائلة — طالب / ولي أمر (إيميل + كلمة مرور) */
 export function LoginPage() {
-  const { session, initialized, redirectAfterLogin } = useAuthStore();
+  const navigate = useNavigate();
+  const { session, initialized, setAuthSession } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const redirectingRef = useRef(false);
+  const oauthReturn = hasOAuthReturnParams();
 
-  // إذا كان المستخدم مسجّلاً مسبقاً — توجيه مباشر
   useEffect(() => {
-    if (!initialized || !session) return;
-    redirectAfterLogin(session);
-  }, [initialized, session, redirectAfterLogin]);
+    if (!initialized || !session || redirectingRef.current) return;
+    redirectingRef.current = true;
+    void (async () => {
+      const profile = await setAuthSession(session);
+      const teacherTarget = await resolveTeacherPostLoginPath(profile);
+      navigate(teacherTarget ?? resolveLoginTarget(session, profile), { replace: true });
+    })();
+  }, [initialized, session, setAuthSession, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +49,46 @@ export function LoginPage() {
 
     try {
       const { session: newSession } = await signIn(email, password);
-      redirectAfterLogin(newSession);
-      // الصفحة ستُعاد تحميلها — لا حاجة لإيقاف التحميل
+      redirectingRef.current = true;
+      const profile = await setAuthSession(newSession);
+      const role = profile?.role;
+      if (role && !['student', 'parent'].includes(role)) {
+        setError('هذه الشاشة لدخول الطالب وولي الأمر. استخدم دخول الطاقم.');
+        setLoading(false);
+        redirectingRef.current = false;
+        await supabaseSignOutQuiet();
+        return;
+      }
+      const teacherTarget = await resolveTeacherPostLoginPath(profile);
+      navigate(teacherTarget ?? resolveLoginTarget(newSession, profile), { replace: true });
     } catch (err: unknown) {
-      setError(toArabicErrorMessage(err));
+      setError(toLoginErrorMessage(err));
       setLoading(false);
+      redirectingRef.current = false;
     }
   };
+
+  const busy = loading;
+  const showRedirectLoader = !initialized || !!session || oauthReturn || redirectingRef.current;
+
+  if (showRedirectLoader) {
+    return (
+      <div className="login-shell" dir="rtl">
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src={PLATFORM_ICON}
+            alt={PLATFORM_NAME}
+            className="w-16 h-16 rounded-2xl object-cover shadow-lg shadow-gold-500/20"
+          />
+          <TapHandLoader
+            label={
+              oauthReturn || !!session ? 'جاري إكمال تسجيل الدخول...' : 'جاري التحميل...'
+            }
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-shell" dir="rtl">
@@ -42,13 +96,10 @@ export function LoginPage() {
         <div className="login-form-side">
           <form className="login-form" onSubmit={handleSubmit}>
             <div className="login-brand">
-              <img
-                src={PLATFORM_ICON}
-                alt={PLATFORM_NAME}
-                className="login-brand-logo"
-              />
+              <img src={PLATFORM_ICON} alt={PLATFORM_NAME} className="login-brand-logo" />
               <h1>{PLATFORM_NAME}</h1>
               <p>{PLATFORM_TAGLINE}</p>
+              <p className="login-audience-badge">دخول الطالب وولي الأمر</p>
             </div>
 
             {error && <div className="login-error">{error}</div>}
@@ -65,8 +116,9 @@ export function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                placeholder="admin@elite1448.demo"
+                placeholder="you@example.com"
                 dir="ltr"
+                disabled={busy}
               />
             </div>
 
@@ -84,12 +136,14 @@ export function LoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
+                  disabled={busy}
                 />
                 <button
                   type="button"
                   className="login-password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  disabled={busy}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -97,7 +151,7 @@ export function LoginPage() {
             </div>
 
             <div className="login-actions">
-              <button id="login-submit" type="submit" className="login-submit" disabled={loading}>
+              <button id="login-submit" type="submit" className="login-submit" disabled={busy}>
                 {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
               </button>
             </div>
@@ -112,4 +166,13 @@ export function LoginPage() {
       </div>
     </div>
   );
+}
+
+async function supabaseSignOutQuiet() {
+  try {
+    const { supabase } = await import('../lib/supabase');
+    await supabase.auth.signOut();
+  } catch {
+    /* ignore */
+  }
 }

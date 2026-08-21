@@ -1,15 +1,62 @@
 import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { router } from './router';
 import { useAuthStore } from './stores/authStore';
 import { TapHandLoader } from './components/ui/TapHandLoader';
 import { PwaManager } from './components/pwa/PwaManager';
 import { PushNotificationPrompt } from './components/pwa/PushNotificationPrompt';
+import { PlatformErrorBoundary } from './components/dev/PlatformErrorBoundary';
 import { PLATFORM_ICON, PLATFORM_NAME } from './lib/branding';
+import { reportMildIssue } from './lib/platformErrors';
+import { normalizeUnknownError, safeStringify } from './lib/errorDiagnostics';
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      const normalized = normalizeUnknownError(error);
+      const keyStr = safeStringify(query.queryKey, 120) || 'query';
+      reportMildIssue({
+        message: normalized.message,
+        error,
+        source: 'frontend',
+        severity: 'warning',
+        context: {
+          type: 'react_query',
+          kind: 'query',
+          queryKey: query.queryKey,
+          error_name: normalized.name,
+          stack_short: normalized.stackShort,
+        },
+        fingerprint: `rq:q:${keyStr}:${normalized.message.slice(0, 80)}`,
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _vars, _ctx, mutation) => {
+      const normalized = normalizeUnknownError(error);
+      reportMildIssue({
+        message: normalized.message,
+        error,
+        source: 'frontend',
+        severity: 'warning',
+        context: {
+          type: 'react_query',
+          kind: 'mutation',
+          mutationKey: mutation.options.mutationKey,
+          error_name: normalized.name,
+          stack_short: normalized.stackShort,
+        },
+        fingerprint: `rq:m:${String(mutation.options.mutationKey ?? 'anon').slice(0, 80)}:${normalized.message.slice(0, 80)}`,
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
@@ -63,32 +110,34 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-      <PwaManager />
-      <PushNotificationPrompt />
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: '#122548',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '12px',
-            fontFamily: 'Cairo, sans-serif',
-            fontSize: '14px',
-            direction: 'rtl',
-          },
-          success: {
-            iconTheme: { primary: '#e6aa32', secondary: '#122548' },
-          },
-          error: {
-            iconTheme: { primary: '#ef4444', secondary: '#122548' },
-          },
-        }}
-      />
-    </QueryClientProvider>
+    <PlatformErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+        <PwaManager />
+        <PushNotificationPrompt />
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3500,
+            style: {
+              background: '#122548',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '12px',
+              fontFamily: 'Cairo, sans-serif',
+              fontSize: '14px',
+              direction: 'rtl',
+            },
+            success: {
+              iconTheme: { primary: '#e6aa32', secondary: '#122548' },
+            },
+            error: {
+              iconTheme: { primary: '#ef4444', secondary: '#122548' },
+            },
+          }}
+        />
+      </QueryClientProvider>
+    </PlatformErrorBoundary>
   );
 }
 

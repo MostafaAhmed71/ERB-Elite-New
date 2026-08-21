@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { X, User, Mail, Lock, Shield, AlertCircle, BookOpen, Coins } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { X, User, Mail, Lock, Shield, AlertCircle, BookOpen, Coins, Phone, School } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { logAction, createUser, toArabicErrorMessage } from '../../lib/auth';
+import { upsertStudentRosterRecord } from '../../lib/studentRoster';
 import { StudentClassFields } from './StudentClassFields';
 import { TeacherClassFields } from './TeacherClassFields';
 import {
@@ -11,6 +12,9 @@ import {
   type TeacherClassAssignment,
 } from '../../lib/teacherScope';
 import { fetchTeacherPointsLimits } from '../../lib/teacherPointsLimits';
+import { academicAdminService } from '../../lib/academic/adminService';
+import { ACADEMIC_LEVEL_LABELS } from '../../lib/academic/constants';
+import type { AcademicEducationLevel } from '../../lib/academic/types';
 import type { DbUser, UserRole } from '../../types';
 import { ROLE_LABELS, SELECTABLE_USER_ROLES } from '../../types';
 import { toast } from 'react-hot-toast';
@@ -33,7 +37,9 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
     email: '',
     password: '',
     role: 'student' as UserRole,
+    phone: '',
   });
+  const [staffEducationLevel, setStaffEducationLevel] = useState<AcademicEducationLevel | ''>('');
   
   // Teacher specific states
   const [subject, setSubject] = useState('');
@@ -46,6 +52,17 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
   const [className, setClassName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const { data: academicSubjects = [] } = useQuery({
+    queryKey: ['academic-subjects'],
+    queryFn: academicAdminService.listSubjects,
+    enabled: form.role === 'teacher',
+  });
+
+  const uniqueSubjectNames = useMemo(() => {
+    return [...new Set(academicSubjects.filter((s) => s.is_active).map((s) => s.name))]
+      .sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [academicSubjects]);
+
   useEffect(() => {
     if (editUser) {
       setForm({
@@ -53,7 +70,13 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
         email: editUser.email,
         password: '',
         role: editUser.role,
+        phone: editUser.phone ?? '',
       });
+      setStaffEducationLevel(
+        editUser.staff_education_level === 'middle' || editUser.staff_education_level === 'high'
+          ? editUser.staff_education_level
+          : '',
+      );
 
       // Fetch teacher details if role is teacher
       if (editUser.role === 'teacher') {
@@ -106,14 +129,37 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
     mutationFn: async () => {
       let targetUserId = editUser?.id;
 
+      // إضافة طالب للقائمة المدرسية فقط — بدون حساب دخول
+      if (!isEdit && form.role === 'student') {
+        await upsertStudentRosterRecord({
+          full_name: form.full_name,
+          national_id: admissionNumber,
+          grade,
+          class_name: className,
+          phone: form.phone,
+        });
+        return;
+      }
+
       if (isEdit) {
         // Update existing user profile
         const { error } = await supabase
           .from('users')
-          .update({ full_name: form.full_name, role: form.role })
+          .update({
+            full_name: form.full_name,
+            role: form.role,
+            phone: form.phone.trim() || null,
+            staff_education_level:
+              form.role === 'deputy' || form.role === 'supervisor'
+                ? staffEducationLevel || null
+                : null,
+          })
           .eq('id', editUser!.id);
         if (error) throw error;
-        await logAction('USER_UPDATED', 'users', editUser!.id, { role: form.role });
+        await logAction('USER_UPDATED', 'users', editUser!.id, {
+          role: form.role,
+          staff_education_level: staffEducationLevel || null,
+        });
       } else {
         targetUserId = await createUser({
           email: form.email,
@@ -122,10 +168,23 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
           role: form.role,
           subject: form.role === 'teacher' ? subject : undefined,
           points_budget: form.role === 'teacher' ? pointsBudget : undefined,
-          admission_number: form.role === 'student' ? admissionNumber : undefined,
-          grade: form.role === 'student' ? grade : undefined,
-          class_name: form.role === 'student' ? className : undefined,
+          staff_education_level:
+            form.role === 'deputy' || form.role === 'supervisor'
+              ? staffEducationLevel || null
+              : null,
         });
+      }
+
+      if (targetUserId && !isEdit) {
+        const profilePatch: Record<string, unknown> = {
+          is_active: true,
+          role: form.role,
+        };
+        if (form.phone.trim()) profilePatch.phone = form.phone.trim();
+        if (form.role === 'deputy' || form.role === 'supervisor') {
+          profilePatch.staff_education_level = staffEducationLevel || null;
+        }
+        await supabase.from('users').update(profilePatch).eq('id', targetUserId);
       }
 
       if (form.role === 'student' && targetUserId) {
@@ -134,6 +193,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
           .upsert({
             user_id: targetUserId,
             admission_number: admissionNumber.trim(),
+            national_id: admissionNumber.trim(),
             full_name: form.full_name.trim(),
             grade,
             class_name: className,
@@ -163,7 +223,13 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
       }
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'تم تحديث المستخدم بنجاح' : 'تم إنشاء المستخدم بنجاح');
+      toast.success(
+        isEdit
+          ? 'تم تحديث المستخدم بنجاح'
+          : form.role === 'student'
+            ? 'تمت إضافة الطالب للقائمة — سيربط حسابه لاحقاً برقم الهوية'
+            : 'تم إنشاء المستخدم بنجاح'
+      );
       onSuccess();
     },
     onError: (err: unknown) => {
@@ -175,13 +241,18 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
     e.preventDefault();
     setError(null);
     if (!form.full_name.trim()) { setError('الاسم الكامل مطلوب'); return; }
-    if (!isEdit && !form.email.trim()) { setError('البريد الإلكتروني مطلوب'); return; }
-    if (!isEdit && form.password.length < 8) { setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
     if (!isEdit && form.role === 'student') {
       if (!admissionNumber.trim() || !grade || !className) {
-        setError('للطلاب: رقم القيد والصف والفصل مطلوبة');
+        setError('للطلاب: رقم الهوية والصف والفصل مطلوبة');
         return;
       }
+    } else if (!isEdit) {
+      if (!form.email.trim()) { setError('البريد الإلكتروني مطلوب'); return; }
+      if (form.password.length < 8) { setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
+    }
+    if (form.role === 'deputy' && !staffEducationLevel) {
+      setError('اختر مرحلة الوكيل: متوسط أو ثانوي — ليظهر له فصول مرحلته فقط');
+      return;
     }
     mutation.mutate();
   };
@@ -240,8 +311,92 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
             </div>
           </div>
 
-          {/* Email (create only) */}
-          {!isEdit && (
+          {/* Phone — للتذكيرات عبر واتساب */}
+          {(form.role === 'teacher' || form.role === 'student' || form.role === 'deputy' || isEdit) && (
+            <div className="space-y-1.5">
+              <label className="text-white/60 text-sm">رقم الجوال (واتساب)</label>
+              <div className="relative">
+                <Phone className="absolute top-1/2 -translate-y-1/2 right-3.5 w-4 h-4 text-white/30" />
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="05xxxxxxxx"
+                  dir="ltr"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 pr-10 py-2.5 text-white placeholder-white/20 focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/20 transition-all text-sm text-left"
+                />
+              </div>
+              {form.role === 'teacher' && (
+                <p className="text-white/35 text-xs">يُستخدم لإرسال تذكيرات الواجب والخطة وملاحظات ولي الأمر</p>
+              )}
+              {form.role === 'deputy' && (
+                <p className="text-white/35 text-xs">يُستخدم لتذكير واتساب بفصول الغياب المتبقية</p>
+              )}
+              {form.role === 'student' && !isEdit && (
+                <p className="text-white/35 text-xs">اختياري — يمكن للطالب إدخاله لاحقاً عند ربط الحساب</p>
+              )}
+            </div>
+          )}
+
+          {/* Role — قبل البريد حتى يظهر مسار الطالب بدون حساب */}
+          <div className="space-y-1.5">
+            <label className="text-white/60 text-sm">الدور</label>
+            <select
+              id="modal-role"
+              value={form.role}
+              onChange={(e) => {
+                const role = e.target.value as UserRole;
+                setForm({ ...form, role });
+                if (role !== 'deputy' && role !== 'supervisor') setStaffEducationLevel('');
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/20 transition-all text-sm appearance-none"
+            >
+              {roleOptions.map((r) => (
+                <option key={r} value={r} className="bg-navy-900">
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+            {!isEdit && form.role === 'student' && (
+              <p className="text-amber-200/80 text-xs leading-relaxed">
+                الطالب يُضاف للقائمة المدرسية فقط بدون بريد أو كلمة مرور. سيربط حسابه لاحقاً برقم الهوية.
+              </p>
+            )}
+          </div>
+
+          {(form.role === 'deputy' || form.role === 'supervisor') && (
+            <div className="space-y-1.5 p-4 rounded-xl border border-gold-400/25 bg-gold-500/5">
+              <label className="text-white/80 text-sm font-semibold flex items-center gap-1.5">
+                <School className="w-4 h-4 text-gold-400" />
+                مرحلة {form.role === 'deputy' ? 'الوكيل' : 'المشرف'}
+                {form.role === 'deputy' ? ' *' : ''}
+              </label>
+              <select
+                value={staffEducationLevel}
+                onChange={(e) =>
+                  setStaffEducationLevel(e.target.value as AcademicEducationLevel | '')
+                }
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-gold-400/50 text-sm appearance-none"
+                required={form.role === 'deputy'}
+              >
+                <option value="" className="bg-navy-900">
+                  اختر المرحلة
+                </option>
+                <option value="middle" className="bg-navy-900">
+                  {ACADEMIC_LEVEL_LABELS.middle}
+                </option>
+                <option value="high" className="bg-navy-900">
+                  {ACADEMIC_LEVEL_LABELS.high}
+                </option>
+              </select>
+              <p className="text-white/40 text-xs leading-relaxed">
+                يحدد الفصول والغياب والشؤون الأكاديمية التي يراها هذا الحساب فقط.
+              </p>
+            </div>
+          )}
+
+          {/* Email (create only — ليس للطالب) */}
+          {!isEdit && form.role !== 'student' && (
             <div className="space-y-1.5">
               <label className="text-white/60 text-sm">البريد الإلكتروني</label>
               <div className="relative">
@@ -258,8 +413,8 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
             </div>
           )}
 
-          {/* Password (create only) */}
-          {!isEdit && (
+          {/* Password (create only — ليس للطالب) */}
+          {!isEdit && form.role !== 'student' && (
             <div className="space-y-1.5">
               <label className="text-white/60 text-sm">كلمة المرور</label>
               <div className="relative">
@@ -275,24 +430,6 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
               </div>
             </div>
           )}
-
-          {/* Role */}
-          <div className="space-y-1.5">
-            <label className="text-white/60 text-sm">الدور</label>
-            <select
-              id="modal-role"
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/20 transition-all text-sm appearance-none"
-            >
-              {roleOptions.map((r) => (
-                <option key={r} value={r} className="bg-navy-900">
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Teacher Specific Fields */}
           {form.role === 'teacher' && (
             <div className="p-4 bg-white/3 border border-white/5 rounded-xl space-y-4 animate-fade-in">
@@ -300,13 +437,38 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
                 <label className="text-white/60 text-xs flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5 text-gold-400" /> المادة الدراسية
                 </label>
-                <input
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="مثال: الرياضيات، الفيزياء"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-400/50 text-sm"
-                />
+                {uniqueSubjectNames.length > 0 ? (
+                  <select
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-400/50 text-sm appearance-none"
+                  >
+                    <option value="" className="bg-navy-900">اختر المادة</option>
+                    {uniqueSubjectNames.map((name) => (
+                      <option key={name} value={name} className="bg-navy-900">
+                        {name}
+                      </option>
+                    ))}
+                    {subject && !uniqueSubjectNames.includes(subject) && (
+                      <option value={subject} className="bg-navy-900">
+                        {subject} (محفوظ سابقاً)
+                      </option>
+                    )}
+                  </select>
+                ) : (
+                  <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2.5 space-y-1.5">
+                    <p className="text-amber-100 text-xs leading-relaxed">
+                      لا توجد مواد مسجّلة بعد. أضف المواد من الإدارة الأكاديمية أولاً لتظهر هنا كقائمة.
+                    </p>
+                    <input
+                      type="text"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      placeholder="أو أدخل المادة يدوياً مؤقتاً"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-400/50 text-sm"
+                    />
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-white/60 text-xs flex items-center gap-1.5">
@@ -345,15 +507,18 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
           )}
 
           {form.role === 'student' && (
-            <StudentClassFields
-              admissionNumber={admissionNumber}
-              grade={grade}
-              className={className}
-              onAdmissionNumberChange={setAdmissionNumber}
-              onGradeChange={setGrade}
-              onClassNameChange={setClassName}
-              compact
-            />
+            <div className="space-y-2">
+              <StudentClassFields
+                admissionNumber={admissionNumber}
+                grade={grade}
+                className={className}
+                onAdmissionNumberChange={setAdmissionNumber}
+                onGradeChange={setGrade}
+                onClassNameChange={setClassName}
+                compact
+              />
+              <p className="text-white/35 text-xs">رقم القيد = رقم الهوية الوطنية</p>
+            </div>
           )}
 
           {/* Actions */}
@@ -382,7 +547,11 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
                   جاري الحفظ...
                 </span>
               ) : (
-                isEdit ? 'حفظ التغييرات' : 'إنشاء المستخدم'
+                isEdit
+                  ? 'حفظ التغييرات'
+                  : form.role === 'student'
+                    ? 'إضافة للقائمة المدرسية'
+                    : 'إنشاء المستخدم'
               )}
             </button>
           </div>

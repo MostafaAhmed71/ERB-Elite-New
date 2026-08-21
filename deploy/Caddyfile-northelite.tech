@@ -1,0 +1,16 @@
+# northelite.tech — static SPA (ERB Elite)
+# Add to your Caddyfile (often /etc/caddy/Caddyfile) then: caddy reload --config /etc/caddy/Caddyfile
+
+northelite.tech, www.northelite.tech {
+	root * /var/www/northelite.tech
+	file_server
+	try_files {path} /index.html
+
+	@static path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.webp *.woff2 *.woff *.ttf
+	header @static Cache-Control "public, max-age=604800, immutable"
+
+	@sw path /sw.js
+	header @sw Cache-Control "no-cache, no-store, must-revalidate"
+
+	encode gzip zstd
+}

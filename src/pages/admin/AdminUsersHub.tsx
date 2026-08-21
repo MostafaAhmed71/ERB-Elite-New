@@ -1,17 +1,19 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Users, UserPlus, Shield, KeyRound } from 'lucide-react';
+import { Users, UserPlus, Shield, KeyRound, HeartHandshake } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { UserManagement } from '../../components/admin/UserManagement';
 import { BulkAccountGenerator } from '../../components/users/BulkAccountGenerator';
 import { ManagedAccountsPanel } from '../../components/users/ManagedAccountsPanel';
+import { FamilyDirectoryPanel } from '../../components/users/FamilyDirectoryPanel';
 import { ScreenGuideButton } from '../../components/admin/ScreenGuideButton';
 
-type UsersTab = 'list' | 'bulk' | 'credentials';
+type UsersTab = 'list' | 'family' | 'bulk' | 'credentials';
 
 const TABS: { id: UsersTab; label: string; icon: typeof Users }[] = [
   { id: 'list', label: 'قائمة المستخدمين', icon: Users },
+  { id: 'family', label: 'الطلاب وأولياء الأمور', icon: HeartHandshake },
   { id: 'bulk', label: 'توليد حسابات الفصل', icon: UserPlus },
   { id: 'credentials', label: 'الحسابات المُولَّدة', icon: KeyRound },
 ];
@@ -20,7 +22,13 @@ export function AdminUsersHub() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const activeTab: UsersTab =
-    tabParam === 'bulk' ? 'bulk' : tabParam === 'credentials' ? 'credentials' : 'list';
+    tabParam === 'bulk'
+      ? 'bulk'
+      : tabParam === 'credentials'
+        ? 'credentials'
+        : tabParam === 'family'
+          ? 'family'
+          : 'list';
 
   const setTab = useCallback(
     (tab: UsersTab) => {
@@ -37,7 +45,7 @@ export function AdminUsersHub() {
     <div className="space-y-6" dir="rtl">
       <PageHeader
         title="المستخدمون والحسابات"
-        subtitle="إدارة الحسابات، توليد حسابات الفصل، ومراجعة بيانات الدخول"
+        subtitle="إدارة الحسابات، بيانات الطلاب وأولياء الأمور وأكواد الربط"
         icon={Shield}
         actions={<ScreenGuideButton path="/admin/users" />}
       />
@@ -62,6 +70,7 @@ export function AdminUsersHub() {
       </div>
 
       {activeTab === 'list' && <UserManagement embedded />}
+      {activeTab === 'family' && <FamilyDirectoryPanel />}
       {activeTab === 'bulk' && <BulkAccountGenerator embedded />}
       {activeTab === 'credentials' && <ManagedAccountsPanel />}
     </div>

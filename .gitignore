@@ -11,9 +11,19 @@ coverage/
 # Next.js / React
 .next/
 out/
-build/
+# Vite app output
 dist/
 dev-dist/
+# Keep knowledge-base docs tooling under build/ tracked
+build/*
+!build/README.md
+!build/build-docs.mjs
+!build/docs.css
+!build/assets/
+!build/assets/**
+
+# Generated knowledge-base package
+Olympiad-Knowledge-Base.zip
 
 # Flutter (not used here, but kept for safety)
 .dart_tool/
@@ -55,3 +65,22 @@ Thumbs.db
 # Versioning internals (Restore Points are NOT committed)
 Versions/
 *.zip
+
+# Android release keystore
+android-apk/*.jks
+android-apk/*.keystore
+android-apk/.gradle/
+android-apk/**/build/
+android-apk/local.properties
+
+# Local / bulky / IDE (do not push)
+.bin/
+.cursor/
+ELite/
+wppconnect-master/
+Untitled
+*.temp.jpeg
+public/homework temp.jpeg
+public/plane temp.jpeg
+public/i.jpeg
+

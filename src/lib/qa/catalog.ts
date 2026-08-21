@@ -8,10 +8,13 @@ export type RouteCategory =
   | 'admin'
   | 'supervisor'
   | 'teacher'
+  | 'deputy'
+  | 'reviewer'
   | 'student'
   | 'parent'
   | 'shared'
-  | 'display';
+  | 'display'
+  | 'dev';
 
 export interface QaRouteEntry {
   id: string;
@@ -31,9 +34,11 @@ export const QA_ROUTE_CATALOG: QaRouteEntry[] = [
   { id: 'invite', path: '/invite/demo-token', label: 'قبول دعوة موظف', category: 'public', allowedRoles: 'public', notes: 'استبدل demo-token برمز حقيقي' },
   { id: 'card-student', path: '/card/00000000-0000-0000-0000-000000000001', label: 'بطاقة طالب (عام)', category: 'public', allowedRoles: 'public', notes: 'استبدل UUID بطالب حقيقي' },
   { id: 'card-qr', path: '/card/t/demo-qr', label: 'بطاقة QR', category: 'public', allowedRoles: 'public' },
+  { id: 'support', path: '/support', label: 'الدعم الفني', category: 'shared', allowedRoles: 'authenticated' },
 
-  { id: 'dashboard', path: '/dashboard', label: 'لوحة التحكم', category: 'shared', allowedRoles: ['principal', 'supervisor', 'teacher', 'parent'] },
-  { id: 'board-leaderboard', path: '/board/leaderboard', label: 'لوحة المتصدرين (شاشة كبيرة)', category: 'display', allowedRoles: 'authenticated' },
+  { id: 'dashboard', path: '/dashboard', label: 'لوحة التحكم', category: 'shared', allowedRoles: ['principal', 'supervisor', 'teacher', 'parent', 'deputy', 'reviewer'] },
+  { id: 'display-leaderboard', path: '/display/leaderboard', label: 'لوحة المتصدرين (شاشة كبيرة — عام)', category: 'display', allowedRoles: 'public' },
+  { id: 'board-leaderboard', path: '/board/leaderboard', label: 'لوحة المتصدرين G2 (شاشة كاملة)', category: 'display', allowedRoles: 'authenticated' },
 
   ...ROLE_NAV.principal.map((item, i) => ({
     id: `principal-${i}`,
@@ -74,6 +79,22 @@ export const QA_ROUTE_CATALOG: QaRouteEntry[] = [
     allowedRoles: ['teacher', 'principal'] as UserRole[],
   })),
 
+  ...ROLE_NAV.deputy.map((item, i) => ({
+    id: `deputy-${i}`,
+    path: item.path,
+    label: item.label,
+    category: 'deputy' as const,
+    allowedRoles: ['deputy', 'principal'] as UserRole[],
+  })),
+
+  ...ROLE_NAV.reviewer.map((item, i) => ({
+    id: `reviewer-${i}`,
+    path: item.path,
+    label: item.label,
+    category: 'reviewer' as const,
+    allowedRoles: ['reviewer', 'principal'] as UserRole[],
+  })),
+
   ...ROLE_NAV.student.map((item, i) => ({
     id: `student-${i}`,
     path: item.path,
@@ -93,8 +114,17 @@ export const QA_ROUTE_CATALOG: QaRouteEntry[] = [
     allowedRoles: ['parent', 'principal'] as UserRole[],
   })),
 
+  { id: 'parent-homework', path: '/parent/academic/homework', label: 'واجبات الأبناء', category: 'parent', allowedRoles: ['parent', 'principal'] },
+  { id: 'parent-request', path: '/parent/academic/request', label: 'طلب ملاحظة', category: 'parent', allowedRoles: ['parent', 'principal'] },
+  { id: 'parent-requests', path: '/parent/academic/requests', label: 'طلباتي', category: 'parent', allowedRoles: ['parent', 'principal'] },
+  { id: 'parent-reviews', path: '/parent/academic/reviews', label: 'مراجعات PDF (ولي أمر)', category: 'parent', allowedRoles: ['parent', 'principal'] },
+
   { id: 'principal-student-360', path: '/principal/student/00000000-0000-0000-0000-000000000001', label: 'ملف طالب 360', category: 'principal', allowedRoles: ['principal'], notes: 'استبدل UUID' },
   { id: 'qa-simulator', path: '/qa/simulator', label: 'محاكي الاختبار', category: 'shared', allowedRoles: ['principal', 'admin'] },
+
+  { id: 'dev-home', path: '/dev', label: 'لوحة المطور', category: 'dev', allowedRoles: ['platform_developer'] },
+  { id: 'dev-errors', path: '/dev/errors', label: 'مراقبة الأخطاء', category: 'dev', allowedRoles: ['platform_developer'] },
+  { id: 'dev-support', path: '/dev/support', label: 'صندوق الدعم', category: 'dev', allowedRoles: ['platform_developer'] },
 ];
 
 const seen = new Set<string>();
@@ -111,10 +141,13 @@ export const QA_CATEGORY_LABELS: Record<RouteCategory, string> = {
   admin: 'رائد النشاط',
   supervisor: 'المشرف التربوي',
   teacher: 'المعلم',
+  deputy: 'الوكيل',
+  reviewer: 'المراجع',
   student: 'الطالب',
   parent: 'ولي الأمر',
   shared: 'مشترك',
   display: 'شاشات العرض',
+  dev: 'مطور المنصة',
 };
 
 export function canRoleAccessRoute(role: UserRole | null, entry: QaRouteEntry): 'allowed' | 'denied' | 'public' | 'auth-only' {
@@ -224,9 +257,40 @@ export const QA_SCENARIOS: QaScenario[] = [
     ],
     relatedRoutes: ['/board/leaderboard', '/admin/add-points', '/points/grant'],
   },
+  {
+    id: 'support-ticket',
+    title: 'تذكرة دعم فني',
+    description: 'مستخدم يرسل → مطور يستقبل',
+    steps: [
+      'مستخدم مدرسي يفتح /support ويرسل شكوى',
+      'المطور يفتح /dev/support ويرى التذكرة',
+      'تحديث الحالة من المطور',
+      'التحقق من ظهور الحدث في /dev/errors إن فشل الإرسال',
+    ],
+    relatedRoutes: ['/support', '/dev/support', '/dev/errors'],
+  },
+  {
+    id: 'academic-week',
+    title: 'أسبوع أكاديمي',
+    description: 'واجب + خطة + ولي أمر',
+    steps: [
+      'المعلم (وضع أكاديمي) ينشر واجباً /academic/homework',
+      'يحدّث الخطة الأسبوعية /academic/weekly-plans',
+      'ولي الأمر يرى /parent/academic/homework',
+      'الوكيل يراجع صندوق الملاحظات إن وُجد طلب',
+    ],
+    relatedRoutes: [
+      '/academic/homework',
+      '/academic/weekly-plans',
+      '/parent/academic/homework',
+      '/academic/observation-inbox',
+    ],
+  },
 ];
 
-export const QA_DEMO_ACCOUNTS = [
-  { email: 'admin@elite1448.demo', password: 'Elite1448!', role: 'admin' as const, label: 'رائد النشاط (تجريبي)' },
-  { email: 'student@elite1448.demo', password: 'Elite1448!', role: 'student' as const, label: 'طالب (تجريبي)' },
-];
+export const QA_DEMO_ACCOUNTS: {
+  email: string;
+  password: string;
+  role: 'admin' | 'student';
+  label: string;
+}[] = [];

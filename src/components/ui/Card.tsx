@@ -50,7 +50,7 @@ export function StatCard({
       whileHover={cardHover}
       custom={index}
       className={clsx(
-        'relative overflow-hidden rounded-2xl border p-5 md:p-6 cursor-default transition-all duration-300',
+        'relative overflow-hidden rounded-2xl border p-4 sm:p-5 md:p-6 cursor-default transition-all duration-300',
         isPremium
           ? 'bg-white/5 backdrop-blur-lg border-white/10 hover:border-white/20 hover:bg-white/[0.07]'
           : clsx('backdrop-blur-sm stat-card-shine', bg)
@@ -167,9 +167,9 @@ export function QuickLink({ to, label, icon: Icon, variant = 'default', descript
 
   return (
     <motion.div whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }}>
-      <Link to={to} className="quick-link group">
+      <Link to={to} className="quick-link group min-h-[48px]">
         <Icon className="w-5 h-5 text-gold-400/70 group-hover:text-gold-400 transition-colors shrink-0" />
-        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm font-medium leading-snug">{label}</span>
       </Link>
     </motion.div>
   );

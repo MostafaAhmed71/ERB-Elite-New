@@ -57,7 +57,7 @@ export async function fetchActivitySuggestionsForStaff(): Promise<ActivitySugges
 
   const { data, error } = await supabase
     .from('activity_suggestions')
-    .select('*, students(full_name, grade, class_name)')
+    .select('*, students!student_id(full_name, grade, class_name)')
     .order('votes', { ascending: false });
 
   if (error) throw error;

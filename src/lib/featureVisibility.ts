@@ -36,6 +36,20 @@ export async function fetchFeatureVisibility(): Promise<FeatureVisibilityConfig>
 }
 
 export async function saveFeatureVisibility(config: FeatureVisibilityConfig): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const uid = sessionData.session?.user?.id;
+  if (uid) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', uid)
+      .maybeSingle();
+    if (profile?.role === 'platform_developer') {
+      const { error } = await supabase.rpc('dev_upsert_feature_flags', { p_value: config });
+      if (error) throw error;
+      return;
+    }
+  }
   await saveSchoolSetting('feature_visibility', config);
 }
 

@@ -1,0 +1,13 @@
+{
+  "name": "academic-reminder-scheduler",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node reminder-scheduler.mjs",
+    "run-once": "node reminder-scheduler.mjs --once"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "node-cron": "^3.0.3"
+  }
+}

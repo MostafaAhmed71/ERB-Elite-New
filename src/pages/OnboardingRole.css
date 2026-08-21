@@ -1,0 +1,271 @@
+/* شاشة اختيار الدور — إكمال الحساب */
+.onb-role-shell {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(ellipse 80% 55% at 100% 0%, rgba(240, 180, 41, 0.16), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 0% 100%, rgba(30, 58, 95, 0.55), transparent 50%),
+    linear-gradient(165deg, #070b14 0%, #0d1b2a 48%, #0a1220 100%);
+  font-family: 'Cairo', sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+.onb-role-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(240, 180, 41, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(240, 180, 41, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent);
+  pointer-events: none;
+}
+
+.onb-role-inner {
+  width: min(720px, 100%);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.onb-role-brand {
+  text-align: center;
+}
+
+.onb-role-brand img {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  object-fit: cover;
+  margin: 0 auto 1rem;
+  display: block;
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(240, 180, 41, 0.06);
+}
+
+.onb-role-brand .onb-kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f0b429;
+  background: rgba(240, 180, 41, 0.1);
+  border: 1px solid rgba(240, 180, 41, 0.22);
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+  margin-bottom: 0.85rem;
+}
+
+.onb-role-brand h1 {
+  margin: 0;
+  font-size: clamp(1.55rem, 4vw, 2.1rem);
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.onb-role-brand p {
+  margin: 0.55rem 0 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.onb-role-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .onb-role-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.15rem;
+  }
+}
+
+.onb-role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: right;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.35rem;
+  padding: 1.35rem 1.25rem 1.2rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 220px;
+}
+
+.onb-role-card::after {
+  content: '';
+  position: absolute;
+  inset: auto -20% -40% auto;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.onb-role-card--student {
+  background:
+    linear-gradient(160deg, rgba(240, 180, 41, 0.14) 0%, rgba(15, 23, 42, 0.2) 42%, rgba(10, 15, 26, 0.55) 100%);
+  border-color: rgba(240, 180, 41, 0.28);
+}
+
+.onb-role-card--student::after {
+  background: radial-gradient(circle, rgba(240, 180, 41, 0.45), transparent 70%);
+}
+
+.onb-role-card--parent {
+  background:
+    linear-gradient(160deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.25) 42%, rgba(10, 15, 26, 0.55) 100%);
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+.onb-role-card--parent::after {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.4), transparent 70%);
+}
+
+.onb-role-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.onb-role-card--student:hover {
+  border-color: rgba(240, 180, 41, 0.55);
+}
+
+.onb-role-card--parent:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+.onb-role-card:hover::after {
+  opacity: 0.7;
+}
+
+.onb-role-card:active {
+  transform: translateY(-1px);
+}
+
+.onb-role-icon {
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.onb-role-card--student .onb-role-icon {
+  background: rgba(240, 180, 41, 0.18);
+  color: #f0b429;
+  border: 1px solid rgba(240, 180, 41, 0.3);
+}
+
+.onb-role-card--parent .onb-role-icon {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.onb-role-card h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+.onb-role-card p {
+  margin: 0.45rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.55);
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.onb-role-cta {
+  margin-top: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  position: relative;
+  z-index: 1;
+}
+
+.onb-role-card--student .onb-role-cta {
+  color: #f0b429;
+}
+
+.onb-role-card--parent .onb-role-cta {
+  color: #7dd3fc;
+}
+
+.onb-role-footer {
+  text-align: center;
+}
+
+.onb-role-footer button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.38);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  transition: color 0.15s ease;
+}
+
+.onb-role-footer button:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes onb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.onb-rise {
+  animation: onb-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onb-rise-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.onb-rise-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.onb-rise-delay-3 {
+  animation-delay: 0.24s;
+}

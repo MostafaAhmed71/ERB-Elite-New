@@ -1,57 +1,176 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { QrCode, ShieldAlert, CheckCircle, Lock, User, Award, Shield } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ShieldAlert,
+  CheckCircle,
+  Award,
+  LogIn,
+  User,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
-import { getApprovedPointsTotal, getLevelInfo, type PointEntry } from '../../lib/calculations';
+import { getLevelInfo } from '../../lib/calculations';
 import { TapHandLoader } from '../ui/TapHandLoader';
+import { Button } from '../ui/Button';
+import { showSuccess, showError } from '../../lib/toast';
+import { parsePointsGrantError } from '../../lib/teacherScope';
+import { logAction } from '../../lib/auth';
+import { AXES_KEYS } from '../../lib/pointsReference';
+import type { DbActivity } from '../../types';
 import clsx from 'clsx';
 import { PLATFORM_NAME, PLATFORM_NAME_SHORT } from '../../lib/branding';
+import { getStudentQRUrl } from '../../lib/qr';
+
+type LedgerRow = {
+  id: string;
+  points: number;
+  note: string | null;
+  created_at: string;
+  activity_name: string;
+  category: string;
+};
+
+type PublicCard = {
+  id: string;
+  full_name: string;
+  grade: string;
+  class_name: string;
+  admission_number: string;
+  photo_url: string | null;
+  user_id: string | null;
+  qr_token: string | null;
+  score: number;
+  axes: Record<string, number>;
+  ledger: LedgerRow[];
+};
+
+const AXIS_ORDER = ['activity', 'behavior', 'achievement', 'initiative', 'attendance'] as const;
+
+const CATEGORY_COLORS: Record<string, string> = {
+  activity: 'text-blue-300',
+  behavior: 'text-emerald-300',
+  achievement: 'text-purple-300',
+  initiative: 'text-amber-300',
+  attendance: 'text-cyan-300',
+};
 
 export function StudentCardPage() {
   const { studentId, qrToken } = useParams<{ studentId?: string; qrToken?: string }>();
-  const { user: currentUser, role: currentRole } = useAuthStore();
-  const [passcode, setPasscode] = useState('');
-  const [unlocked, setUnlocked] = useState(false);
-  const [gateError, setGateError] = useState<string | null>(null);
+  const { user, role } = useAuthStore();
+  const queryClient = useQueryClient();
 
-  // 1. Fetch Student Card Data
-  const { data: student, isLoading, error } = useQuery({
+  const [selectedActivity, setSelectedActivity] = useState('');
+  const [customPoints, setCustomPoints] = useState<number | ''>('');
+  const [note, setNote] = useState('');
+
+  const canGrant =
+    !!user &&
+    (role === 'teacher' || role === 'admin' || role === 'activity_leader');
+  const canDirectApprove = role === 'admin' || role === 'activity_leader';
+
+  const {
+    data: student,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['public', 'student', 'card', studentId, qrToken],
-    queryFn: async () => {
-      let resolvedId = studentId;
-      if (qrToken) {
-        const { data: sid, error: rpcErr } = await supabase.rpc('get_student_id_by_qr_token', { p_token: qrToken });
-        if (rpcErr || !sid) throw rpcErr ?? new Error('رمز غير صالح');
-        resolvedId = sid as string;
-      }
-      if (!resolvedId) return null;
-      const { data: sData, error: sErr } = await supabase
-        .from('students')
-        .select('*')
-        .eq('id', resolvedId)
-        .single();
-      if (sErr) throw sErr;
+    queryFn: async (): Promise<(PublicCard & { level: ReturnType<typeof getLevelInfo> }) | null> => {
+      const { data, error: rpcErr } = await supabase.rpc('get_public_student_card', {
+        p_student_id: studentId ?? null,
+        p_qr_token: qrToken ?? null,
+      });
 
-      const { data: ledger, error: lErr } = await supabase
-        .from('points_ledger')
-        .select('points, status, activity_id, activities(category)')
-        .eq('student_id', resolvedId)
-        .eq('status', 'approved');
-      if (lErr) throw lErr;
+      if (rpcErr) throw rpcErr;
+      if (!data) return null;
 
-      const score = getApprovedPointsTotal((ledger || []) as unknown as PointEntry[]);
-      const level = getLevelInfo(score);
-
+      const card = data as PublicCard;
+      const score = Number(card.score) || 0;
       return {
-        ...sData,
+        ...card,
         score,
-        level,
+        axes: (card.axes && typeof card.axes === 'object' ? card.axes : {}) as Record<string, number>,
+        ledger: Array.isArray(card.ledger) ? card.ledger : [],
+        level: getLevelInfo(score),
       };
     },
     enabled: !!(studentId || qrToken),
   });
+
+  const { data: activities = [] } = useQuery({
+    queryKey: ['activities', 'active', 'card-grant'],
+    queryFn: async () => {
+      const { data, error: aErr } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      if (aErr) throw aErr;
+      return (data as DbActivity[]).filter(
+        (a) => a.id !== 'e1111111-1111-4111-8111-111111111101',
+      );
+    },
+    enabled: canGrant,
+  });
+
+  const selectedActivityData = activities.find((a) => a.id === selectedActivity);
+  const pointsToApply =
+    customPoints !== '' ? Number(customPoints) : (selectedActivityData?.default_points ?? 0);
+
+  const grantMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !student) throw new Error('غير مصرح');
+      if (!selectedActivity) throw new Error('اختر نشاطاً');
+      if (pointsToApply <= 0) throw new Error('النقاط يجب أن تكون أكبر من صفر');
+
+      const now = new Date().toISOString();
+      const row = {
+        student_id: student.id,
+        granted_by: user.id,
+        activity_id: selectedActivity,
+        points: pointsToApply,
+        note: note.trim() || null,
+        status: (canDirectApprove ? 'approved' : 'pending') as 'approved' | 'pending',
+        approved_by: canDirectApprove ? user.id : null,
+        approved_at: canDirectApprove ? now : null,
+        first_approved_by: canDirectApprove ? user.id : null,
+        first_approved_at: canDirectApprove ? now : null,
+        rejection_reason: null,
+        academic_year: new Date().getFullYear().toString(),
+      };
+
+      const { error: insertErr } = await supabase.from('points_ledger').insert([row]);
+      if (insertErr) throw new Error(parsePointsGrantError(insertErr.message));
+
+      await logAction('POINTS_GRANTED', 'points_ledger', undefined, {
+        students: 1,
+        activity: selectedActivity,
+        points: pointsToApply,
+        source: 'qr_card',
+      });
+    },
+    onSuccess: () => {
+      showSuccess(
+        canDirectApprove
+          ? `تم منح ${pointsToApply} نقطة بنجاح`
+          : `تم إرسال طلب منح ${pointsToApply} نقطة — بانتظار الاعتماد`,
+      );
+      setNote('');
+      setCustomPoints('');
+      queryClient.invalidateQueries({ queryKey: ['public', 'student', 'card', studentId, qrToken] });
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'budget'] });
+    },
+    onError: (e: Error) => showError(e),
+  });
+
+  const axisRows = useMemo(() => {
+    if (!student) return [];
+    return AXIS_ORDER.map((key) => ({
+      key,
+      label: AXES_KEYS[key] ?? key,
+      value: Number(student.axes?.[key] ?? 0),
+    })).filter((r) => r.value > 0 || ['activity', 'behavior', 'achievement', 'initiative'].includes(r.key));
+  }, [student]);
 
   if (isLoading) {
     return (
@@ -62,105 +181,256 @@ export function StudentCardPage() {
   }
 
   if (error || !student) {
+    const detail =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error && 'message' in error
+          ? String((error as { message: string }).message)
+          : null;
+    const needsMigration =
+      !!detail &&
+      (detail.includes('get_public_student_card') ||
+        detail.includes('schema cache') ||
+        detail.includes('Could not find the function'));
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-navy-950 text-white p-6" dir="rtl">
         <div className="bg-navy-900 border border-red-500/20 max-w-sm w-full p-6 rounded-2xl text-center space-y-4">
           <ShieldAlert className="w-12 h-12 text-red-500 mx-auto" />
           <h2 className="text-lg font-bold">فشل تحميل بطاقة الطالب</h2>
-          <p className="text-white/40 text-xs">تأكد من صحة الرابط أو رمز الاستجابة QR الممسوح.</p>
+          <p className="text-white/40 text-xs leading-relaxed">
+            {needsMigration
+              ? 'يلزم تطبيق SQL بطاقة الطالب من Supabase (fix-public-student-card.sql).'
+              : 'تأكد من صحة الرابط أو رمز الاستجابة QR الممسوح.'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Determine if user has direct access
-  const isOwner = currentUser && student.user_id === currentUser.id;
-  const isAdmin = currentRole === 'admin' || currentRole === 'activity_leader';
-  const hasDirectAccess = isOwner || isAdmin || unlocked;
-
-  const handleGateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setGateError(null);
-    // Validate passcode (use student's admission number as validation passcode)
-    if (passcode.trim() === student.admission_number) {
-      setUnlocked(true);
-      toastSuccess();
-    } else {
-      setGateError('الرقم الأكاديمي المدخل غير صحيح');
-    }
-  };
-
-  const toastSuccess = () => {
-    // Just a placeholder helper since toast isn't imported
-  };
-
   const scorePercent = student.level.nextMin
-    ? Math.round(((student.score - student.level.min) / (student.level.nextMin - student.level.min)) * 100)
+    ? Math.round(
+        ((student.score - student.level.min) / (student.level.nextMin - student.level.min)) * 100,
+      )
     : 100;
 
-  const qrCodeApi = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`;
+  const cardUrl = getStudentQRUrl(student.id, student.qr_token);
+  const qrCodeApi = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(cardUrl)}`;
+  const grantDeepLink = `/points/grant?studentId=${encodeURIComponent(student.id)}`;
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-navy-950 text-white p-4 font-cairo" dir="rtl">
-      {!hasDirectAccess ? (
-        /* passcode gate screen */
-        <div className="bg-navy-900 border border-white/5 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 bg-gold-400/10 rounded-2xl flex items-center justify-center mx-auto text-gold-400">
-              <Lock className="w-6 h-6" />
-            </div>
-            <h2 className="text-lg font-bold">بوابة التحقق من الهوية</h2>
-            <p className="text-white/40 text-xs">تتطلب هذه البطاقة إدخال الرقم الأكاديمي للطالب لعرض الرصيد الكامل.</p>
-          </div>
-
-          <div className="p-4 bg-white/3 border border-white/5 rounded-2xl text-center">
-            <h3 className="text-white font-bold text-sm">{student.full_name}</h3>
-            <p className="text-white/40 text-xs mt-1">{student.grade} • {student.class_name}</p>
-          </div>
-
-          <form onSubmit={handleGateSubmit} className="space-y-4">
-            {gateError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" />
-                {gateError}
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <label className="text-white/60 text-xs">أدخل الرقم الأكاديمي للطالب</label>
-              <input
-                type="text"
-                required
-                value={passcode}
-                onChange={e => setPasscode(e.target.value)}
-                placeholder="الرقم الأكاديمي (مثال: 1448001)"
-                className="w-full bg-navy-950 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/20 focus:outline-none focus:border-gold-400/50 text-sm"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-400 text-navy-950 font-bold text-sm hover:shadow-lg hover:shadow-gold-500/20 transition-all"
-            >
-              عرض رصيد التميز
-            </button>
-          </form>
-        </div>
+  const ledgerBlock = (
+    <div className="bg-navy-900 border border-white/5 rounded-3xl p-5 space-y-3">
+      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+        <Award className="w-4 h-4 text-gold-400" />
+        سجل الطالب
+        <span className="text-white/35 text-xs font-normal">({student.ledger.length})</span>
+      </h3>
+      {student.ledger.length === 0 ? (
+        <p className="text-white/35 text-xs text-center py-4">لا توجد نقاط معتمدة بعد</p>
       ) : (
-        /* profile display screen */
-        <div className="bg-navy-900 border border-white/5 w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-6 relative overflow-hidden">
-          {/* Card branding header */}
-          <div className="flex justify-between items-start border-b border-white/5 pb-4">
-            <div>
-              <h2 className="text-white font-black text-lg leading-tight">{student.full_name}</h2>
-              <p className="text-white/40 text-xs mt-1">{student.grade} • {student.class_name}</p>
-              <p className="text-white/20 text-[10px] font-mono mt-0.5">الرقم: {student.admission_number}</p>
+        <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+          {student.ledger.map((row) => (
+            <li
+              key={row.id}
+              className="flex items-start justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <p className="text-white text-xs font-medium truncate">{row.activity_name}</p>
+                <p className="text-white/35 text-[10px] mt-0.5">
+                  {new Date(row.created_at).toLocaleDateString('ar-SA', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                  {row.note ? ` • ${row.note}` : ''}
+                </p>
+              </div>
+              <span
+                className={clsx(
+                  'font-mono text-sm font-bold shrink-0',
+                  row.points >= 0 ? 'text-emerald-400' : 'text-red-400',
+                )}
+              >
+                {row.points > 0 ? `+${row.points}` : row.points}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const grantBlock = (
+    <div className="bg-navy-900 border border-gold-500/20 rounded-3xl p-5 space-y-4">
+      <div>
+        <h3 className="text-sm font-bold text-gold-300 flex items-center gap-2">
+          <Award className="w-4 h-4" />
+          منح نقاط
+        </h3>
+        <p className="text-white/40 text-[11px] mt-1">
+          {canDirectApprove
+            ? 'كرائد نشاط — تُعتمد النقاط فوراً'
+            : 'كمعلم — يُرسل الطلب للاعتماد'}
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-white/55 text-xs">النشاط</label>
+        <select
+          value={selectedActivity}
+          onChange={(e) => setSelectedActivity(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm appearance-none"
+        >
+          <option value="" className="bg-navy-900">
+            اختر نشاطاً
+          </option>
+          {activities.map((a) => (
+            <option key={a.id} value={a.id} className="bg-navy-900">
+              {a.name} ({a.default_points})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-white/55 text-xs">النقاط</label>
+        <input
+          type="number"
+          min={1}
+          value={customPoints}
+          onChange={(e) =>
+            setCustomPoints(e.target.value === '' ? '' : Number(e.target.value))
+          }
+          placeholder={
+            selectedActivityData ? String(selectedActivityData.default_points) : '0'
+          }
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-white/55 text-xs">ملاحظة (اختياري)</label>
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="سبب المنح..."
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"
+        />
+      </div>
+
+      <Button
+        className="w-full"
+        size="lg"
+        loading={grantMutation.isPending}
+        disabled={!selectedActivity || pointsToApply <= 0}
+        onClick={() => grantMutation.mutate()}
+      >
+        منح {pointsToApply > 0 ? pointsToApply : ''} نقطة
+      </Button>
+
+      <Link
+        to={grantDeepLink}
+        className="block text-center text-xs text-gold-400/80 hover:text-gold-300"
+      >
+        فتح صفحة المنح الكاملة ←
+      </Link>
+    </div>
+  );
+
+  // معلم / رائد: سجل + منح فقط (بدون بطاقة QR)
+  if (canGrant) {
+    return (
+      <div className="min-h-screen bg-navy-950 text-white p-4 font-cairo pb-10" dir="rtl">
+        <div className="max-w-lg mx-auto space-y-4">
+          <div className="bg-navy-900 border border-white/5 rounded-3xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              {student.photo_url ? (
+                <img
+                  src={student.photo_url}
+                  alt=""
+                  className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gold-500/15 border border-gold-500/20 flex items-center justify-center shrink-0">
+                  <User className="w-6 h-6 text-gold-400" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-white/40 text-[10px] mb-0.5">سجل الطالب</p>
+                <h2 className="text-white font-bold text-base leading-tight truncate">
+                  {student.full_name}
+                </h2>
+                <p className="text-white/45 text-xs mt-1">
+                  {student.grade} • {student.class_name} • {student.admission_number}
+                </p>
+              </div>
+              <div className="text-left shrink-0">
+                <p className="text-gold-400 font-black font-mono text-xl leading-none">
+                  {student.score}
+                </p>
+                <p className="text-white/35 text-[10px] mt-0.5">نقطة</p>
+              </div>
             </div>
-            <span className="text-[10px] px-2.5 py-1 rounded-full border border-gold-500/20 bg-gold-500/5 text-gold-400 font-bold">
+
+            <div className="grid grid-cols-2 gap-2">
+              {axisRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2"
+                >
+                  <p className="text-white/40 text-[10px]">{row.label}</p>
+                  <p className={clsx('text-sm font-bold font-mono mt-0.5', CATEGORY_COLORS[row.key])}>
+                    {row.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {ledgerBlock}
+          {grantBlock}
+        </div>
+      </div>
+    );
+  }
+
+  // زائر / طالب / ولي: البطاقة العامة + السجل
+  return (
+    <div className="min-h-screen bg-navy-950 text-white p-4 font-cairo pb-10" dir="rtl">
+      <div className="max-w-lg mx-auto space-y-4">
+        <div className="bg-navy-900 border border-white/5 rounded-3xl p-5 shadow-2xl space-y-5 overflow-hidden">
+          <div className="flex justify-between items-start gap-3 border-b border-white/5 pb-4">
+            <div className="flex items-start gap-3 min-w-0">
+              {student.photo_url ? (
+                <img
+                  src={student.photo_url}
+                  alt=""
+                  className="w-14 h-14 rounded-2xl object-cover border border-white/10 shrink-0"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-gold-500/15 border border-gold-500/20 flex items-center justify-center shrink-0">
+                  <User className="w-7 h-7 text-gold-400" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <h2 className="text-white font-black text-lg leading-tight truncate">
+                  {student.full_name}
+                </h2>
+                <p className="text-white/45 text-xs mt-1">
+                  {student.grade} • {student.class_name}
+                </p>
+                <p className="text-white/25 text-[10px] font-mono mt-0.5">
+                  الرقم: {student.admission_number}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-full border border-gold-500/20 bg-gold-500/5 text-gold-400 font-bold shrink-0">
               {PLATFORM_NAME_SHORT}
             </span>
           </div>
 
-          {/* QR and Points section */}
-          <div className="flex justify-between items-center gap-4 py-2">
+          <div className="flex justify-between items-center gap-4">
             <div className="space-y-3 flex-1">
               <div>
                 <span className="text-white/40 text-[10px]">إجمالي نقاط التميز</span>
@@ -170,33 +440,67 @@ export function StudentCardPage() {
                 </div>
               </div>
               <div>
-                <span className="text-white/40 text-[10px]">مستوى التميز الحالي</span>
-                <p className={clsx('text-xs font-bold mt-0.5', student.level.color)}>{student.level.name}</p>
+                <span className="text-white/40 text-[10px]">المستوى</span>
+                <p className={clsx('text-xs font-bold mt-0.5', student.level.color)}>
+                  {student.level.name}
+                </p>
               </div>
             </div>
             <div className="w-24 h-24 bg-white p-1.5 rounded-2xl shrink-0 shadow-lg shadow-black/30">
-              <img src={qrCodeApi} alt="QR Code" className="w-full h-full object-contain" />
+              <img src={qrCodeApi} alt="QR" className="w-full h-full object-contain" />
             </div>
           </div>
 
-          {/* Progress to next level */}
-          <div className="space-y-1.5 pt-2">
+          <div className="space-y-1.5">
             <div className="flex justify-between text-[10px] text-white/50">
-              <span>تقدم مستوى {PLATFORM_NAME_SHORT}</span>
-              <span>{student.level.nextMin ? `${student.score} / ${student.level.nextMin} ن` : 'الحد الأقصى'}</span>
+              <span>تقدم المستوى</span>
+              <span>
+                {student.level.nextMin
+                  ? `${student.score} / ${student.level.nextMin} ن`
+                  : 'الحد الأقصى'}
+              </span>
             </div>
             <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-              <div className={clsx('h-full transition-all duration-300', student.level.progressBg)} style={{ width: `${scorePercent}%` }} />
+              <div
+                className={clsx('h-full transition-all duration-300', student.level.progressBg)}
+                style={{ width: `${Math.min(100, Math.max(0, scorePercent))}%` }}
+              />
             </div>
           </div>
 
-          {/* Card footer verification */}
-          <div className="text-center text-[9px] border-t border-white/5 pt-4 text-white/20 flex items-center justify-center gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            {axisRows.map((row) => (
+              <div
+                key={row.key}
+                className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2"
+              >
+                <p className="text-white/40 text-[10px]">{row.label}</p>
+                <p className={clsx('text-sm font-bold font-mono mt-0.5', CATEGORY_COLORS[row.key])}>
+                  {row.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center text-[9px] border-t border-white/5 pt-3 text-white/20 flex items-center justify-center gap-1.5">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-            بطاقة ذكية معتمدة ومسجلة في {PLATFORM_NAME}
+            بطاقة معتمدة في {PLATFORM_NAME}
           </div>
         </div>
-      )}
+
+        {ledgerBlock}
+
+        <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center space-y-3">
+          <p className="text-white/55 text-xs leading-relaxed">
+            لمنح نقاط لهذا الطالب سجّل دخولك كمعلم أو رائد نشاط ثم امسح البطاقة مرة أخرى.
+          </p>
+          <Link to="/login">
+            <Button variant="secondary" size="md" icon={<LogIn className="w-4 h-4" />}>
+              تسجيل الدخول للمنح
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

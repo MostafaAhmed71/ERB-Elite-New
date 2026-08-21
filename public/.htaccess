@@ -1,22 +1,23 @@
-# SPA fallback for React Router (Hostinger / Apache / LiteSpeed)
-# Without this, refreshing /login or any route returns "Page Not Found".
+# Hostinger shared hosting — SPA (React Router)
+# إن ظهرت صفحة "This Page Does Not Exist" من Hostinger:
+# hPanel → Advanced → Error Pages → 404 → اختر الملف index.html من موقعك (أو Default إن وُجد 404.html)
 
-ErrorDocument 404 /index.html
+DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  Options -MultiViews
 
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^ - [L]
+  RewriteRule ^index\.html$ - [L]
+  RewriteRule ^index\.php$ - [L]
+  RewriteRule ^api/ - [L]
+  RewriteRule ^uploads/ - [L]
 
-  RewriteRule ^ index.html [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L,QSA]
 </IfModule>
 
-<FilesMatch "^(index\.html|404\.html)$">
-  <IfModule mod_headers.c>
-    Header set Cache-Control "no-cache, no-store, must-revalidate"
-  </IfModule>
-</FilesMatch>
+# عند تفعيل Error Pages الافتراضية في Hostinger يُفضَّل index.html ليبقى المسار في شريط العنوان
+ErrorDocument 404 /index.html
+ErrorDocument 403 /index.html

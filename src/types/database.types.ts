@@ -8,8 +8,11 @@ export type UserRole =
   | 'admin'
   | 'supervisor'
   | 'teacher'
+  | 'deputy'
+  | 'reviewer'
   | 'parent'
-  | 'student';
+  | 'student'
+  | 'platform_developer';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late';
 export type PointsStatus = 'pending' | 'pending_principal' | 'approved' | 'rejected';
@@ -26,6 +29,10 @@ export type DbUser = {
   is_first_login: boolean;
   weekly_email_opt_in: boolean;
   absence_push_opt_in?: boolean;
+  staff_education_level?: 'middle' | 'high' | null;
+  phone?: string | null;
+  national_id?: string | null;
+  onboarding_completed?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -40,6 +47,8 @@ export type DbStudent = {
   class_name: string;
   date_of_birth: string | null;
   phone: string | null;
+  national_id?: string | null;
+  link_code?: string | null;
   is_active: boolean;
   academic_year: string;
   qr_token: string | null;
@@ -106,6 +115,8 @@ export type DbPointsLedger = {
   activity_id: string | null;
   points: number;
   note: string | null;
+  /** شواهد اختيارية (صور/PDF) */
+  evidence_urls: string[] | null;
   status: PointsStatus;
   approved_by: string | null;
   approved_at: string | null;
@@ -383,6 +394,10 @@ export type Database = {
       get_student_id_by_qr_token: {
         Args: { p_token: string };
         Returns: string | null;
+      };
+      get_public_student_card: {
+        Args: { p_student_id?: string | null; p_qr_token?: string | null };
+        Returns: Record<string, unknown> | null;
       };
       rotate_student_qr_tokens: {
         Args: { p_term: string };

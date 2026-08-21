@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Gift, ShoppingBag } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import clsx from 'clsx';
 import { useStudentMetrics } from '../../hooks/useStudentMetrics';
 import {
   fetchActiveRewards,
@@ -9,7 +7,7 @@ import {
   redeemReward,
 } from '../../lib/rewardsStore';
 import { showSuccess, showError } from '../../lib/toast';
-import { PageHeader, TapHandLoader } from '../../components/ui';
+import { PageHeader, TapHandLoader, EmptyState } from '../../components/ui';
 import { Button } from '../../components/ui/Button';
 
 type Props = {
@@ -58,14 +56,12 @@ export function RewardsStorePage({ studentId, studentName }: Props) {
       />
 
       {!config?.enabled ? (
-        <div className="glass-card p-8 text-center space-y-2">
-          <Gift className="w-10 h-10 text-white/20 mx-auto" />
-          <p className="text-white font-semibold">المتجر غير مفعّل حالياً</p>
-          <p className="text-white/40 text-sm">سيتم تفعيله بقرار من إدارة المدرسة قريباً — G4</p>
-          <Link to="/student" className="text-gold-400 text-sm hover:underline inline-block mt-2">
-            العودة للوحة
-          </Link>
-        </div>
+        <EmptyState
+          icon={Gift}
+          title="المتجر غير مفعّل حالياً"
+          description="سيُفعَّل بقرار من إدارة المدرسة. يمكنك متابعة نقاطك ومكافآتك من لوحتك."
+          action={{ label: 'العودة للوحة', to: '/dashboard' }}
+        />
       ) : (
         <>
           <div className="glass-card p-4 flex items-center justify-between">
@@ -74,7 +70,11 @@ export function RewardsStorePage({ studentId, studentName }: Props) {
           </div>
 
           {items.length === 0 ? (
-            <p className="text-white/30 text-center py-12">لا توجد مكافآت معروضة حالياً</p>
+            <EmptyState
+              icon={Gift}
+              title="لا مكافآت معروضة"
+              description="لم تُضف إدارة المدرسة مكافآت نشطة بعد."
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {items.map((item) => {

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
-import type { ClassRankEntry, LeaderboardTab, StudentRankEntry } from './types';
+import type { ClassRankEntry, LeaderboardPeriod, LeaderboardTab, StudentRankEntry } from './types';
 import { LeaderboardTabs } from './LeaderboardTabs';
 import { StudentPodium, StudentRankList } from './StudentRankList';
 import { ClassPodium, ClassRankList } from './ClassRankList';
+import { LeaderboardPeriodTabs, applyPeriodPlaceholder } from './LeaderboardShared';
 
 type DualLeaderboardPanelProps = {
   students: StudentRankEntry[];
@@ -24,14 +25,21 @@ export function DualLeaderboardPanel({
   className,
 }: DualLeaderboardPanelProps) {
   const [tab, setTab] = useState<LeaderboardTab>(initialTab);
+  const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
 
+  // TODO: wire to backend date-range filter
+  applyPeriodPlaceholder(period, tab === 'students' ? students : classes);
+
   return (
     <div className={clsx('space-y-5', className)} dir="rtl">
-      {showTabs && <LeaderboardTabs active={tab} onChange={setTab} large={displayMode} />}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {showTabs && <LeaderboardTabs active={tab} onChange={setTab} large={displayMode} />}
+        <LeaderboardPeriodTabs value={period} onChange={setPeriod} />
+      </div>
 
       <AnimatePresence mode="wait">
         {tab === 'students' ? (
@@ -42,8 +50,12 @@ export function DualLeaderboardPanel({
             exit={{ opacity: 0, y: -8 }}
             className="space-y-5"
           >
-            {students.length >= 3 && <StudentPodium students={students} />}
-            <StudentRankList students={students} compact={displayMode} />
+            {students.length > 0 && <StudentPodium students={students} />}
+            <StudentRankList
+              students={students}
+              compact={displayMode}
+              startFromRank={students.length > 0 ? 4 : 1}
+            />
           </motion.div>
         ) : (
           <motion.div
@@ -53,8 +65,12 @@ export function DualLeaderboardPanel({
             exit={{ opacity: 0, y: -8 }}
             className="space-y-5"
           >
-            {classes.length >= 3 && <ClassPodium classes={classes} />}
-            <ClassRankList classes={classes} compact={displayMode} />
+            {classes.length > 0 && <ClassPodium classes={classes} />}
+            <ClassRankList
+              classes={classes}
+              compact={displayMode}
+              startFromRank={classes.length > 0 ? 4 : 1}
+            />
           </motion.div>
         )}
       </AnimatePresence>

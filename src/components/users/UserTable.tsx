@@ -1,6 +1,7 @@
 import { Pencil, ToggleLeft, ToggleRight, Trash2, Users } from 'lucide-react';
 import type { DbUser } from '../../types';
 import { ROLE_LABELS, ROLE_COLORS } from '../../types';
+import { ACADEMIC_LEVEL_LABELS } from '../../lib/academic/constants';
 import clsx from 'clsx';
 import { DataTable } from '../ui/DataTable';
 
@@ -59,6 +60,7 @@ export function UserTable({
               )}
               <th className="px-6 py-4 text-right text-white/40 font-medium">المستخدم</th>
               <th className="px-6 py-4 text-right text-white/40 font-medium">البريد الإلكتروني</th>
+              <th className="px-6 py-4 text-right text-white/40 font-medium hidden lg:table-cell">الجوال</th>
               <th className="px-6 py-4 text-right text-white/40 font-medium">الدور</th>
               <th className="px-6 py-4 text-right text-white/40 font-medium">الحالة</th>
               <th className="px-6 py-4 text-right text-white/40 font-medium">آخر نشاط</th>
@@ -88,10 +90,22 @@ export function UserTable({
                   </div>
                 </td>
                 <td className="px-6 py-4 text-white/50 font-mono text-xs">{user.email}</td>
+                <td className="px-6 py-4 text-white/50 font-mono text-xs hidden lg:table-cell" dir="ltr">
+                  {user.phone || '—'}
+                </td>
                 <td className="px-6 py-4">
-                  <span className={clsx('px-2.5 py-1 rounded-full text-xs border font-medium', ROLE_COLORS[user.role])}>
-                    {ROLE_LABELS[user.role]}
-                  </span>
+                  <div className="flex flex-col items-start gap-1">
+                    <span className={clsx('px-2.5 py-1 rounded-full text-xs border font-medium', ROLE_COLORS[user.role])}>
+                      {ROLE_LABELS[user.role]}
+                    </span>
+                    {user.role === 'deputy' && (
+                      <span className="text-[11px] text-white/45">
+                        {user.staff_education_level === 'middle' || user.staff_education_level === 'high'
+                          ? ACADEMIC_LEVEL_LABELS[user.staff_education_level]
+                          : 'بدون مرحلة — عدّل الحساب'}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <span className={clsx(

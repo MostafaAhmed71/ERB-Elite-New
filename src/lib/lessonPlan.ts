@@ -1,5 +1,13 @@
 import { supabase } from './supabase';
 
+function isMissingTableError(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    (error.message?.includes('schema cache') ?? false)
+  );
+}
+
 export type LessonPlan = {
   id: string;
   teacher_user_id: string;
@@ -32,7 +40,7 @@ export async function fetchTeacherLessonPlans(userId: string): Promise<LessonPla
     .order('lesson_date', { ascending: false })
     .limit(30);
   if (error) {
-    if (error.code === '42P01') return [];
+    if (isMissingTableError(error)) return [];
     throw error;
   }
   return (data ?? []) as LessonPlan[];

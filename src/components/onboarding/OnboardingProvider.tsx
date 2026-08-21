@@ -33,6 +33,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!role || steps.length === 0 || isTourCompleted(role)) return;
+    try {
+      if (sessionStorage.getItem('northElitePromoTour') === '1') return;
+    } catch {
+      /* ignore */
+    }
     const timer = setTimeout(() => {
       setTourStep(0);
       setTourOpen(true);

@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>اختبار المنصة — أولمبياد النخبة</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #1e3a5f;
+      --navy-deep: #0a1524;
+      --gold: #f0b429;
+      --gold-soft: rgba(240, 180, 41, 0.16);
+      --ok: #34d399;
+      --ok-bg: rgba(52, 211, 153, 0.14);
+      --bad: #f87171;
+      --bad-bg: rgba(248, 113, 113, 0.14);
+      --bg: #0b1524;
+      --card: #142338;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --line: rgba(148, 163, 184, 0.22);
+      --radius: 20px;
+      --shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Tajawal, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(800px 420px at 90% -5%, rgba(240, 180, 41, 0.14), transparent 55%),
+        radial-gradient(700px 400px at 0% 100%, rgba(30, 58, 95, 0.9), transparent 50%),
+        linear-gradient(165deg, #071018 0%, var(--bg) 45%, #0d1b2a 100%);
+      background-attachment: fixed;
+    }
+    button, input, select, textarea { font-family: inherit; }
+    .app { width: min(440px, 100%); margin: 0 auto; padding: 1.1rem 1rem 2rem; min-height: 100dvh; }
+
+    /* —— Home —— */
+    .home-hero {
+      background: linear-gradient(145deg, #1a3358 0%, #122742 55%, #0e1f36 100%);
+      color: #fff;
+      border: 1px solid rgba(240, 180, 41, 0.28);
+      border-radius: 24px;
+      padding: 1.35rem 1.25rem 1.4rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.1rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .home-hero::after {
+      content: "";
+      position: absolute; inset: auto -20% -40% auto;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: rgba(240, 180, 41, 0.18);
+    }
+    .home-hero .eyebrow {
+      display: inline-block; font-size: 0.72rem; font-weight: 800;
+      background: rgba(255,255,255,0.1); padding: 0.25rem 0.6rem; border-radius: 999px;
+      margin-bottom: 0.7rem;
+    }
+    .home-hero h1 { margin: 0; font-size: 1.45rem; font-weight: 800; line-height: 1.35; position: relative; }
+    .home-hero p { margin: 0.45rem 0 1.1rem; color: rgba(255,255,255,0.68); font-size: 0.9rem; font-weight: 500; position: relative; }
+    .progress-row {
+      display: flex; align-items: center; gap: 0.75rem; position: relative;
+      background: rgba(0,0,0,0.28); border-radius: 14px; padding: 0.65rem 0.75rem;
+      margin-bottom: 0.9rem;
+    }
+    .progress-row .num { font-size: 1.25rem; font-weight: 800; color: #ffd76a; min-width: 3rem; }
+    .progress-row .track { flex: 1; height: 8px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; }
+    .progress-row .track > i { display: block; height: 100%; background: linear-gradient(90deg, #d4920f, #ffd76a); border-radius: 999px; width: 0%; transition: width .3s; }
+    .btn-main {
+      width: 100%; border: none; border-radius: 14px; padding: 0.95rem;
+      background: linear-gradient(135deg, #ffd76a, var(--gold));
+      color: #0b1524; font-weight: 800; font-size: 1rem; cursor: pointer;
+      position: relative;
+    }
+    .btn-main:active { transform: scale(0.98); }
+    .btn-ghost {
+      width: 100%; margin-top: 0.45rem; border: 1px solid rgba(255,255,255,0.22);
+      background: transparent; color: #fff; border-radius: 14px; padding: 0.75rem;
+      font-weight: 700; font-size: 0.88rem; cursor: pointer; position: relative;
+    }
+
+    .section-label {
+      margin: 0 0 0.55rem; font-size: 0.78rem; font-weight: 800; color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .list { display: flex; flex-direction: column; gap: 0.45rem; }
+    .row {
+      display: flex; align-items: center; gap: 0.75rem; width: 100%;
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      padding: 0.85rem 0.95rem; text-align: right; cursor: pointer; color: inherit;
+      box-shadow: var(--shadow); transition: border-color .15s, transform .12s;
+    }
+    .row:active { transform: scale(0.99); }
+    .row.done { border-color: rgba(52, 211, 153, 0.45); background: rgba(52, 211, 153, 0.08); }
+    .row .badge {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+      display: grid; place-items: center; font-weight: 800; font-size: 0.85rem;
+      background: var(--gold-soft); color: var(--gold);
+    }
+    .row.done .badge { background: var(--ok-bg); color: var(--ok); }
+    .row .txt { flex: 1; min-width: 0; }
+    .row .txt strong { display: block; font-size: 0.95rem; font-weight: 800; }
+    .row .txt span { font-size: 0.75rem; color: var(--muted); font-weight: 700; }
+    .row .pct { font-size: 0.8rem; font-weight: 800; color: var(--gold); }
+
+    .tools {
+      display: flex; justify-content: center; gap: 0.75rem; margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .tools button {
+      border: none; background: none; color: var(--muted); font-size: 0.78rem;
+      font-weight: 700; cursor: pointer; padding: 0.35rem;
+    }
+    .tools button:hover { color: var(--gold); }
+
+    /* —— Play —— */
+    .play-top {
+      display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.85rem;
+    }
+    .icon-btn {
+      width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line);
+      background: var(--card); cursor: pointer; font-size: 1.1rem; font-weight: 800; color: var(--text);
+      flex-shrink: 0; box-shadow: var(--shadow);
+    }
+    .play-top .mid { flex: 1; min-width: 0; }
+    .play-top .mid strong { display: block; font-size: 0.95rem; font-weight: 800; }
+    .play-top .mid span { font-size: 0.75rem; color: var(--muted); font-weight: 700; }
+    .chip {
+      background: var(--gold-soft); color: var(--gold); font-size: 0.75rem; font-weight: 800;
+      padding: 0.35rem 0.65rem; border-radius: 999px;
+      border: 1px solid rgba(240, 180, 41, 0.35);
+    }
+    .bar {
+      height: 6px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; margin-bottom: 1rem;
+    }
+    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #d4920f, var(--gold)); border-radius: 999px; transition: width .25s; }
+
+    .flash {
+      background: linear-gradient(165deg, #1a304c 0%, var(--card) 55%, #101e32 100%);
+      border-radius: 24px;
+      border: 1px solid rgba(240, 180, 41, 0.22);
+      box-shadow: var(--shadow);
+      padding: 1.5rem 1.25rem 1.25rem;
+      min-height: 280px;
+      display: flex; flex-direction: column;
+      animation: in .28s ease both;
+    }
+    .flash .id {
+      align-self: flex-start;
+      font-size: 0.72rem; font-weight: 800; color: #0b1524;
+      background: var(--gold); padding: 0.25rem 0.6rem; border-radius: 999px;
+    }
+    .flash .group {
+      margin: 0.85rem 0 0.35rem; font-size: 0.8rem; font-weight: 800; color: var(--gold);
+    }
+    .flash .task {
+      margin: 0; font-size: 1.45rem; font-weight: 800; line-height: 1.4; color: #fff;
+    }
+    .flash .open {
+      margin-top: 1rem; align-self: flex-start;
+      text-decoration: none; color: var(--gold); font-weight: 800; font-size: 0.85rem;
+      background: var(--gold-soft); border: 1px solid rgba(240, 180, 41, 0.3);
+      padding: 0.55rem 0.85rem; border-radius: 12px; direction: ltr;
+    }
+    .flash .spacer { flex: 1; min-height: 1.5rem; }
+
+    .verdict {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-top: 0.5rem;
+    }
+    .verdict button {
+      border: 1px solid transparent; border-radius: 18px; padding: 1.15rem 0.5rem; cursor: pointer;
+      font-weight: 800; font-size: 1.05rem; display: flex; flex-direction: column;
+      align-items: center; gap: 0.25rem;
+    }
+    .verdict button small { font-size: 0.72rem; font-weight: 700; opacity: 0.9; }
+    .verdict .pass {
+      background: var(--ok-bg); color: var(--ok);
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+    .verdict .fail {
+      background: var(--bad-bg); color: var(--bad);
+      border-color: rgba(248, 113, 113, 0.35);
+    }
+    .verdict button:active { transform: scale(0.97); }
+
+    .more {
+      display: flex; justify-content: center; gap: 1rem; margin-top: 0.85rem;
+    }
+    .more button {
+      border: none; background: none; color: var(--muted); font-size: 0.8rem;
+      font-weight: 700; cursor: pointer;
+    }
+    .more button:hover { color: var(--gold); }
+
+    .device {
+      display: flex; gap: 0.4rem; justify-content: center; margin-top: 0.85rem;
+    }
+    .device label {
+      font-size: 0.75rem; font-weight: 700; color: var(--muted);
+      border: 1px solid var(--line); background: rgba(0,0,0,0.22); border-radius: 999px;
+      padding: 0.4rem 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem;
+    }
+    .device label:has(input:checked) {
+      border-color: rgba(240, 180, 41, 0.5); color: var(--gold); background: var(--gold-soft);
+    }
+    .device input { accent-color: var(--gold); }
+
+    .done {
+      text-align: center; padding: 2rem 1rem; background: var(--card); border-radius: 24px;
+      border: 1px solid rgba(240, 180, 41, 0.22); box-shadow: var(--shadow);
+    }
+    .done h2 { margin: 0 0 0.4rem; font-size: 1.35rem; color: #fff; }
+    .done p { margin: 0 0 1.1rem; color: var(--muted); font-weight: 600; }
+    .done .btn-main { max-width: 280px; margin: 0 auto; }
+
+    .modal {
+      position: fixed; inset: 0; background: rgba(5, 10, 18, 0.72);
+      display: grid; place-items: end center; padding: 0; z-index: 40;
+    }
+    .modal.hidden { display: none; }
+    .sheet {
+      width: min(440px, 100%); background: #15263c; border-radius: 22px 22px 0 0;
+      border: 1px solid rgba(240, 180, 41, 0.25);
+      padding: 1.25rem 1.15rem 1.5rem; max-height: 85dvh; overflow: auto;
+    }
+    .sheet h3 { margin: 0 0 0.85rem; color: #fff; font-size: 1.15rem; }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.6rem; }
+    .field span { font-size: 0.75rem; font-weight: 800; color: var(--muted); }
+    .field input, .field select, .field textarea {
+      border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.8rem;
+      font-size: 0.92rem; color: var(--text); background: rgba(0,0,0,0.28);
+    }
+    .field textarea { min-height: 80px; resize: vertical; }
+    .sheet-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .sheet-row .btn-main { flex: 1; }
+    .sheet-row .btn-cancel {
+      flex: 1; border: 1px solid var(--line); background: rgba(255,255,255,0.06); border-radius: 14px;
+      font-weight: 800; cursor: pointer; color: var(--muted);
+    }
+    .bug {
+      margin-top: 0.55rem; padding: 0.7rem; background: var(--bad-bg); border-radius: 12px;
+      font-size: 0.85rem; color: var(--bad); border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+
+    .toast {
+      position: fixed; bottom: 1.4rem; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: #1e3a5f; border: 1px solid var(--gold); color: #fff; padding: 0.65rem 1.1rem; border-radius: 999px;
+      font-weight: 700; font-size: 0.85rem; opacity: 0; transition: .2s; z-index: 50; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .hidden { display: none !important; }
+    @keyframes in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div id="viewHome">
+      <div class="home-hero">
+        <span class="eyebrow">أولمبياد النخبة · اختبار يدوي</span>
+        <h1>اختبر المنصة<br>خطوة بخطوة</h1>
+        <p>جلسة واحدة. بند واحد. جواب واحد.</p>
+        <div class="progress-row">
+          <div class="num" id="homePct">0%</div>
+          <div class="track"><i id="homeBar"></i></div>
+        </div>
+        <button type="button" class="btn-main" id="btnContinue">نكمل من وين وقفنا</button>
+        <button type="button" class="btn-ghost" id="btnStartA">ابدأ من الدخول</button>
+      </div>
+      <p class="section-label">الجلسات</p>
+      <div class="list" id="missionList"></div>
+      <div class="tools">
+        <button type="button" id="btnBugsHome">المشاكل (<span id="bugCount">0</span>)</button>
+        <button type="button" id="btnExport">تصدير</button>
+        <button type="button" id="btnReset">مسح</button>
+      </div>
+    </div>
+
+    <div id="viewPlay" class="hidden">
+      <div class="play-top">
+        <button type="button" class="icon-btn" id="btnBack" aria-label="رجوع">→</button>
+        <div class="mid">
+          <strong id="playTitle">الدخول</strong>
+          <span id="playMeta">1 من 20</span>
+        </div>
+        <div class="chip" id="playSessionPct">0%</div>
+      </div>
+      <div class="bar"><i id="playBar"></i></div>
+      <div id="playCardWrap"></div>
+      <div class="tools">
+        <button type="button" id="btnBugsPlay">بلّغ عن مشكلة</button>
+        <button type="button" id="btnHome">كل الجلسات</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="bugModal">
+    <div class="sheet">
+      <h3>وش اللي صار؟</h3>
+      <label class="field"><span>اكتب باختصار</span><textarea id="bugActual" placeholder="مثلاً: الصفحة بيضاء"></textarea></label>
+      <label class="field"><span>المسار (اختياري)</span><input id="bugPath" placeholder="/login" dir="ltr" /></label>
+      <label class="field"><span>الدور</span><input id="bugRole" placeholder="معلم" /></label>
+      <label class="field"><span>الخطورة</span>
+        <select id="bugSev">
+          <option value="critical">حرج</option>
+          <option value="high" selected>عالٍ</option>
+          <option value="medium">متوسط</option>
+          <option value="low">منخفض</option>
+        </select>
+      </label>
+      <div class="sheet-row">
+        <button type="button" class="btn-cancel" id="bugCancel">إلغاء</button>
+        <button type="button" class="btn-main" id="bugSave">حفظ</button>
+      </div>
+      <div id="bugListMini"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STORAGE_KEY = 'erbEliteManualQa_v1';
+    const SECTIONS = [
+      {
+        id: 'prep', icon: '🧰', short: 'التجهيز', title: 'قبل البدء',
+        hint: 'تأكد إن الحسابات جاهزة',
+        groups: [{ title: 'تجهيز', items: [
+          { id: 'prep-1', text: 'رابط المنصة يفتح ويشتغل' },
+          { id: 'prep-2', text: 'عندك حساب مدير' },
+          { id: 'prep-3', text: 'عندك حساب رائد نشاط' },
+          { id: 'prep-4', text: 'عندك حساب معلم (يفضّل بجوال)' },
+          { id: 'prep-5', text: 'عندك حساب مشرف' },
+          { id: 'prep-6', text: 'عندك حساب طالب' },
+          { id: 'prep-7', text: 'عندك ولي أمر مربوط بطالب' },
+          { id: 'prep-8', text: '(اختياري) وكيل أو مراجع أو مطور' },
+          { id: 'prep-9', text: 'جوال + كمبيوتر جاهزين' },
+        ]}],
+      },
+      {
+        id: 'A', icon: '🔐', short: 'الدخول', title: 'جلسة الدخول والتسجيل',
+        hint: 'ابدأ هنا — أهم جلسة',
+        groups: [
+          { title: 'شاشة العائلة', items: [
+            { id: 'A1.1', text: 'افتح /login' },
+            { id: 'A1.2', text: 'تظهر شاشة طالب/ولي — مو طاقم' },
+            { id: 'A1.3', text: 'ما في رابط «دخول الطاقم»' },
+            { id: 'A1.4', text: 'ما في «إنشاء حساب» للعامة' },
+            { id: 'A1.5', text: 'دخول غلط → رسالة عربية واضحة' },
+            { id: 'A1.6', text: 'دخول صح بطالب أو ولي → يدخل لوحتهم' },
+          ]},
+          { title: 'التسجيل العام', items: [
+            { id: 'A2.1', text: 'افتح /register' },
+            { id: 'A2.2', text: 'يرجعك لـ /login أو يرفض التسجيل' },
+          ]},
+          { title: 'دخول الطاقم', items: [
+            { id: 'A3.1', text: 'افتح /login/staff بنفسك' },
+            { id: 'A3.2', text: 'تبويب معلم: جوال → OTP واتساب' },
+            { id: 'A3.3', text: 'تبويب إدارة: إيميل + كلمة مرور' },
+            { id: 'A3.4', text: 'Google يحوّل (إن وُجد)' },
+            { id: 'A3.5', text: 'نسيت كلمة المرور → نموذج جوال' },
+          ]},
+          { title: 'تسجيل معلم', items: [
+            { id: 'A4.1', text: 'كود التفعيل يشتغل' },
+            { id: 'A4.2', text: 'بعد الكود: Google أو واتساب' },
+            { id: 'A4.3', text: 'واتساب: اسم + جوال → إرسال OTP' },
+            { id: 'A4.4', text: 'OTP ٦ خانات يتحقق لوحده' },
+            { id: 'A4.5', text: 'مسار Google يبدأ' },
+          ]},
+          { title: 'صلاحيات', items: [
+            { id: 'A5.1', text: 'طالب يفتح /admin → يُرفض' },
+            { id: 'A5.2', text: 'رائد يفتح /principal/users → يُرفض' },
+          ]},
+        ],
+      },
+      {
+        id: '0', icon: '✅', short: 'مشترك', title: 'فحوص مشتركة لكل دور',
+        hint: 'كرّرها مع كل حساب',
+        groups: [{ title: 'مشترك', items: [
+          { id: '0.1', text: 'الدخول نجح' },
+          { id: '0.2', text: 'القائمة أو الشريط السفلي ظاهر' },
+          { id: '0.3', text: '/support يفتح' },
+          { id: '0.4', text: 'ترسل تذكرة تجريبية' },
+          { id: '0.5', text: 'رابط دور ثاني → رفض واضح' },
+          { id: '0.6', text: 'ما تظهر أدوات /dev في قائمة المدرسة' },
+        ]}],
+      },
+      {
+        id: 'B', icon: '🏫', short: 'المدير', title: 'جلسة مدير المدرسة',
+        hint: 'افتح الشاشة وجرّب شيء بسيط',
+        groups: [{ title: 'شاشات المدير', items: [
+          { id: 'B1', text: 'الرئيسية /dashboard' },
+          { id: 'B2', text: 'محاكي الاختبار /qa/simulator' },
+          { id: 'B3', text: 'لوحة التنفيذية' },
+          { id: 'B4', text: 'إدارة المستخدمين' },
+          { id: 'B5', text: 'الرفع الجماعي' },
+          { id: 'B6', text: 'استيراد / تصدير' },
+          { id: 'B7', text: 'توليد الحسابات' },
+          { id: 'B8', text: 'تقارير المدرسة' },
+          { id: 'B9', text: 'تقارير الأولمبياد' },
+          { id: 'B10', text: 'الصفوف والفصول' },
+          { id: 'B11', text: 'الشؤون الأكاديمية' },
+          { id: 'B12', text: 'مركز القوالب' },
+          { id: 'B13', text: 'الإدارة الأكاديمية' },
+          { id: 'B14', text: 'تقييم المعلمين' },
+          { id: 'B15', text: 'مساعد الذكاء' },
+          { id: 'B16', text: 'المسابقة' },
+          { id: 'B17', text: 'الدعم — تذكرة تجريبية' },
+          { id: 'B18', text: 'تبديل أولمبياد ↔ أكاديمي' },
+        ]}],
+      },
+      {
+        id: 'C', icon: '🎯', short: 'الرائد', title: 'جلسة رائد النشاط',
+        hint: 'لوحة /admin',
+        groups: [{ title: 'شاشات الرائد', items: [
+          { id: 'C1', text: 'الرئيسية /admin' },
+          { id: 'C2', text: 'مركز النقاط' },
+          { id: 'C3', text: 'منح جماعي' },
+          { id: 'C4', text: 'الحضور' },
+          { id: 'C5', text: 'الاقتراحات' },
+          { id: 'C6', text: 'الأنشطة' },
+          { id: 'C7', text: 'أدلة المستخدم' },
+          { id: 'C8', text: 'المستخدمون' },
+          { id: 'C9', text: 'المتصدرون' },
+          { id: 'C10', text: 'المسابقة' },
+          { id: 'C11', text: 'البطاقات' },
+          { id: 'C12', text: 'التقارير' },
+          { id: 'C13', text: 'إعدادات البرنامج (فتح فقط)' },
+          { id: 'C14', text: 'اعتماد نقاط إن ظهر' },
+          { id: 'C15', text: 'رفض وصول /principal/users' },
+          { id: 'C16', text: 'الدعم' },
+        ]}],
+      },
+      {
+        id: 'D', icon: '👨‍🏫', short: 'المعلم', title: 'جلسة المعلم',
+        hint: 'أولمبياد ثم أكاديمي — وجرب الجوال',
+        groups: [
+          { title: 'أولمبياد', items: [
+            { id: 'D1.1', text: 'فعّل وضع أولمبياد' },
+            { id: 'D1.2', text: 'الرئيسية تظهر' },
+            { id: 'D1.3', text: 'امنح نقاط لطالب تجريبي' },
+            { id: 'D1.4', text: 'منح جماعي يفتح' },
+            { id: 'D1.5', text: 'قائمة الطلاب' },
+            { id: 'D1.6', text: 'لوحة الفصل' },
+            { id: 'D1.7', text: 'تحليلات مادتي' },
+            { id: 'D1.8', text: 'سجلي الشخصي' },
+            { id: 'D1.9', text: 'خطة الدرس' },
+            { id: 'D1.10', text: 'مساعد الذكاء — طلب قصير' },
+          ]},
+          { title: 'أكاديمي', items: [
+            { id: 'D2.1', text: 'التبديل لأكاديمي يغيّر القائمة' },
+            { id: 'D2.2', text: 'الواجبات' },
+            { id: 'D2.3', text: 'الخطط الأسبوعية' },
+            { id: 'D2.4', text: 'طلبات ملاحظات الطلاب' },
+            { id: 'D2.5', text: 'الجدول الدراسي' },
+            { id: 'D2.6', text: 'مواضيع الدروس' },
+            { id: 'D2.7', text: 'مراجعات PDF' },
+            { id: 'D2.8', text: 'مركز أكاديمي' },
+            { id: 'D2.9', text: 'تقييمي الأدائي' },
+            { id: 'D2.10', text: 'الدعم' },
+          ]},
+        ],
+      },
+      {
+        id: 'E', icon: '📋', short: 'المشرف', title: 'جلسة المشرف',
+        hint: 'مواد وأسئلة واختبارات',
+        groups: [{ title: 'المشرف', items: [
+          { id: 'E1', text: 'لوحة المتابعة' },
+          { id: 'E2', text: 'المواد حسب الصف' },
+          { id: 'E3', text: 'المهارات' },
+          { id: 'E4', text: 'مستودع الأسئلة' },
+          { id: 'E5', text: 'إدارة الاختبارات' },
+          { id: 'E6', text: 'التحليلات' },
+          { id: 'E7', text: 'الشؤون الأكاديمية (عرض)' },
+          { id: 'E8', text: 'الدعم' },
+        ]}],
+      },
+      {
+        id: 'F', icon: '📎', short: 'الوكيل', title: 'جلسة الوكيل',
+        hint: 'أكاديمي المرحلة والتقييم',
+        groups: [{ title: 'الوكيل', items: [
+          { id: 'F1', text: 'الرئيسية' },
+          { id: 'F2', text: 'الشؤون الأكاديمية' },
+          { id: 'F3', text: 'ملاحظات الطلاب' },
+          { id: 'F4', text: 'نتائج المرحلة' },
+          { id: 'F5', text: 'واجبات / خطط' },
+          { id: 'F6', text: 'مراجعات PDF' },
+          { id: 'F7', text: 'تقارير / تواصل / تصدير' },
+          { id: 'F8', text: 'تقييم المعلمين' },
+          { id: 'F9', text: 'الدعم' },
+        ]}],
+      },
+      {
+        id: 'G', icon: '📄', short: 'المراجع', title: 'جلسة المراجع',
+        hint: 'صندوق PDF',
+        groups: [{ title: 'المراجع', items: [
+          { id: 'G1', text: 'الرئيسية' },
+          { id: 'G2', text: 'صندوق المراجعات' },
+          { id: 'G3', text: 'الدعم' },
+        ]}],
+      },
+      {
+        id: 'H', icon: '🎓', short: 'الطالب', title: 'جلسة الطالب',
+        hint: 'لوحة · اختبار · مكافآت',
+        groups: [{ title: 'الطالب', items: [
+          { id: 'H1', text: 'لوحتي — نقاط وترتيب' },
+          { id: 'H2', text: 'واجباتي' },
+          { id: 'H3', text: 'المراجعات' },
+          { id: 'H4', text: 'اختباراتي — ادخل اختبار إن وجد' },
+          { id: 'H5', text: 'محفظتي' },
+          { id: 'H6', text: 'متجر المكافآت' },
+          { id: 'H7', text: 'المتصدرون' },
+          { id: 'H8', text: 'ملفي' },
+          { id: 'H9', text: 'الدعم' },
+        ]}],
+      },
+      {
+        id: 'I', icon: '👨‍👩‍👧', short: 'ولي الأمر', title: 'جلسة ولي الأمر',
+        hint: 'متابعة الابن',
+        groups: [{ title: 'ولي الأمر', items: [
+          { id: 'I1', text: 'الرئيسية' },
+          { id: 'I2', text: 'ربط طالب إن لزم' },
+          { id: 'I3', text: 'ملف الطالب' },
+          { id: 'I4', text: 'الحضور' },
+          { id: 'I5', text: 'نتائج الاختبارات' },
+          { id: 'I6', text: 'أكاديمي الأبناء' },
+          { id: 'I7', text: 'الدعم' },
+        ]}],
+      },
+      {
+        id: 'J', icon: '🛠️', short: 'المطور', title: 'جلسة مطور المنصة',
+        hint: 'اختياري',
+        groups: [{ title: 'المطور', items: [
+          { id: 'J1', text: 'الدخول يروح لـ /dev' },
+          { id: 'J2', text: 'لوحة /dev' },
+          { id: 'J3', text: '/dev/errors' },
+          { id: 'J4', text: '/dev/support — التذاكر' },
+          { id: 'J5', text: '/dev/jobs أو /dev/health' },
+          { id: 'J6', text: 'ما في قائمة مدرسة عادية' },
+        ]}],
+      },
+      {
+        id: 'K', icon: '🚀', short: 'قصة كاملة', title: 'سيناريوهات من أولها لآخرها',
+        hint: 'الأهم للجودة',
+        groups: [{ title: 'قصة', items: [
+          { id: 'K1', text: 'نقاط: معلم يمنح → رائد يعتمد → طالب/ولي يشوف' },
+          { id: 'K2', text: 'واجب: معلم ينشر → طالب يشوف → ولي يشوف' },
+          { id: 'K3', text: 'اختبار: مشرف يجهّز → طالب يحل → ولي يشوف' },
+          { id: 'K4', text: 'حضور: رائد يسجّل → ولي يشوف' },
+          { id: 'K5', text: 'مسابقة: سؤال → شاشة فصل → إجابة' },
+          { id: 'K6', text: 'دعم: تذكرة → تظهر في /dev/support' },
+          { id: 'K7', text: 'OTP واتساب يوصل للجوال (إن الخدمة شغّالة)' },
+        ]}],
+      },
+      {
+        id: 'L', icon: '🖥️', short: 'عرض', title: 'شاشات عامة',
+        hint: 'متصدرون وبطاقات',
+        groups: [{ title: 'عامة', items: [
+          { id: 'L1', text: '/display/leaderboard' },
+          { id: 'L2', text: '/board/leaderboard' },
+          { id: 'L3', text: 'بطاقة طالب /card/...' },
+          { id: 'L4', text: 'شاشة مسابقة فصل إن وُجد slug' },
+        ]}],
+      },
+    ];
+
+    const defaultState = () => ({
+      items: {}, bugs: [], bugCounter: 1, lastSection: 'A', lastIndex: 0,
+    });
+
+    let state = load();
+    let play = { sectionId: null, index: 0, flat: [] };
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultState();
+        const p = JSON.parse(raw);
+        return { ...defaultState(), ...p, items: p.items || {}, bugs: p.bugs || [] };
+      } catch { return defaultState(); }
+    }
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.remove('show'), 1500);
+    }
+    function flatItems(section) {
+      const out = [];
+      (section.groups || []).forEach((g) => g.items.forEach((it) => out.push({ ...it, group: g.title })));
+      return out;
+    }
+    function ensure(id) {
+      if (!state.items[id]) state.items[id] = { status: '', desktop: false, mobile: false, note: '' };
+      return state.items[id];
+    }
+    function sectionStats(section) {
+      const flat = flatItems(section);
+      let done = 0;
+      flat.forEach((it) => { if (ensure(it.id).status) done++; });
+      return { done, total: flat.length, pct: flat.length ? Math.round(done / flat.length * 100) : 0 };
+    }
+    function globalPct() {
+      let done = 0, total = 0;
+      SECTIONS.forEach((s) => { const st = sectionStats(s); done += st.done; total += st.total; });
+      return { done, total, pct: total ? Math.round(done / total * 100) : 0 };
+    }
+    function firstIncompleteIndex(section) {
+      const flat = flatItems(section);
+      const idx = flat.findIndex((it) => !ensure(it.id).status);
+      return idx === -1 ? 0 : idx;
+    }
+    function nextSection(id) {
+      const i = SECTIONS.findIndex((s) => s.id === id);
+      return i >= 0 && i < SECTIONS.length - 1 ? SECTIONS[i + 1] : null;
+    }
+    function extractPath(text) {
+      const m = String(text).match(/(\/[a-zA-Z0-9_\/?=&.:-]+)/);
+      return m ? m[1].replace(/[.…]+$/, '') : null;
+    }
+
+    function renderHome() {
+      const g = globalPct();
+      document.getElementById('homePct').textContent = g.pct + '%';
+      document.getElementById('homeBar').style.width = g.pct + '%';
+      document.getElementById('bugCount').textContent = String(state.bugs.length);
+      const continueSec = SECTIONS.find((s) => s.id === state.lastSection) || SECTIONS.find((s) => s.id === 'A');
+      document.getElementById('btnContinue').textContent =
+        sectionStats(continueSec).pct === 100 ? 'الجلسة التالية' : 'نكمل «' + continueSec.short + '»';
+
+      document.getElementById('missionList').innerHTML = SECTIONS.map((s, i) => {
+        const st = sectionStats(s);
+        return '<button type="button" class="row ' + (st.pct === 100 ? 'done' : '') + '" data-go="' + s.id + '">' +
+          '<div class="badge">' + (st.pct === 100 ? '✓' : (i + 1)) + '</div>' +
+          '<div class="txt"><strong>' + s.short + '</strong><span>' + s.hint + ' · ' + st.done + '/' + st.total + '</span></div>' +
+          '<div class="pct">' + st.pct + '%</div></button>';
+      }).join('');
+      document.querySelectorAll('[data-go]').forEach((btn) => {
+        btn.onclick = () => startSection(btn.dataset.go);
+      });
+    }
+
+    function showHome() {
+      document.getElementById('viewHome').classList.remove('hidden');
+      document.getElementById('viewPlay').classList.add('hidden');
+      renderHome();
+    }
+
+    function startSection(id, forceIndex) {
+      const section = SECTIONS.find((s) => s.id === id);
+      if (!section) return;
+      play.sectionId = id;
+      play.flat = flatItems(section);
+      play.index = typeof forceIndex === 'number' ? forceIndex : firstIncompleteIndex(section);
+      state.lastSection = id;
+      state.lastIndex = play.index;
+      save();
+      document.getElementById('viewHome').classList.add('hidden');
+      document.getElementById('viewPlay').classList.remove('hidden');
+      renderPlay();
+    }
+
+    function renderPlay() {
+      const section = SECTIONS.find((s) => s.id === play.sectionId);
+      const st = sectionStats(section);
+      document.getElementById('playTitle').textContent = section.short;
+      document.getElementById('playSessionPct').textContent = st.pct + '%';
+      const wrap = document.getElementById('playCardWrap');
+
+      if (st.pct === 100) {
+        document.getElementById('playMeta').textContent = 'خلصت';
+        document.getElementById('playBar').style.width = '100%';
+        const next = nextSection(section.id);
+        wrap.innerHTML = '<div class="done"><h2>أحسنت — خلصت «' + section.short + '»</h2>' +
+          '<p>' + st.done + ' من ' + st.total + '</p>' +
+          (next ? '<button type="button" class="btn-main" id="btnNextSec">التالي: ' + next.short + '</button>' : '') +
+          '<button type="button" class="more" id="btnReplay" style="display:block;margin:0.75rem auto 0;border:none;background:none;color:var(--muted);font-weight:700;cursor:pointer">راجع البنود</button></div>';
+        document.getElementById('btnNextSec')?.addEventListener('click', () => startSection(next.id));
+        document.getElementById('btnReplay')?.addEventListener('click', () => { play.index = 0; renderPlayCard(); });
+        return;
+      }
+      renderPlayCard();
+    }
+
+    function renderPlayCard() {
+      if (play.index >= play.flat.length) play.index = play.flat.length - 1;
+      if (play.index < 0) play.index = 0;
+      const item = play.flat[play.index];
+      const cur = ensure(item.id);
+      state.lastIndex = play.index;
+      save();
+      document.getElementById('playMeta').textContent = (play.index + 1) + ' من ' + play.flat.length;
+      document.getElementById('playBar').style.width = ((play.index + 1) / play.flat.length * 100) + '%';
+      const path = extractPath(item.text);
+      document.getElementById('playCardWrap').innerHTML =
+        '<div class="flash" id="activeCard">' +
+          '<span class="id">' + item.id + '</span>' +
+          '<p class="group">' + item.group + '</p>' +
+          '<p class="task">' + item.text + '</p>' +
+          (path ? '<a class="open" href="' + path + '" target="_blank" rel="noopener">' + path + ' ↗</a>' : '') +
+          '<div class="spacer"></div>' +
+          '<div class="verdict">' +
+            '<button type="button" class="pass" data-ans="pass"><span>✓</span> نجح<small>اشتغل كما يجب</small></button>' +
+            '<button type="button" class="fail" data-ans="fail"><span>✗</span> فشل<small>فيه مشكلة</small></button>' +
+          '</div>' +
+          '<div class="device">' +
+            '<label><input type="checkbox" id="devDesk"' + (cur.desktop ? ' checked' : '') + '/> كمبيوتر</label>' +
+            '<label><input type="checkbox" id="devMob"' + (cur.mobile ? ' checked' : '') + '/> جوال</label>' +
+          '</div>' +
+          '<div class="more">' +
+            '<button type="button" data-ans="blocked">ما قدرت الآن</button>' +
+            '<button type="button" data-ans="na">ما ينطبق</button>' +
+            '<button type="button" id="btnPrev">السابق</button>' +
+          '</div>' +
+        '</div>';
+
+      document.querySelectorAll('#playCardWrap [data-ans]').forEach((btn) => {
+        btn.onclick = () => answer(btn.dataset.ans);
+      });
+      document.getElementById('devDesk').onchange = (e) => { ensure(item.id).desktop = e.target.checked; save(); };
+      document.getElementById('devMob').onchange = (e) => { ensure(item.id).mobile = e.target.checked; save(); };
+      document.getElementById('btnPrev').onclick = () => {
+        play.index = Math.max(0, play.index - 1);
+        renderPlayCard();
+      };
+    }
+
+    function answer(status) {
+      const item = play.flat[play.index];
+      ensure(item.id).status = status;
+      save();
+      if (status === 'pass') toast('تمام');
+      else if (status === 'fail') {
+        document.getElementById('bugPath').value = item.id + ' — ' + item.text;
+        openBugs();
+      } else toast('التالي');
+
+      setTimeout(() => {
+        const nextIncomplete = play.flat.findIndex((it, i) => i > play.index && !ensure(it.id).status);
+        if (nextIncomplete !== -1) play.index = nextIncomplete;
+        else if (play.index < play.flat.length - 1) play.index++;
+        renderPlay();
+      }, 180);
+    }
+
+    function openBugs() {
+      document.getElementById('bugModal').classList.remove('hidden');
+      const box = document.getElementById('bugListMini');
+      box.innerHTML = state.bugs.slice(0, 4).map((b) =>
+        '<div class="bug"><strong>' + b.id + '</strong> · ' + (b.actual || '') + '</div>'
+      ).join('');
+    }
+    function closeBugs() { document.getElementById('bugModal').classList.add('hidden'); }
+
+    document.getElementById('btnContinue').onclick = () => {
+      const sec = SECTIONS.find((s) => s.id === state.lastSection) || SECTIONS[1];
+      if (sectionStats(sec).pct === 100) {
+        const n = nextSection(sec.id);
+        startSection(n ? n.id : sec.id);
+      } else startSection(sec.id, state.lastIndex || firstIncompleteIndex(sec));
+    };
+    document.getElementById('btnStartA').onclick = () => startSection('A');
+    document.getElementById('btnBack').onclick = showHome;
+    document.getElementById('btnHome').onclick = showHome;
+    document.getElementById('btnBugsHome').onclick = openBugs;
+    document.getElementById('btnBugsPlay').onclick = openBugs;
+    document.getElementById('bugCancel').onclick = closeBugs;
+    document.getElementById('bugModal').addEventListener('click', (e) => {
+      if (e.target.id === 'bugModal') closeBugs();
+    });
+    document.getElementById('bugSave').onclick = () => {
+      const actual = document.getElementById('bugActual').value.trim();
+      if (!actual) { toast('اكتب المشكلة'); return; }
+      state.bugs.unshift({
+        id: 'BUG-' + String(state.bugCounter++).padStart(3, '0'),
+        actual,
+        path: document.getElementById('bugPath').value.trim(),
+        role: document.getElementById('bugRole').value.trim(),
+        sev: document.getElementById('bugSev').value,
+        status: 'open',
+        at: new Date().toISOString(),
+      });
+      document.getElementById('bugActual').value = '';
+      save();
+      toast('اتحفظت');
+      openBugs();
+      document.getElementById('bugCount').textContent = String(state.bugs.length);
+    };
+    document.getElementById('btnExport').onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+      a.download = 'qa-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+    };
+    document.getElementById('btnReset').onclick = () => {
+      if (!confirm('مسح كل التقدم؟')) return;
+      state = defaultState(); save(); showHome();
+    };
+
+    showHome();
+  </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import toast from 'react-hot-toast';
 import { toArabicErrorMessage } from './errors';
+import { reportMildIssue } from './platformErrors';
 
 export function showSuccess(message: string) {
   toast.success(message);
@@ -7,7 +8,17 @@ export function showSuccess(message: string) {
 
 export function showError(err: unknown, fallback = 'حدث خطأ — حاول مرة أخرى') {
   const msg = toArabicErrorMessage(err);
-  toast.error(msg === 'حدث خطأ غير متوقع' ? fallback : msg);
+  const display = msg === 'حدث خطأ غير متوقع' ? fallback : msg;
+  toast.error(display);
+  reportMildIssue({
+    message: display,
+    error: err,
+    source: 'frontend',
+    severity: 'warning',
+    context: {
+      type: 'toast_error',
+    },
+  });
 }
 
 export function showSaveError(err?: unknown) {

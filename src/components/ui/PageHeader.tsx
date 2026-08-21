@@ -35,7 +35,7 @@ export function PageHeader({
       variants={itemVariants}
       className={clsx(
         isHero
-          ? 'relative flex flex-col md:flex-row justify-between items-start md:items-center gap-5 rounded-2xl p-7 md:p-8 overflow-hidden bg-gradient-to-r from-slate-900 to-indigo-900 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
+          ? 'relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-2xl p-4 sm:p-7 md:p-8 overflow-hidden bg-gradient-to-r from-slate-900 to-indigo-900 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
           : 'page-header',
         className
       )}
@@ -95,7 +95,7 @@ export function PageHeader({
         </span>
       )}
       {actions || guidePath ? (
-        <div className="relative shrink-0 flex items-center gap-2 flex-wrap justify-end">
+        <div className="relative w-full md:w-auto shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap justify-end">
           {guidePath && <ScreenGuideButton path={guidePath} />}
           {actions}
         </div>

@@ -1,21 +1,10 @@
 import { supabase } from './supabase';
+import { uploadSchoolMediaToHostinger } from './hostingerUpload';
 
-const BUCKET = 'school-media';
 const MAX_BYTES = 3 * 1024 * 1024;
 
-function resolveImageExt(file: File): string {
-  const fromName = file.name.split('.').pop()?.toLowerCase();
-  if (fromName && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fromName)) {
-    return fromName === 'jpeg' ? 'jpg' : fromName;
-  }
-  if (file.type === 'image/png') return 'png';
-  if (file.type === 'image/webp') return 'webp';
-  if (file.type === 'image/gif') return 'gif';
-  return 'jpg';
-}
-
 function assertImageFile(file: File) {
-  if (!file.type.startsWith('image/')) {
+  if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif)$/i.test(file.name)) {
     throw new Error('يرجى اختيار ملف صورة (JPG أو PNG أو WebP)');
   }
   if (file.size > MAX_BYTES) {
@@ -27,22 +16,25 @@ function withCacheBust(publicUrl: string) {
   return `${publicUrl}${publicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
 }
 
+/** مفتاح ASCII ثابت لاسم الملف على Hostinger */
+function classMediaKey(grade: string, className: string): string {
+  const raw = `${grade.trim()}__${className.trim()}`;
+  const bytes = new TextEncoder().encode(raw);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+/**
+ * رفع صورة طالب → Hostinger، ثم حفظ الرابط في Supabase فقط.
+ */
 export async function uploadStudentPhoto(studentId: string, file: File): Promise<string> {
   assertImageFile(file);
-  const ext = resolveImageExt(file);
-  const path = `students/${studentId}.${ext}`;
+  const safeId = studentId.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!safeId) throw new Error('معرّف الطالب غير صالح');
 
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    cacheControl: '3600',
-    contentType: file.type || `image/${ext}`,
-  });
-  if (uploadError) throw uploadError;
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  const url = withCacheBust(publicUrl);
+  const uploaded = await uploadSchoolMediaToHostinger(file, 'student', safeId);
+  const url = withCacheBust(uploaded.url);
 
   const { error: studentError } = await supabase
     .from('students')
@@ -63,22 +55,14 @@ export async function uploadStudentPhoto(studentId: string, file: File): Promise
   return url;
 }
 
+/**
+ * رفع صورة فصل → Hostinger، ثم حفظ الرابط في class_profiles (Supabase).
+ */
 export async function uploadClassPhoto(grade: string, className: string, file: File): Promise<string> {
   assertImageFile(file);
-  const ext = resolveImageExt(file);
-  const path = `classes/${encodeURIComponent(grade)}/${encodeURIComponent(className)}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    cacheControl: '3600',
-    contentType: file.type || `image/${ext}`,
-  });
-  if (uploadError) throw uploadError;
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  const url = withCacheBust(publicUrl);
+  const key = classMediaKey(grade, className);
+  const uploaded = await uploadSchoolMediaToHostinger(file, 'class', key);
+  const url = withCacheBust(uploaded.url);
 
   const { error } = await supabase.from('class_profiles').upsert(
     {
@@ -87,7 +71,7 @@ export async function uploadClassPhoto(grade: string, className: string, file: F
       photo_url: url,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'grade,class_name' }
+    { onConflict: 'grade,class_name' },
   );
   if (error) throw error;
 

@@ -117,7 +117,7 @@ const GLOSSARY_SECTION: GuideSection = {
   ],
 };
 
-export const USER_ROLE_GUIDES: Record<Exclude<UserRole, 'activity_leader'>, UserRoleGuide> = {
+export const USER_ROLE_GUIDES: Record<Exclude<UserRole, 'activity_leader' | 'platform_developer'>, UserRoleGuide> = {
   admin: {
     role: 'admin',
     roleLabel: ROLE_LABELS.admin,
@@ -196,9 +196,15 @@ export const USER_ROLE_GUIDES: Record<Exclude<UserRole, 'activity_leader'>, User
         howTo: ['اختر طالباً ونشاطاً', 'حدد النقاط', 'يُعتمد مباشرة ويظهر في رصيد الطالب'],
       },
       {
+        path: '/display/leaderboard',
+        label: 'شاشة المتصدرين (لوحة فقط)',
+        summary: 'رابط مباشر للوحة المتصدرين على الشاشة الكبيرة — بدون تسجيل دخول.',
+        howTo: ['افتح الرابط على التلفزيون أو الشاشة الخارجية', 'اتركها مفتوحة — تتحدث كل دقيقة'],
+      },
+      {
         path: '/board/leaderboard',
-        label: 'شاشة العرض الكبيرة (TV)',
-        summary: 'لوحة متصدرين للعرض على شاشة خارجية — تتحدث تلقائياً.',
+        label: 'شاشة العرض الكبيرة G2',
+        summary: 'لوحة متصدرين + تحدي الأسبوع مع عناصر تحكم — تتطلب تسجيل دخول.',
         howTo: ['افتح الرابط على الشاشة الكبيرة', 'اتركها مفتوحة طوال اليوم'],
       },
       {
@@ -493,6 +499,69 @@ export const USER_ROLE_GUIDES: Record<Exclude<UserRole, 'activity_leader'>, User
     ],
   },
 
+  deputy: {
+    role: 'deputy',
+    roleLabel: ROLE_LABELS.deputy,
+    title: 'دليل الوكيل',
+    subtitle: 'متابعة الشؤون الأكاديمية للمرحلة',
+    introduction: 'الوكيل يطلع على واجبات وخطط مرحلته ويصدّر التقارير — بدون إدارة أولمبياد النقاط.',
+    gettingStarted: [...SHARED_LOGIN_STEPS, 'افتح «الشؤون الأكاديمية» من القائمة.', 'راجع الواجبات والخطط لمرحلتك.'],
+    sections: [ACCOUNT_SECURITY_SECTION, GLOSSARY_SECTION],
+    screens: [],
+    faq: [{ question: 'لا أرى بيانات مرحلة أخرى', answer: 'صلاحياتك محددة بمرحلتك في ملفك.' }],
+    tips: ['استخدم التصدير لإعداد تقارير المرحلة.'],
+  },
+
+  reviewer: {
+    role: 'reviewer',
+    roleLabel: ROLE_LABELS.reviewer,
+    title: 'دليل المراجع',
+    subtitle: 'مراجعة أوراق الاختبارات قبل اعتماد المدير',
+    introduction:
+      'المراجع يستلم مراجعات الاختبارات من المعلمين، يراجع الملفات، ويعتمدها أو يطلب تعديلاً قبل وصولها لمدير المدرسة للنشر لأولياء الأمور.',
+    gettingStarted: [
+      ...SHARED_LOGIN_STEPS,
+      'افتح «مراجعات الاختبارات» من القائمة.',
+      'راجع الطلبات الجديدة وافتح الملف للمعاينة أو التحميل.',
+      'اعتمد الطلب أو أعده للمعلم مع ملاحظة عند الحاجة.',
+    ],
+    sections: [
+      ACCOUNT_SECURITY_SECTION,
+      {
+        title: 'سير المراجعة',
+        items: [
+          {
+            label: 'استلام الطلب',
+            description: 'يصل الطلب من المعلم بحالة انتظار المراجعة.',
+          },
+          {
+            label: 'المعاينة والقرار',
+            description: 'افتح الملف، ثم اعتمد أو اطلب تعديلاً مع كتابة ملاحظة واضحة.',
+          },
+          {
+            label: 'بعد الاعتماد',
+            description: 'ينتقل الطلب لمدير المدرسة لاعتماده النهائي ونشره لأولياء الأمور.',
+          },
+        ],
+      },
+    ],
+    screens: screensFromNav('reviewer', {}),
+    faq: [
+      {
+        question: 'أين أجد الطلبات الجديدة؟',
+        answer: 'من صفحة مراجعات الاختبارات — تبويب الطلبات المعلّقة أو كل الطلبات والإجراءات.',
+      },
+      {
+        question: 'هل يمكنني النشر لولي الأمر مباشرة؟',
+        answer: 'لا — بعد اعتمادك ينتقل الطلب للمدير للنشر.',
+      },
+    ],
+    tips: [
+      'اكتب ملاحظات واضحة عند طلب التعديل ليسهل على المعلم التصحيح.',
+      'راجع الملف كاملاً قبل الاعتماد.',
+    ],
+  },
+
   parent: {
     role: 'parent',
     roleLabel: ROLE_LABELS.parent,
@@ -545,6 +614,48 @@ export function getUserRoleGuide(role: UserRole): UserRoleGuide {
       roleLabel: ROLE_LABELS.activity_leader,
       title: 'دليل رائد النشاط',
       subtitle: 'إدارة البرنامج، النقاط، الحضور، والتقارير — نسخة رائد النشاط',
+    };
+  }
+  if (role === 'platform_developer') {
+    return {
+      role: 'platform_developer',
+      roleLabel: ROLE_LABELS.platform_developer,
+      title: 'دليل مطور المنصة',
+      subtitle: 'مساحة /dev للمراقبة والصيانة — ليست إدارة مدرسية',
+      introduction:
+        'مطور المنصة يدخل إلى /dev فقط. لا يستخدم أدوات المدير أو المعلم. راجع Docs/SCHOOL_PLATFORM_ROADMAP.md وscripts/create-platform-developer.sql.',
+      gettingStarted: [
+        'طبّق migration 089 على Supabase',
+        'أنشئ حساب Auth ثم نفّذ سكربت ربط الدور',
+        'سجّل الدخول وافتح /dev',
+      ],
+      sections: [
+        {
+          title: 'الصلاحيات',
+          items: [
+            { label: 'Monitoring', description: 'صحة النظام والأخطاء والوظائف الخلفية.' },
+            { label: 'ممنوع', description: 'إدارة طلاب، نقاط، واجبات، أو أي دور مدرسي.' },
+          ],
+        },
+      ],
+      screens: [
+        {
+          path: '/dev',
+          label: 'لوحة المطور',
+          summary: 'مدخل Developer Workspace',
+          howTo: ['سجّل الدخول بحساب platform_developer', 'ستُوجَّه تلقائياً إلى /dev'],
+        },
+      ],
+      faq: [
+        {
+          question: 'هل يظهر الدور في إضافة مستخدم؟',
+          answer: 'لا. يُنشأ يدوياً عبر Auth + سكربت SQL فقط.',
+        },
+      ],
+      tips: [
+        'طبّق migration 089 قبل إنشاء الحساب.',
+        'لا تخلط حساب المطور مع حساب المدير.',
+      ],
     };
   }
   return USER_ROLE_GUIDES[role];

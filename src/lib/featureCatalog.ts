@@ -20,8 +20,11 @@ export const ROLE_LABELS_AR: Record<UserRole, string> = {
   admin: 'الإدارة',
   supervisor: 'المشرف التربوي',
   teacher: 'المعلم',
+  deputy: 'الوكيل',
+  reviewer: 'المراجع',
   student: 'الطالب',
   parent: 'ولي الأمر',
+  platform_developer: 'مطور المنصة',
 };
 
 function navId(role: UserRole, path: string): string {
@@ -112,12 +115,27 @@ export const DASHBOARD_FEATURES: FeatureDefinition[] = [
   { id: 'widget:teacher:quick_students', label: 'إجراء: الطلاب', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/students' },
   { id: 'widget:teacher:quick_board', label: 'إجراء: لوحة الفصل', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/students/class-board' },
   { id: 'widget:teacher:quick_analytics', label: 'إجراء: تحليلات المادة', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/teacher/analytics' },
-  { id: 'widget:teacher:quick_lesson', label: 'إجراء: خطة الدرس', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/teacher/lesson-plan' },
+  { id: 'widget:teacher:quick_academic', label: 'إجراء: مركز أكاديمي', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/academic' },
+  { id: 'widget:teacher:quick_homework', label: 'إجراء: الواجبات', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/academic/homework' },
+  { id: 'widget:teacher:quick_weekly_plans', label: 'إجراء: الخطط الأسبوعية', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/academic/weekly-plans' },
+  { id: 'widget:teacher:quick_schedule', label: 'إجراء: الجدول الدراسي', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/academic/schedule' },
+  { id: 'widget:teacher:quick_lesson_topics', label: 'إجراء: مواضيع الدروس', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/academic/lesson-topics' },
+  { id: 'widget:teacher:quick_observation_tasks', label: 'إجراء: طلبات ملاحظات الطلاب', category: 'لوحة المعلم', roles: ['teacher'], kind: 'action', path: '/academic/observation-tasks' },
+  { id: 'widget:principal:academic_snapshot', label: 'مؤشرات أكاديمية', category: 'لوحة المدير', roles: ['principal'], kind: 'widget' },
+  { id: 'widget:supervisor:academic_snapshot', label: 'مؤشرات أكاديمية (عرض)', category: 'لوحة المشرف', roles: ['supervisor'], kind: 'widget' },
+  // — الوكيل
+  { id: 'widget:deputy:academic_hub', label: 'وحدة الشؤون الأكاديمية', category: 'لوحة الوكيل', roles: ['deputy'], kind: 'widget' },
+  // — ولي الأمر (أكاديمي)
+  { id: 'widget:parent:academic_observation', label: 'طلب ملاحظة أكاديمية', category: 'لوحة ولي الأمر', roles: ['parent'], kind: 'action', path: '/parent/academic/request' },
+  { id: 'widget:parent:academic_requests', label: 'طلباتي — تتبع الملاحظات', category: 'لوحة ولي الأمر', roles: ['parent'], kind: 'action', path: '/parent/academic/requests' },
+  { id: 'widget:parent:academic_reviews', label: 'مراجعات PDF أكاديمية', category: 'لوحة ولي الأمر', roles: ['parent'], kind: 'action', path: '/parent/academic/reviews' },
+  { id: 'widget:student:academic_reviews', label: 'مراجعات PDF أكاديمية', category: 'لوحة الطالب', roles: ['student'], kind: 'action', path: '/student/academic/reviews' },
+  { id: 'action:reviewer:inbox', label: 'صندوق المراجعات', category: 'المراجع', roles: ['reviewer'], kind: 'action', path: '/academic/reviews' },
   // — عام
   { id: 'widget:global:pwa_install', label: 'زر تثبيت التطبيق PWA', category: 'عام — الشريط العلوي', roles: ['student', 'parent', 'teacher', 'supervisor', 'activity_leader', 'admin', 'principal'], kind: 'widget' },
   { id: 'widget:global:push_prompt', label: 'تنبيه تفعيل Push', category: 'عام — الشريط العلوي', roles: ['student', 'parent', 'teacher', 'supervisor', 'activity_leader', 'admin', 'principal'], kind: 'widget' },
   { id: 'widget:global:activity_week_banner', label: 'شريط أسبوع النشاط', category: 'عام', roles: ['student', 'teacher', 'activity_leader', 'admin', 'supervisor', 'principal'], kind: 'widget' },
-  { id: 'widget:global:notifications', label: 'جرس الإشعارات', category: 'عام — الشريط العلوي', roles: ['student', 'parent', 'teacher', 'supervisor', 'activity_leader', 'admin', 'principal'], kind: 'widget' },
+  { id: 'widget:global:notifications', label: 'جرس الإشعارات', category: 'عام — الشريط العلوي', roles: ['student', 'parent', 'teacher', 'deputy', 'supervisor', 'activity_leader', 'admin', 'principal'], kind: 'widget' },
 ];
 
 const ALL_ROLES: UserRole[] = [
@@ -126,6 +144,7 @@ const ALL_ROLES: UserRole[] = [
   'admin',
   'supervisor',
   'teacher',
+  'deputy',
   'student',
   'parent',
 ];

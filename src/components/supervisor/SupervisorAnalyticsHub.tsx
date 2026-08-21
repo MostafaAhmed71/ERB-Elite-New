@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   TrendingUp,
   Users,
@@ -47,6 +47,67 @@ import { skillsForGradeSubject } from './GradeSubjectPicker';
 import { StudentDetailModal } from './StudentDetailModal';
 import type { DbGradeSubject } from '../../types';
 import clsx from 'clsx';
+
+/** U — جسر تحليل → إجراء */
+function AnalyzeToActionStrip({
+  atRiskCount = 0,
+  onOpenAtRisk,
+}: {
+  atRiskCount?: number;
+  onOpenAtRisk?: () => void;
+}) {
+  return (
+    <div className="glass-card p-4 mb-4 border border-violet-500/20" dir="rtl">
+      <p className="text-sm font-semibold text-white mb-2">من التحليل إلى الإجراء</p>
+      <p className="text-xs text-white/50 mb-3">
+        {atRiskCount > 0
+          ? `يظهر ${atRiskCount} طالباً في نطاق الخطر — ابدأ بالمتابعة أو التذكير`
+          : 'اختر مساراً سريعاً بناءً على نتائج التحليلات'}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {atRiskCount > 0 && onOpenAtRisk && (
+          <button
+            type="button"
+            onClick={onOpenAtRisk}
+            className="text-xs px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-100 hover:bg-red-500/25"
+          >
+            عرض طلاب الخطر ({atRiskCount})
+          </button>
+        )}
+        <Link
+          to="/academic/observation-inbox"
+          className="text-xs px-3 py-1.5 rounded-lg bg-violet-500/15 border border-violet-500/25 text-violet-100 hover:bg-violet-500/25"
+        >
+          تكليف ملاحظة معلم
+        </Link>
+        <Link
+          to="/questions"
+          className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+        >
+          تعزيز بنك الأسئلة
+        </Link>
+        <Link
+          to="/principal/academic/whatsapp-reminders"
+          className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+        >
+          تذكير واتساب
+        </Link>
+        <Link
+          to="/principal/academic/monitoring"
+          className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+        >
+          متابعة أكاديمية
+        </Link>
+        <Link
+          to="/academic/templates"
+          className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"
+        >
+          قوالب رقمية
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 type TabId = 'class' | 'items' | 'heatmap' | 'growth' | 'compare' | 'classes' | 'at-risk';
 
@@ -339,17 +400,39 @@ export function SupervisorAnalyticsHub() {
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <TrendingUp className="w-6 h-6 text-gold-400" /> التحليلات التعليمية
-        </h1>
-        <button
-          type="button"
-          onClick={exportReport}
-          className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-xl text-white/70 text-sm hover:bg-white/5"
-        >
-          <Download className="w-4 h-4" /> تصدير PDF
-        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-gold-400" /> مركز التحليلات
+          </h1>
+          <p className="text-white/40 text-sm mt-1">تشخيص تربوي في تبويبات واحدةً — روابط التقارير التفصيلية أدناه</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin/classes-report"
+            className="flex items-center gap-2 px-3 py-2 border border-white/10 rounded-xl text-white/70 text-xs sm:text-sm hover:bg-white/5"
+          >
+            <School className="w-4 h-4" /> تقرير الفصول
+          </Link>
+          <Link
+            to="/admin/class-report"
+            className="flex items-center gap-2 px-3 py-2 border border-white/10 rounded-xl text-white/70 text-xs sm:text-sm hover:bg-white/5"
+          >
+            <ShieldAlert className="w-4 h-4" /> تقرير فصل
+          </Link>
+          <button
+            type="button"
+            onClick={exportReport}
+            className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-xl text-white/70 text-sm hover:bg-white/5"
+          >
+            <Download className="w-4 h-4" /> تصدير PDF
+          </button>
+        </div>
       </div>
+
+      <AnalyzeToActionStrip
+        atRiskCount={atRiskStudents.length}
+        onOpenAtRisk={() => setActiveTab('at-risk')}
+      />
 
       <GradeTabs grades={catalog?.grades ?? []} activeGrade={activeGrade} onChange={setActiveGrade} />
 

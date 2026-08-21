@@ -31,13 +31,22 @@ export function MyProfilePage() {
     queryKey: ['student', 'profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
+
+      const direct = await supabase
         .from('students')
         .select('*')
         .eq('user_id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
+        .maybeSingle();
+
+      if (direct.data) return direct.data;
+
+      const viaRpc = await supabase.rpc('get_my_student_profile');
+      if (viaRpc.error) {
+        if (direct.error) throw direct.error;
+        throw viaRpc.error;
+      }
+      const row = Array.isArray(viaRpc.data) ? viaRpc.data[0] : viaRpc.data;
+      return row ?? null;
     },
     enabled: !!user,
   });
@@ -155,6 +164,11 @@ export function MyProfilePage() {
             <h1 className="text-2xl font-bold text-white">{profile.full_name}</h1>
             <p className="text-gold-400 text-sm mt-1 font-medium">{profile.grade} — {profile.class_name}</p>
             <p className="text-white/40 text-xs mt-1 font-mono">الرقم الأكاديمي: {profile.admission_number}</p>
+            {profile.link_code && (
+              <p className="text-emerald-300/90 text-sm mt-2 font-mono tracking-widest" dir="ltr">
+                كود ولي الأمر: {profile.link_code}
+              </p>
+            )}
           </div>
         </div>
       </motion.div>

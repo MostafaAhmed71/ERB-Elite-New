@@ -37,7 +37,7 @@ export function ActivitySuggestionsPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('activity_suggestions')
-        .select('*, students(full_name)')
+        .select('*, students!student_id(full_name)')
         .in('status', ['pending', 'approved'])
         .order('votes', { ascending: false })
         .limit(10);

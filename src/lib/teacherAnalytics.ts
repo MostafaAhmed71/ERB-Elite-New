@@ -11,6 +11,9 @@ import {
 } from './teacherScope';
 import type { DbExamResult, DbSkill, DbStudent } from '../types';
 import { embedOne } from './supabaseEmbeds';
+import { formatGradeLabel } from './academic/constants';
+import { academicToOlympiadGrade } from './academic/gradeBridge';
+import type { AcademicEducationLevel } from './academic/types';
 
 export type TeacherSubjectAssignment = {
   id: string;
@@ -31,20 +34,82 @@ export type TeacherAnalyticsSnapshot = {
 
 export async function fetchTeacherSubjectAssignments(userId: string): Promise<TeacherSubjectAssignment[]> {
   const teacher = await fetchTeacherProfile(userId);
-  if (!teacher) return [];
 
-  const { data, error } = await supabase
-    .from('teacher_subjects')
-    .select('id, grade, subject_name')
-    .eq('teacher_id', teacher.id)
-    .order('grade')
-    .order('subject_name');
+  // 1) نظام الاختبارات (teacher_subjects) — يربطه المشرف التربوي
+  if (teacher) {
+    const { data, error } = await supabase
+      .from('teacher_subjects')
+      .select('id, grade, subject_name')
+      .eq('teacher_id', teacher.id)
+      .order('grade')
+      .order('subject_name');
 
-  if (error) {
-    if (error.code === '42P01') return [];
-    throw error;
+    if (error && error.code !== '42P01') throw error;
+    if (data && data.length) return data as TeacherSubjectAssignment[];
   }
-  return (data ?? []) as TeacherSubjectAssignment[];
+
+  // 2) الوحدة الأكاديمية — إسناد المدير ثم إعداد المعلم لملفه التعليمي
+  return fetchAcademicSubjectAssignments(userId);
+}
+
+/**
+ * يشتقّ قائمة (الصف × المادة) من الوحدة الأكاديمية عند غياب الربط في نظام الاختبارات.
+ * يعتمد أولاً على إسناد المدير (academic_teacher_assignments) ثم على إعداد المعلم
+ * لملفه التعليمي (academic_teacher_setups).
+ */
+async function fetchAcademicSubjectAssignments(userId: string): Promise<TeacherSubjectAssignment[]> {
+  const pairs = new Map<string, TeacherSubjectAssignment>();
+  const add = (level: AcademicEducationLevel, gradeNum: number, subject: string) => {
+    if (!subject || !Number.isFinite(gradeNum)) return;
+    const grade = academicToOlympiadGrade(level, gradeNum);
+    const key = `${grade}__${subject}`;
+    if (!pairs.has(key)) pairs.set(key, { id: key, grade, subject_name: subject });
+  };
+
+  // إسناد المدير
+  const { data: assigns, error: aErr } = await supabase
+    .from('academic_teacher_assignments')
+    .select('subjects, education_level, grades_with_sections')
+    .eq('teacher_id', userId);
+  if (aErr && aErr.code !== '42P01') throw aErr;
+
+  for (const a of (assigns ?? []) as {
+    subjects: string[] | null;
+    education_level: AcademicEducationLevel;
+    grades_with_sections: Record<string, string[]> | null;
+  }[]) {
+    for (const g of Object.keys(a.grades_with_sections ?? {})) {
+      const gradeNum = Number(g);
+      for (const subj of a.subjects ?? []) add(a.education_level, gradeNum, subj);
+    }
+  }
+
+  // إعداد المعلم لملفه التعليمي (احتياطي)
+  if (pairs.size === 0) {
+    const { data: setup, error: sErr } = await supabase
+      .from('academic_teacher_setups')
+      .select('education_levels, grades_by_level, subjects, is_setup_complete')
+      .eq('teacher_id', userId)
+      .maybeSingle();
+    if (sErr && sErr.code !== '42P01') throw sErr;
+
+    if (setup?.is_setup_complete) {
+      const s = setup as {
+        education_levels: AcademicEducationLevel[] | null;
+        grades_by_level: Record<string, number[]> | null;
+        subjects: string[] | null;
+      };
+      for (const level of s.education_levels ?? []) {
+        for (const gradeNum of s.grades_by_level?.[level] ?? []) {
+          for (const subj of s.subjects ?? []) add(level, gradeNum, subj);
+        }
+      }
+    }
+  }
+
+  return Array.from(pairs.values()).sort(
+    (a, b) => a.grade.localeCompare(b.grade, 'ar') || a.subject_name.localeCompare(b.subject_name, 'ar'),
+  );
 }
 
 /** S7 — تحليل مادة/صف للمعلم حسب إسناده */

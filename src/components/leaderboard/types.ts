@@ -24,3 +24,6 @@ export type ClassRankEntry = {
 };
 
 export type LeaderboardTab = 'students' | 'classes';
+
+/** تبويب زمني — الواجهة جاهزة؛ الربط بقاعدة البيانات لاحقاً */
+export type LeaderboardPeriod = 'weekly' | 'monthly' | 'semester';

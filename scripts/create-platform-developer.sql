@@ -1,0 +1,41 @@
+-- إنشاء حساب مطور المنصة (يُنفَّذ يدوياً في Supabase SQL Editor بعد تطبيق migration 089)
+--
+-- الخطوات:
+-- 1) أنشئ مستخدماً من Authentication → Users (أو Auth Admin API) بالبريد وكلمة المرور.
+-- 2) انسخ UUID الناتج.
+-- 3) استبدل القيم أدناه ونفّذ هذا الملف.
+--
+-- ملاحظة: لا يظهر هذا الدور في شاشات التسجيل أو «إضافة مستخدم» للمدير.
+
+-- مثال (عدّل القيم):
+-- DO $$
+-- DECLARE
+--   v_uid UUID := 'PASTE-AUTH-USER-UUID-HERE';
+-- BEGIN
+--   INSERT INTO public.users (id, email, full_name, role, is_active, is_first_login, onboarding_completed)
+--   VALUES (
+--     v_uid,
+--     'dev@northelite.tech',
+--     'مطور المنصة',
+--     'platform_developer',
+--     true,
+--     false,
+--     true
+--   )
+--   ON CONFLICT (id) DO UPDATE
+--   SET
+--     role = 'platform_developer',
+--     full_name = EXCLUDED.full_name,
+--     is_active = true,
+--     is_first_login = false,
+--     onboarding_completed = true;
+--
+--   UPDATE auth.users
+--   SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+--     'role', 'platform_developer',
+--     'full_name', 'مطور المنصة',
+--     'is_first_login', false,
+--     'onboarding_completed', true
+--   )
+--   WHERE id = v_uid;
+-- END $$;

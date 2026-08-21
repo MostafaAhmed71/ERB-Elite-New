@@ -11,6 +11,7 @@ import {
   markAllNotificationsRead,
   formatNotificationTime,
 } from '../../lib/notifications';
+import { useAuthStore } from '../../stores/authStore';
 import type { DbNotification } from '../../types';
 
 const TYPE_ICONS: Record<DbNotification['type'], React.ComponentType<{ className?: string }>> = {
@@ -32,16 +33,18 @@ export function NotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id);
 
   const { data: unreadCount = 0 } = useQuery({
-    queryKey: ['notifications', 'unread-count'],
+    queryKey: ['notifications', 'unread-count', userId],
     queryFn: fetchUnreadCount,
+    enabled: !!userId,
   });
 
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', 'list', userId],
     queryFn: () => fetchNotifications(15),
-    enabled: open,
+    enabled: open && !!userId,
   });
 
   const markReadMutation = useMutation({

@@ -55,17 +55,82 @@ export function extractErrorMessage(err: unknown): string {
   return 'حدث خطأ غير متوقع';
 }
 
+/** رسالة موحّدة عند فشل تسجيل الدخول (بدون تفاصيل تقنية) */
+const LOGIN_FAILED_MSG = 'بيانات الدخول غير صحيحة';
+
+function isInvalidLoginError(err: unknown, msg: string): boolean {
+  if (typeof err === 'object' && err !== null) {
+    const authErr = err as { code?: string; message?: string };
+    if (authErr.code === 'invalid_credentials') return true;
+    if (authErr.message?.includes('Invalid login credentials')) return true;
+  }
+  return (
+    msg.includes('Invalid login credentials') ||
+    msg.includes('invalid_credentials') ||
+    msg.includes('البريد الإلكتروني أو كلمة المرور')
+  );
+}
+
+/** رسائل صفحة تسجيل الدخول فقط — عامة للمستخدم */
+export function toLoginErrorMessage(err: unknown): string {
+  const msg = extractErrorMessage(err);
+
+  if (isInvalidLoginError(err, msg)) {
+    return LOGIN_FAILED_MSG;
+  }
+  if (
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('network request failed') ||
+    msg.includes('Load failed')
+  ) {
+    return 'تعذّر الاتصال بالخادم — تحقق من الإنترنت وحاول مجدداً';
+  }
+  if (msg.includes('انتهت مهلة تسجيل الدخول')) {
+    return msg;
+  }
+  if (msg.includes('أدخل البريد') || msg.includes('أدخل كلمة المرور')) {
+    return msg;
+  }
+  if (authErrIsBanned(err)) {
+    return 'هذا الحساب موقوف — تواصل مع الإدارة';
+  }
+  if (authErrEmailNotConfirmed(err)) {
+    return 'يرجى تأكيد بريدك الإلكتروني أولاً';
+  }
+
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    ((err as { status?: number }).status === 500 ||
+      (err as { __isAuthError?: boolean }).__isAuthError)
+  ) {
+    const status = (err as { status?: number }).status;
+    if (status === 500) {
+      return 'خطأ مصادقة (500) — شغّل الملف المحدّث: supabase/fix-student-login-now.sql ثم أعد المحاولة';
+    }
+  }
+
+  return 'تعذّر تسجيل الدخول — حاول مرة أخرى أو تواصل مع الإدارة';
+}
+
+function authErrIsBanned(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'user_banned';
+}
+
+function authErrEmailNotConfirmed(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'email_not_confirmed';
+}
+
 /** ترجمة رسائل Supabase الشائعة للعربية */
 export function toArabicErrorMessage(err: unknown): string {
   if (typeof err === 'object' && err !== null) {
     const authErr = err as { code?: string; status?: number; __isAuthError?: boolean };
     if (authErr.status === 500 && authErr.__isAuthError) {
-      return 'خطأ في خادم المصادقة (500) — الحساب غير مكتمل في Supabase. افتح SQL Editor وشغّل الملف: supabase/fix-demo-auth.sql';
+      return 'خطأ في خادم المصادقة (500) — تحقق من إعدادات Auth في Supabase أو راجع إدارة المدرسة';
     }
-    if (authErr.code === 'invalid_credentials' || authErr.status === 400) {
-      if (authErr.code === 'invalid_credentials' || authErr.__isAuthError) {
-        return 'البريد الإلكتروني أو كلمة المرور غير صحيحة — تأكد من البيانات أو أن الحساب موجود في Supabase';
-      }
+    if (authErr.code === 'invalid_credentials') {
+      return LOGIN_FAILED_MSG;
     }
     if (authErr.code === 'email_not_confirmed') {
       return 'يرجى تأكيد بريدك الإلكتروني أولاً من لوحة Supabase';
@@ -77,8 +142,14 @@ export function toArabicErrorMessage(err: unknown): string {
 
   const msg = extractErrorMessage(err);
 
-  if (msg.includes('create-user') || msg.includes('Failed to send a request to the Edge Function')) {
-    return 'يجب نشر دالة create-user على Supabase. من الطرفية: supabase functions deploy create-user';
+  if (msg.includes('Failed to send a request to the Edge Function')) {
+    return 'تعذّر استدعاء دالة Edge — غالباً غير منشورة. انشر: supabase functions deploy auth-phone-otp';
+  }
+  if (/auth-phone-otp غير منشورة|functions deploy auth-phone-otp/i.test(msg)) {
+    return msg;
+  }
+  if (msg.includes('create-user') && /يجب نشر|deploy create-user/i.test(msg)) {
+    return msg;
   }
   if (
     msg.includes('Failed to fetch') ||
@@ -86,13 +157,13 @@ export function toArabicErrorMessage(err: unknown): string {
     msg.includes('network request failed') ||
     msg.includes('Load failed')
   ) {
-    return 'تعذّر الاتصال بخادم Supabase — تحقق من الإنترنت أو انشر دالة create-user: supabase functions deploy create-user';
+    return 'تعذّر الاتصال بخادم Supabase — تحقق من الإنترنت ثم أعد المحاولة';
   }
   if (msg.includes('JWT expired') || msg.includes('session_not_found')) {
     return 'انتهت جلستك — سجّل الدخول مجدداً';
   }
   if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('User already registered')) {
-    return 'هذا البريد الإلكتروني مسجّل مسبقاً — ربما من محاولة سابقة. احذف الحسابات من Supabase → Authentication أو غيّر نطاق البريد';
+    return 'هذا الجوال أو الحساب مسجّل مسبقاً — استخدم تسجيل الدخول من شاشة الطاقم';
   }
   if (
     msg.includes('Database error saving new user') ||
@@ -107,17 +178,38 @@ export function toArabicErrorMessage(err: unknown): string {
   if (msg.includes('row-level security') || msg.includes('42501')) {
     return 'ليس لديك صلاحية لتنفيذ هذه العملية — تحقق من دور حسابك في Supabase (يجب أن يكون admin أو teacher) وشغّل migration 030_fix_admin_points_rls.sql';
   }
-  if (msg.includes('duplicate key') || msg.includes('users_email_key')) {
+  if (msg.includes('users_email_key') || (msg.includes('duplicate key') && msg.includes('email'))) {
     return 'هذا البريد الإلكتروني مستخدم مسبقاً';
+  }
+  if (
+    msg.includes('comp_questions_scheduled_date') ||
+    (msg.includes('duplicate key') && msg.includes('scheduled_date'))
+  ) {
+    return 'يوجد سؤال مجدول في هذا التاريخ مسبقاً — عدّل السؤال الموجود أو اختر تاريخاً آخر';
+  }
+  if (msg.includes('duplicate key') || msg.includes('23505')) {
+    return 'هذه البيانات مسجّلة مسبقاً — لا يمكن تكرارها';
   }
   if (msg.includes('admission_number') || msg.includes('الطالب لديه حساب مسبقاً')) {
     return 'الطالب لديه حساب مسبقاً — تخطَّه أو احذف حسابه من Supabase';
   }
   if (msg.includes('Invalid login credentials')) {
-    return 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+    return LOGIN_FAILED_MSG;
+  }
+  if (msg.includes('رقم الهوية غير مسجّل') || msg.includes('غير مسجّل في المدرسة')) {
+    return 'رقم الهوية غير مسجّل في المدرسة — تأكد أن الإدارة رفعت بياناتك أولاً';
+  }
+  if (msg.includes('مرتبط بحساب آخر')) {
+    return 'هذا الطالب مرتبط بحساب آخر مسبقاً — راجع إدارة المدرسة';
   }
   if (msg.includes('Password should be at least')) {
     return 'كلمة المرور قصيرة جداً';
+  }
+  if (
+    /provider is not enabled|unsupported provider|validation_failed.*google/i.test(msg) ||
+    (msg.toLowerCase().includes('google') && msg.toLowerCase().includes('not enabled'))
+  ) {
+    return 'تسجيل الدخول عبر Google غير مفعّل — فعّل مزوّد Google من لوحة Supabase → Authentication → Providers';
   }
   if (msg.includes('Signups not allowed')) {
     return 'التسجيل مغلق في إعدادات Supabase';

@@ -1,0 +1,177 @@
+/* لوحة المدير/الرائد — زجاج داكن ضمن هوية المنصة (navy + gold + Cairo) */
+
+.glass-dash {
+  --glass-bg: rgba(17, 28, 68, 0.72);
+  --glass-bg-strong: rgba(27, 37, 75, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-purple: #7551ff;
+  --glass-indigo: #6366f1;
+  --glass-blue: #4481eb;
+  --glass-cyan: #04befe;
+  --glass-lime: #01b574;
+  --glass-orange: #f0b429;
+  --glass-pink: #ee5d90;
+  --glass-gold: #e6aa32;
+  --glass-text: #ffffff;
+  --glass-muted: #a3aed0;
+  --glass-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  position: relative;
+  isolation: isolate;
+  color: var(--glass-text);
+  font-family: inherit; /* Cairo من المنصة */
+  margin: 0;
+  padding: 0;
+}
+
+.glass-dash__bg {
+  pointer-events: none;
+  position: absolute;
+  inset: -0.5rem;
+  z-index: -1;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 55% 40% at 90% 0%, rgba(117, 81, 255, 0.16), transparent 55%),
+    radial-gradient(ellipse 45% 35% at 5% 15%, rgba(230, 170, 50, 0.1), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 60% 100%, rgba(68, 129, 235, 0.08), transparent 45%);
+}
+
+.glass-dash__orb {
+  display: none; /* إزالة الكرات الفاتحة الشاذة عن الهوية */
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card, 1.25rem);
+  box-shadow: var(--glass-shadow);
+  color: var(--glass-text);
+}
+
+.glass-card--glow-purple {
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(117, 81, 255, 0.12);
+}
+
+.glass-kpi-trend-up {
+  color: #01b574;
+  background: rgba(1, 181, 116, 0.12);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.glass-kpi-trend-down {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.glass-kpi-trend-flat {
+  color: var(--glass-muted);
+  background: rgba(163, 174, 208, 0.12);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.glass-quick-action {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.1rem;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  color: var(--glass-text);
+}
+
+.glass-quick-action:hover {
+  background: rgba(230, 170, 50, 0.08);
+  border-color: rgba(230, 170, 50, 0.28);
+  transform: translateY(-2px);
+}
+
+.glass-icon-tint {
+  background: linear-gradient(145deg, #7551ff, #422afb);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(117, 81, 255, 0.28);
+}
+
+.glass-icon-tint--cyan {
+  background: linear-gradient(145deg, #4481eb, #04befe);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(68, 129, 235, 0.28);
+}
+
+.glass-icon-tint--lime {
+  background: linear-gradient(145deg, #01b574, #0e9f6e);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(1, 181, 116, 0.25);
+}
+
+.glass-icon-tint--orange {
+  background: linear-gradient(145deg, #f0b429, #e6aa32);
+  color: #111c44;
+  box-shadow: 0 8px 18px rgba(230, 170, 50, 0.28);
+}
+
+.glass-icon-tint--pink {
+  background: linear-gradient(145deg, #ee5d90, #7551ff);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(238, 93, 144, 0.25);
+}
+
+.glass-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--glass-muted);
+}
+
+.glass-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.glass-status--ok {
+  background: rgba(1, 181, 116, 0.14);
+  color: #34d399;
+}
+
+.glass-status--warn {
+  background: rgba(240, 180, 41, 0.14);
+  color: #f0b429;
+}
+
+.glass-status--info {
+  background: rgba(117, 81, 255, 0.16);
+  color: #c4b5fd;
+}
+
+.glass-ops-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease;
+  border-radius: 0.75rem;
+}
+
+.glass-ops-row:last-child {
+  border-bottom: none;
+}
+
+.glass-ops-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}

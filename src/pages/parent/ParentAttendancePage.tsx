@@ -1,7 +1,6 @@
 import { CalendarCheck, AlertCircle, Calendar } from 'lucide-react';
 import { useParentChildren } from '../../hooks/useParentChildren';
 import { ParentPageShell } from '../../components/parent/ParentPageShell';
-import { ParentChildSelector } from '../../components/parent/ParentChildSelector';
 import { AttendanceMonthlyChart } from '../../components/parent/AttendanceMonthlyChart';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -11,7 +10,7 @@ import clsx from 'clsx';
 import { BarsLoader } from '../../components/ui/BarsLoader';
 
 export function ParentAttendancePage() {
-  const { children, isLoading: childrenLoading, selectedChild, selectedChildId, setSelectedChildId } = useParentChildren();
+  const { children, isLoading: childrenLoading, selectedChild, selectedChildId } = useParentChildren();
 
   const { data: attendance = [], isLoading: attendanceLoading } = useQuery({
     queryKey: ['parent', 'attendance', selectedChildId],
@@ -42,7 +41,7 @@ export function ParentAttendancePage() {
 
   if (children.length === 0) {
     return (
-      <ParentPageShell>
+      <ParentPageShell showChildBar={false}>
         <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-6 glass-card">
           <AlertCircle className="w-12 h-12 text-gold-400 mb-3" />
           <h2 className="text-white font-bold text-lg">لا يوجد أبناء مرتبطين بحسابك</h2>
@@ -62,12 +61,6 @@ export function ParentAttendancePage() {
           </h1>
           <p className="text-white/40 text-sm mt-1">تفاصيل وتواريخ حضور وغياب الأبناء اليومية</p>
         </div>
-
-        <ParentChildSelector
-          children={children}
-          selectedChildId={selectedChildId}
-          onChange={setSelectedChildId}
-        />
 
         {selectedChild && (
           <>

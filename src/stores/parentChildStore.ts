@@ -6,6 +6,7 @@ interface ParentChildState {
   setSelectedChildId: (id: string | null) => void;
 }
 
+/** اختيار الابن يُحفظ محلياً ليستمر عبر الصفحات والجلسات */
 export const useParentChildStore = create<ParentChildState>()(
   persist(
     (set) => ({
@@ -14,7 +15,7 @@ export const useParentChildStore = create<ParentChildState>()(
     }),
     {
       name: 'erb-parent-child',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ selectedChildId: state.selectedChildId }),
     }
   )

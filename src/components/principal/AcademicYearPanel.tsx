@@ -7,6 +7,7 @@ import {
 } from '../../lib/academicYear';
 import { showSuccess, showError } from '../../lib/toast';
 import { Button } from '../ui/Button';
+import { DatabaseResetPanel } from './DatabaseResetPanel';
 
 export function AcademicYearPanel() {
   const queryClient = useQueryClient();
@@ -109,6 +110,10 @@ export function AcademicYearPanel() {
         >
           {transitionMutation.isPending ? 'جاري الترحيل...' : 'إنهاء العام وترحيل الطلاب'}
         </Button>
+      </div>
+
+      <div className="pt-4 border-t border-white/10">
+        <DatabaseResetPanel />
       </div>
     </div>
   );

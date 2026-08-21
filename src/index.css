@@ -21,6 +21,18 @@
   --gold-400: #eeba48;
   --gold-500: #e6aa32;
   --gold-600: #cc9628;
+
+  /* UX Phase 1 — shared surface tokens (Horizon + Academic + glass) */
+  --surface-card: #111c44;
+  --surface-elevated: rgba(17, 28, 68, 0.92);
+  --text-muted: #a3aed0;
+  --text-subtle: rgba(255, 255, 255, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-soft: rgba(255, 255, 255, 0.1);
+  --accent-violet: #7551ff;
+  --accent-violet-soft: rgba(117, 81, 255, 0.2);
+  --radius-card: 1.25rem;
+  --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
 
 html {
@@ -120,10 +132,26 @@ body {
 
 @layer components {
   .glass-card {
-    @apply bg-navy-900/50 border border-white/5 rounded-2xl backdrop-blur-xl;
+    @apply rounded-2xl backdrop-blur-xl;
+    background-color: color-mix(in srgb, var(--navy-900) 50%, transparent);
+    border: 1px solid var(--border-subtle);
     box-shadow:
       0 4px 24px rgba(0, 0, 0, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .horizon-card {
+    background-color: var(--surface-card);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .text-surface-muted {
+    color: var(--text-muted);
+  }
+
+  .border-surface-subtle {
+    border-color: var(--border-subtle);
   }
 
   .glass-card-hover {
@@ -229,6 +257,7 @@ body {
   .table-scroll {
     @apply w-full overflow-x-auto overscroll-x-contain;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   .table-scroll table {
@@ -253,6 +282,93 @@ body {
 
   .pt-safe-offset {
     padding-top: max(0.75rem, calc(0.75rem + env(safe-area-inset-top)));
+  }
+
+  /* ─── تحسينات الجوال ─── */
+  @media (max-width: 639px) {
+    .glass-card {
+      @apply rounded-xl;
+    }
+
+    .page-header {
+      @apply p-3.5 gap-3 rounded-xl;
+    }
+
+    .action-card {
+      @apply p-4 rounded-xl;
+    }
+
+    .quick-link {
+      @apply min-h-[48px] p-3.5;
+    }
+
+    .horizon-card {
+      @apply rounded-2xl;
+    }
+  }
+
+  .mobile-page-actions {
+    @apply flex flex-col sm:flex-row gap-2 w-full sm:w-auto;
+  }
+
+  .mobile-page-actions > * {
+    @apply w-full sm:w-auto justify-center;
+  }
+
+  .mobile-stat-grid {
+    @apply grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4;
+  }
+
+  .mobile-card-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4;
+  }
+
+  .mobile-chip-row {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .mobile-chip-row > button {
+    @apply min-h-[44px] px-4;
+  }
+
+  .mobile-form-footer {
+    @apply flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2;
+  }
+
+  .mobile-form-footer > * {
+    @apply w-full sm:w-auto justify-center;
+  }
+}
+
+/* ─── تحسين عام لكل الجداول على الجوال ─── */
+@media (max-width: 639px) {
+  /* أي جدول غير ملفوف بحاوية تمرير: اجعله يمرّر أفقياً بدل كسر التخطيط */
+  table {
+    font-size: 0.8125rem;
+  }
+
+  /* تقليل الحشو الضخم (px-6 py-4) على الجوال */
+  table th,
+  table td {
+    padding-inline: 0.625rem !important;
+    padding-block: 0.625rem !important;
+  }
+
+  /* منع التفاف الأعمدة القصيرة — التمرير الأفقي أنظف */
+  table th {
+    white-space: nowrap;
+  }
+
+  /* حاوية تمرير أفقي: حواف مستديرة + ظل تلميح */
+  .table-scroll {
+    border-radius: 0.75rem;
+    -webkit-mask-image: none;
+  }
+
+  /* أي جدول مباشر داخل بطاقة بدون حاوية تمرير — أعطه أدنى عرض معقول وحاوية قابلة للتمرير */
+  .glass-card > .overflow-x-auto,
+  .horizon-card > .overflow-x-auto {
+    margin-inline: -0.25rem;
   }
 }
 
@@ -284,4 +400,148 @@ select option {
 }
 .hover\:bg-white\/8:hover {
   background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── AI Studio (ChatGPT / Claude-like) ─── */
+.ai-orb {
+  position: relative;
+  background:
+    linear-gradient(145deg, rgba(240, 180, 41, 0.25), rgba(1, 181, 116, 0.18) 45%, rgba(68, 129, 235, 0.2));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(240, 180, 41, 0.12);
+  overflow: hidden;
+}
+
+.ai-orb::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from 180deg,
+    transparent 0%,
+    rgba(240, 180, 41, 0.35) 25%,
+    transparent 50%,
+    rgba(1, 181, 116, 0.3) 75%,
+    transparent 100%
+  );
+  animation: ai-orb-spin 8s linear infinite;
+  opacity: 0.7;
+}
+
+.ai-orb-core {
+  position: relative;
+  z-index: 1;
+  width: 38%;
+  height: 38%;
+  border-radius: 30%;
+  background: linear-gradient(135deg, #f0b429, #01b574 60%, #4481eb);
+  box-shadow: 0 0 12px rgba(240, 180, 41, 0.45);
+}
+
+.ai-orb--lg .ai-orb-core {
+  width: 34%;
+  height: 34%;
+  border-radius: 28%;
+}
+
+.ai-orb--float {
+  animation: ai-orb-float 4.5s ease-in-out infinite;
+}
+
+@keyframes ai-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ai-orb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.ai-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ai-typing-dots i {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(240, 180, 41, 0.9);
+  animation: ai-dot-bounce 1.2s ease-in-out infinite;
+}
+
+.ai-typing-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.ai-typing-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.ai-typing-dots--dark i {
+  background: rgba(13, 27, 42, 0.75);
+}
+
+@keyframes ai-dot-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.ai-panel {
+  position: relative;
+}
+
+.ai-composer:focus-within {
+  border-color: rgba(240, 180, 41, 0.35);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(240, 180, 41, 0.2);
+}
+
+.ai-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.ai-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb::before,
+  .ai-orb--float,
+  .ai-typing-dots i {
+    animation: none !important;
+  }
 }

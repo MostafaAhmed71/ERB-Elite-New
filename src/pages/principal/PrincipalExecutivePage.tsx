@@ -23,6 +23,9 @@ import { HorizonCard, HorizonIconBox, HorizonStatCard } from '../../components/d
 import { StudentsGradeDistribution } from '../../components/dashboard/horizon/StudentsGradeDistribution';
 import { WhatIfWeightsPanel } from '../../components/principal/WhatIfWeightsPanel';
 import { PlatformAdoptionPanel } from '../../components/principal/PlatformAdoptionPanel';
+import { SchoolOpsHealthCard } from '../../components/principal/SchoolOpsHealthCard';
+import { PrincipalAiUsageSummaryCard } from '../../components/principal/PrincipalAiUsageSummaryCard';
+import { DayCloseWeatherCard } from '../../components/dashboard/DayCloseWeatherCard';
 import clsx from 'clsx';
 
 export function PrincipalExecutivePage() {
@@ -210,6 +213,12 @@ export function PrincipalExecutivePage() {
             </motion.div>
 
             <StudentsGradeDistribution data={gradesChart} />
+
+            <div className="grid lg:grid-cols-2 gap-4">
+              <SchoolOpsHealthCard />
+              <PrincipalAiUsageSummaryCard />
+              <DayCloseWeatherCard />
+            </div>
 
             <WhatIfWeightsPanel />
 

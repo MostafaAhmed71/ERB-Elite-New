@@ -1,9 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
 import { User, Award, AlertCircle } from 'lucide-react';
 import { useParentChildren } from '../../hooks/useParentChildren';
 import { useStudentMetrics } from '../../hooks/useStudentMetrics';
 import { ParentPageShell } from '../../components/parent/ParentPageShell';
-import { ParentChildSelector } from '../../components/parent/ParentChildSelector';
 import { StudentMetricsOverview } from '../../components/shared/StudentMetricsOverview';
 import { ClassAverageComparison } from '../../components/shared/ClassAverageComparison';
 import { ActivityTimeline } from '../../components/shared/ActivityTimeline';
@@ -12,7 +10,7 @@ import { BarsLoader } from '../../components/ui/BarsLoader';
 import clsx from 'clsx';
 
 export function StudentProfilePage() {
-  const { children, isLoading: childrenLoading, selectedChild, selectedChildId, setSelectedChildId } = useParentChildren();
+  const { children, isLoading: childrenLoading, selectedChild } = useParentChildren();
   const metrics = useStudentMetrics(selectedChild?.id);
 
   const isLoading = childrenLoading || metrics.isLoading;
@@ -23,7 +21,7 @@ export function StudentProfilePage() {
 
   if (children.length === 0) {
     return (
-      <ParentPageShell>
+      <ParentPageShell showChildBar={false}>
         <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-6 glass-card">
           <AlertCircle className="w-12 h-12 text-gold-400 mb-3" />
           <h2 className="text-white font-bold text-lg">لا يوجد أبناء مرتبطين بحسابك</h2>
@@ -36,12 +34,6 @@ export function StudentProfilePage() {
   return (
     <ParentPageShell>
       <div className="space-y-6">
-        <ParentChildSelector
-          children={children}
-          selectedChildId={selectedChildId}
-          onChange={setSelectedChildId}
-        />
-
         {selectedChild && (
           <>
             <div className="glass-card p-6">

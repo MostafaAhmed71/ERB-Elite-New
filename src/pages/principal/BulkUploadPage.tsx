@@ -11,6 +11,7 @@ import clsx from 'clsx';
 import { Button } from '../../components/ui';
 import { showError, showSuccess } from '../../lib/toast';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { AddStudentRosterForm } from '../../components/users/AddStudentRosterForm';
 
 interface ParsedStudent extends StudentExcelRow {
   _valid: boolean;
@@ -64,6 +65,7 @@ export function BulkUploadPage() {
     for (const batch of batches) {
       const inserts = batch.map((row) => ({
         admission_number: String(row.admission_number),
+        national_id: String(row.admission_number),
         full_name: row.full_name,
         grade: row.grade,
         class_name: row.class_name,
@@ -72,6 +74,7 @@ export function BulkUploadPage() {
         academic_year: new Date().getFullYear().toString(),
       })) as Array<{
         admission_number: string;
+        national_id: string;
         full_name: string;
         grade: string;
         class_name: string;
@@ -121,19 +124,25 @@ export function BulkUploadPage() {
   return (
     <div className="space-y-6" dir="rtl">
       <PageHeader
-        title="الرفع الجماعي للطلاب"
-        subtitle="ارفع ملف Excel بالأعمدة: nationalId · name · class · grade · phone"
+        title="إدارة قائمة الطلاب"
+        subtitle="أضف طالباً يدوياً أو ارفع ملف Excel — رقم الهوية يمنع تسجيل طلاب من خارج المدرسة"
         icon={FileSpreadsheet}
         actions={
           <Button variant="secondary" size="md" icon={<Download className="w-4 h-4" />} onClick={downloadTemplate}>
-            تحميل النموذج
+            تحميل نموذج Excel
           </Button>
         }
       />
 
-      {/* Uploader */}
-      <ExcelUploader onParsed={handleFileParsed} />
+      <AddStudentRosterForm />
 
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+        <div>
+          <h3 className="text-white font-bold text-sm">رفع جماعي من Excel</h3>
+          <p className="text-white/40 text-xs mt-1">الأعمدة: nationalId · name · class · grade · phone</p>
+        </div>
+        <ExcelUploader onParsed={handleFileParsed} />
+      </div>
       {/* Results Summary */}
       {parsedRows.length > 0 && (
         <div className="flex items-center gap-4 flex-wrap">

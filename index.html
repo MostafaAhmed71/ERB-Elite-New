@@ -23,6 +23,29 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Dev only: stale Workbox on localhost caches React/Vite modules → Invalid hook call + WS 400
+      (function () {
+        var h = location.hostname;
+        if (h !== 'localhost' && h !== '127.0.0.1') return;
+        if (!('serviceWorker' in navigator)) return;
+        var flag = 'erb_sw_dev_cleared';
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          var had = regs.length > 0 || !!navigator.serviceWorker.controller;
+          return Promise.all(regs.map(function (r) { return r.unregister(); })).then(function () {
+            if (!('caches' in window)) return had;
+            return caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            }).then(function () { return had; });
+          });
+        }).then(function (had) {
+          if (had && !sessionStorage.getItem(flag)) {
+            sessionStorage.setItem(flag, '1');
+            location.reload();
+          }
+        }).catch(function () {});
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
