@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
-import { signIn, signInWithGoogle, resolveLoginTarget, rememberPreferredLoginPath } from '../lib/auth';
+import { signIn, signInWithGoogle, resolveLoginTarget, rememberPreferredLoginPath, parseRoleFromMetadata } from '../lib/auth';
 import { toArabicErrorMessage, toLoginErrorMessage } from '../lib/errors';
 import { resolveTeacherPostLoginPath } from '../lib/teacherSignup';
+
+const STAFF_ROLES = new Set<string>([
+  'teacher',
+  'admin',
+  'activity_leader',
+  'principal',
+  'deputy',
+  'platform_developer',
+]);
 import {
   requestTeacherLoginOtp,
   verifyTeacherLoginOtp,
@@ -71,17 +80,27 @@ export function StaffLoginPage() {
 
   useEffect(() => {
     if (!initialized || !session || redirectingRef.current) return;
-    redirectingRef.current = true;
-    void (async () => {
-      const profile = await setAuthSession(session);
-      const redirectTarget = getRedirectTarget();
-      if (redirectTarget) {
-        navigate(redirectTarget, { replace: true });
-        return;
-      }
-      const teacherTarget = await resolveTeacherPostLoginPath(profile);
-      navigate(teacherTarget ?? resolveLoginTarget(session, profile), { replace: true });
-    })();
+
+    const userRole = (useAuthStore.getState().role ?? parseRoleFromMetadata(session.user.user_metadata?.role)) as string | undefined;
+
+    // إذا كانت الجلسة لطالب أو ولي أمر، لا توجهه بعيداً بل دعه يسجل دخوله ككادر
+    if (userRole === 'student' || userRole === 'parent') {
+      return;
+    }
+
+    if (userRole && STAFF_ROLES.has(userRole)) {
+      redirectingRef.current = true;
+      void (async () => {
+        const profile = await setAuthSession(session);
+        const redirectTarget = getRedirectTarget();
+        if (redirectTarget) {
+          navigate(redirectTarget, { replace: true });
+          return;
+        }
+        const teacherTarget = await resolveTeacherPostLoginPath(profile);
+        navigate(teacherTarget ?? resolveLoginTarget(session, profile), { replace: true });
+      })();
+    }
   }, [initialized, session, setAuthSession, navigate]);
 
   const switchTab = (next: StaffTab) => {
@@ -241,7 +260,10 @@ export function StaffLoginPage() {
 
   const busy = loading || googleLoading;
 
-  if (!initialized || (!!session && redirectingRef.current)) {
+  const userRole = (useAuthStore.getState().role ?? parseRoleFromMetadata(session?.user.user_metadata?.role)) as string | undefined;
+  const isStaffSession = Boolean(session && userRole && STAFF_ROLES.has(userRole));
+
+  if (!initialized || (isStaffSession && redirectingRef.current)) {
     return (
       <div className="login-shell" dir="rtl">
         <div className="flex flex-col items-center gap-4">
@@ -256,7 +278,7 @@ export function StaffLoginPage() {
     );
   }
 
-  if (session && !redirectingRef.current) {
+  if (isStaffSession && !redirectingRef.current) {
     return (
       <div className="login-shell" dir="rtl">
         <TapHandLoader label="جاري إكمال تسجيل الدخول..." />

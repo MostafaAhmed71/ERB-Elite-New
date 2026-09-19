@@ -182,6 +182,18 @@ export const router = createBrowserRouter([
     element: <StaffLoginPage />,
   },
   {
+    path: '/login/staff/',
+    element: <StaffLoginPage />,
+  },
+  {
+    path: '/staff',
+    element: <Navigate to="/login/staff" replace />,
+  },
+  {
+    path: '/staff/login',
+    element: <Navigate to="/login/staff" replace />,
+  },
+  {
     path: '/auth/callback',
     element: <AuthCallbackPage />,
   },
