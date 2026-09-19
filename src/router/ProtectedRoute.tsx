@@ -11,8 +11,8 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { session, user, role, loading, initialized } = useAuthStore();
 
-  // 1. لم تكتمل التهيئة بعد أو لا زال التحميل جارياً
-  if (!initialized || loading) {
+  // 1. لم تكتمل التهيئة بعد أو لا زال التحميل جارياً لأول مرة (قبل وجود الجلسة)
+  if (!initialized || (loading && !session)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-navy-950">
         <TapHandLoader label="جاري التحقق من الصلاحيات..." fullScreen />

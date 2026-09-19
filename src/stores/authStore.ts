@@ -64,7 +64,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   setAuthSession: async (session: Session) => {
     get().applySession(session);
-    set({ loading: true });
+    if (!get().session) {
+      set({ loading: true });
+    }
     try {
       const profile = await withTimeout(
         getCurrentUserProfile(),
@@ -212,6 +214,13 @@ supabase.auth.onAuthStateChange((event, session) => {
 
   // SIGNED_IN يُعالَج من /auth/callback أو LoginPage عبر navigate — لا نُعدّ التوجيه هنا
   if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
+    const currentSession = useAuthStore.getState().session;
+    const currentUser = useAuthStore.getState().user;
+    // إذا كان المستخدم مسجل دخوله بالفعل، نقوم فقط بتحديث التوكن دون مقاطعة واجهة المستخدم
+    if (currentSession?.user.id === session.user.id && currentUser) {
+      useAuthStore.getState().setSession(session);
+      return;
+    }
     void useAuthStore.getState().setAuthSession(session);
   }
 });

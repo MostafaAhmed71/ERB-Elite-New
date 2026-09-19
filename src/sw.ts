@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 import { clientsClaim, skipWaiting } from 'workbox-core';
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
-import { NetworkOnly } from 'workbox-strategies';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { NetworkFirst, NetworkOnly } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -12,6 +12,15 @@ skipWaiting();
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
+
+// صفحات التنقل (HTML) تُجلب دائماً من الشبكة أولاً لضمان تحميل أحدث نسخة بدون Ctrl+Shift+R
+const navigationRoute = new NavigationRoute(
+  new NetworkFirst({
+    cacheName: 'html-cache',
+    networkTimeoutSeconds: 3,
+  })
+);
+registerRoute(navigationRoute);
 
 registerRoute(
   ({ url }) => url.pathname.endsWith('/version.json'),

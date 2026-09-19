@@ -44,13 +44,14 @@ export default defineConfig({
       injectManifest: {
         // الحزمة الرئيسية تجاوزت 4.7MB بعد إضافة تصدير Word/PPT ومساعد الذكاء
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,woff,ttf}'],
+        // لا نضمّن html في التخزين المؤقت المسبق لضمان تحميل أحدث نسخة دائماً دون الحاجة لـ Ctrl+Shift+R
+        globPatterns: ['**/*.{js,css,ico,png,jpg,jpeg,svg,woff2,woff,ttf}'],
       },
       manifest: {
         name: PLATFORM_NAME,
         short_name: PLATFORM_NAME_SHORT,
         description: `${PLATFORM_TAGLINE} — نقاط، أنشطة، اختبارات، وحضور`,
-        start_url: '/login/staff',
+        start_url: '/',
         scope: '/',
         id: '/',
         display: 'standalone',
