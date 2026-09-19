@@ -642,7 +642,7 @@ export function StudentCardPage() {
 
         <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center">
           <Link
-            to={`/login/staff?redirect=${encodeURIComponent(
+            to={`/login?redirect=${encodeURIComponent(
               student ? `/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr` : (window.location.pathname + window.location.search),
             )}`}
           >
