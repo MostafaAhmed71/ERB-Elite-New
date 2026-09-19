@@ -13,6 +13,7 @@ DECLARE
   v_teacher_id uuid;
   v_email text := 'mostafa@gmail.com';
   v_password text := '74129800';
+  v_phone text := '0563062846';
   v_full_name text := 'الأستاذ مصطفى أحمد';
   v_academic_year text := EXTRACT(YEAR FROM NOW())::TEXT;
 BEGIN
@@ -24,25 +25,28 @@ BEGIN
 
   -- 2) إنشاء أو تحديث في auth.users
   INSERT INTO auth.users (
-    id, instance_id, aud, role, email, encrypted_password,
+    id, instance_id, aud, role, email, phone, phone_confirmed_at, encrypted_password,
     email_confirmed_at, created_at, updated_at,
     raw_app_meta_data, raw_user_meta_data, is_super_admin,
     confirmation_token, recovery_token, email_change_token_new, email_change
   ) VALUES (
     v_user_id, v_instance_id, 'authenticated', 'authenticated', lower(v_email),
+    '+966563062846', NOW(),
     crypt(v_password, gen_salt('bf')),
     NOW(), NOW(), NOW(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    jsonb_build_object('full_name', v_full_name, 'role', 'teacher'),
+    jsonb_build_object('full_name', v_full_name, 'role', 'teacher', 'phone', v_phone),
     false, '', '', '', ''
   )
   ON CONFLICT (id) DO UPDATE SET
     instance_id = EXCLUDED.instance_id,
+    phone = '+966563062846',
+    phone_confirmed_at = COALESCE(auth.users.phone_confirmed_at, NOW()),
     encrypted_password = crypt(v_password, gen_salt('bf')),
     email_confirmed_at = COALESCE(auth.users.email_confirmed_at, NOW()),
     updated_at = NOW(),
     raw_app_meta_data = EXCLUDED.raw_app_meta_data,
-    raw_user_meta_data = jsonb_build_object('full_name', v_full_name, 'role', 'teacher'),
+    raw_user_meta_data = jsonb_build_object('full_name', v_full_name, 'role', 'teacher', 'phone', v_phone),
     confirmation_token = '',
     recovery_token = '',
     email_change_token_new = '',
@@ -57,8 +61,9 @@ BEGIN
     jsonb_build_object(
       'sub', v_user_id::text,
       'email', lower(v_email),
+      'phone', v_phone,
       'email_verified', true,
-      'phone_verified', false
+      'phone_verified', true
     ),
     'email', NOW(), NOW(), NOW()
   )
@@ -69,15 +74,17 @@ BEGIN
 
   -- 4) إنشاء أو تحديث في public.users
   INSERT INTO public.users (
-    id, email, full_name, role, is_active, is_first_login
+    id, email, phone, full_name, role, is_active, is_first_login, onboarding_completed
   ) VALUES (
-    v_user_id, lower(v_email), v_full_name, 'teacher', true, false
+    v_user_id, lower(v_email), v_phone, v_full_name, 'teacher', true, false, true
   )
   ON CONFLICT (id) DO UPDATE SET
+    phone = v_phone,
     role = 'teacher',
     full_name = v_full_name,
     is_active = true,
-    is_first_login = false;
+    is_first_login = false,
+    onboarding_completed = true;
 
   -- 5) إنشاء أو تحديث في public.teachers
   SELECT id INTO v_teacher_id FROM public.teachers WHERE user_id = v_user_id LIMIT 1;
