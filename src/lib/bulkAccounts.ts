@@ -11,11 +11,13 @@ function sleep(ms: number) {
 export type BulkStudentInput = {
   full_name: string;
   admission_number?: string;
+  class_name?: string;
 };
 
 export type BulkAccountResultRow = {
   student_name: string;
   admission_number: string;
+  class_name?: string;
   student_email: string;
   student_password: string;
   parent_email: string;
@@ -146,9 +148,10 @@ async function bulkCreateViaCreateUser(
   for (let i = 0; i < params.students.length; i++) {
     const input = params.students[i];
     const studentName = String(input.full_name ?? '').trim();
+    const studentClass = input.class_name || params.class_name;
 
     if (!studentName) {
-      results.push(emptyResultRow('', 'اسم الطالب مطلوب'));
+      results.push(emptyResultRow('', 'اسم الطالب مطلوب', '', studentClass));
       continue;
     }
 
@@ -161,12 +164,12 @@ async function bulkCreateViaCreateUser(
 
     if (withAccount.has(admission)) {
       // نتجاوز فقط إذا كان الطالب مرتبطاً بحساب فعلاً — لا نمنع التوليد للحسابات المُلغاة
-      results.push(emptyResultRow(studentName, 'الطالب لديه حساب مرتبط مسبقاً — احذف الحساب القديم أولاً', admission));
+      results.push(emptyResultRow(studentName, 'الطالب لديه حساب مرتبط مسبقاً — احذف الحساب القديم أولاً', admission, studentClass));
       continue;
     }
 
     if (usedInBatch.has(admission)) {
-      results.push(emptyResultRow(studentName, 'رقم القيد مكرر في القائمة', admission));
+      results.push(emptyResultRow(studentName, 'رقم القيد مكرر في القائمة', admission, studentClass));
       continue;
     }
 
@@ -180,7 +183,6 @@ async function bulkCreateViaCreateUser(
     try {
       // 1) إنشاء حساب ولي الأمر
       parentId = await createUser({
-
         email: parentEmail,
         password: parentPassword,
         full_name: `ولي أمر ${studentName}`,
@@ -209,7 +211,7 @@ async function bulkCreateViaCreateUser(
         p_admission_number: admission,
         p_full_name: studentName,
         p_grade: params.grade,
-        p_class_name: params.class_name,
+        p_class_name: studentClass,
         p_academic_year: year,
       });
 
@@ -222,7 +224,7 @@ async function bulkCreateViaCreateUser(
             admission_number: admission,
             full_name: studentName,
             grade: params.grade,
-            class_name: params.class_name,
+            class_name: studentClass,
             academic_year: year,
             is_active: true,
           },
@@ -241,6 +243,7 @@ async function bulkCreateViaCreateUser(
       results.push({
         student_name: studentName,
         admission_number: admission,
+        class_name: studentClass,
         student_email: studentEmail,
         student_password: studentPassword,
         parent_email: parentEmail,
@@ -256,6 +259,7 @@ async function bulkCreateViaCreateUser(
       results.push({
         student_name: studentName,
         admission_number: admission,
+        class_name: studentClass,
         student_email: studentEmail,
         student_password: studentPassword,
         parent_email: parentEmail,
@@ -283,10 +287,11 @@ async function safeDeleteUser(userId: string): Promise<void> {
   }
 }
 
-function emptyResultRow(name: string, error: string, admission = ''): BulkAccountResultRow {
+function emptyResultRow(name: string, error: string, admission = '', class_name = ''): BulkAccountResultRow {
   return {
     student_name: name,
     admission_number: admission,
+    class_name,
     student_email: '',
     student_password: '',
     parent_email: '',
@@ -352,6 +357,7 @@ async function persistBulkCredentialsFromResults(
     // أولوية: استخدم الـ ID المحفوظ مباشرةً ، وإلا البحث بالإيميل
     const studentId = r.student_user_id ?? byEmail.get(r.student_email.toLowerCase());
     const parentId = r.parent_user_id ?? byEmail.get(r.parent_email.toLowerCase());
+    const rowClass = r.class_name || class_name;
     const out: Array<Record<string, unknown>> = [];
 
     if (studentId) {
@@ -361,7 +367,7 @@ async function persistBulkCredentialsFromResults(
         account_type: 'student',
         student_name: r.student_name,
         grade,
-        class_name,
+        class_name: rowClass,
         email: r.student_email,
         display_password: r.student_password,
         password_changed_by_user: false,
@@ -377,7 +383,7 @@ async function persistBulkCredentialsFromResults(
         account_type: 'parent',
         student_name: r.student_name,
         grade,
-        class_name,
+        class_name: rowClass,
         email: r.parent_email,
         display_password: r.parent_password,
         password_changed_by_user: false,
