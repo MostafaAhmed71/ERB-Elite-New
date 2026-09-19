@@ -8,6 +8,7 @@ import {
   LogIn,
   User,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,7 +16,7 @@ import { getLevelInfo } from '../../lib/calculations';
 import { TapHandLoader } from '../ui/TapHandLoader';
 import { Button } from '../ui/Button';
 import { showSuccess, showError } from '../../lib/toast';
-import { parsePointsGrantError } from '../../lib/teacherScope';
+import { parsePointsGrantError, fetchTeacherBudget, fetchTeacherQuotaUsage } from '../../lib/teacherScope';
 import { logAction, parseRoleFromMetadata } from '../../lib/auth';
 import { AXES_KEYS } from '../../lib/pointsReference';
 import { ensureManualTeacherActivity, buildManualActivityNote } from '../../lib/pointsEvidence';
@@ -128,21 +129,12 @@ export function StudentCardPage() {
     enabled: !!(studentId || qrToken),
   });
 
-  const navigate = useNavigate();
-
-  // للكادر المسجل (معلم / وكيل / مدير / رائد نشاط / مسؤول): التوجيه التلقائي المباشر إلى شاشة منح النقاط للطالب الممسوح
-  useEffect(() => {
-    if (student?.id && canGrant) {
-      navigate(`/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr`, { replace: true });
-    }
-  }, [student?.id, canGrant, navigate]);
-
-  // للزائر غير المسجل: حفظ وجهة منح النقاط ليتم تحويله إليها فور تسجيل الدخول
+  // للزائر غير المسجل: حفظ رابط بطاقة الطالب الحالية ليتم العودة إليها فور تسجيل الدخول
   useEffect(() => {
     if (student?.id && !authUser) {
-      const grantUrl = `/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr`;
+      const currentUrl = window.location.pathname + window.location.search;
       try {
-        sessionStorage.setItem('post_login_redirect', grantUrl);
+        sessionStorage.setItem('post_login_redirect', currentUrl);
       } catch {
         // ignore
       }
@@ -171,10 +163,38 @@ export function StudentCardPage() {
     ? (customPoints !== '' ? Number(customPoints) : 0)
     : (customPoints !== '' ? Number(customPoints) : (selectedActivityData?.default_points ?? 0));
 
+  const isTeacher = effectiveRole === 'teacher';
+
+  const { data: teacherQuota } = useQuery({
+    queryKey: ['teacher', 'quota', authUser?.id],
+    queryFn: () => fetchTeacherQuotaUsage(authUser!.id),
+    enabled: isTeacher && !!authUser,
+    refetchInterval: 30_000,
+  });
+
+  const { data: teacherBudget } = useQuery({
+    queryKey: ['teacher', 'budget', authUser?.id],
+    queryFn: () => fetchTeacherBudget(authUser!.id),
+    enabled: isTeacher && !!authUser,
+    refetchInterval: 30_000,
+  });
+
+  const dailyRemaining = teacherQuota?.dailyRemaining ?? null;
+  const dailyLimit = teacherQuota?.dailyLimit ?? null;
+  const totalBudgetRemaining = teacherBudget?.remaining ?? null;
+  const isDailyDepleted = isTeacher && dailyRemaining !== null && dailyRemaining <= 0;
+  const isBudgetDepleted = isTeacher && totalBudgetRemaining !== null && totalBudgetRemaining <= 0;
+  const exceedsDailyLimit = isTeacher && dailyRemaining !== null && pointsToApply > dailyRemaining;
+  const exceedsTotalBudget = isTeacher && totalBudgetRemaining !== null && pointsToApply > totalBudgetRemaining;
+
   const grantMutation = useMutation({
     mutationFn: async () => {
       if (!authUser || !student) throw new Error('غير مصرح');
       if (pointsToApply <= 0) throw new Error('النقاط يجب أن تكون أكبر من صفر');
+      if (isDailyDepleted) throw new Error('تم استنفاد رصيدك اليومي من النقاط لهذا اليوم');
+      if (isBudgetDepleted) throw new Error('تم استنفاد ميزانيتك الإجمالية من النقاط');
+      if (exceedsDailyLimit) throw new Error(`النقاط المطلوبة (${pointsToApply}) تتجاوز رصيدك اليومي المتبقي (${dailyRemaining} نقطة)`);
+      if (exceedsTotalBudget) throw new Error(`النقاط المطلوبة (${pointsToApply}) تتجاوز ميزانيتك الإجمالية المتبقية (${totalBudgetRemaining} نقطة)`);
 
       let activityId = selectedActivity;
       let ledgerNote = note.trim() || null;
@@ -465,18 +485,58 @@ export function StudentCardPage() {
         />
       </div>
 
+      {isDailyDepleted && (
+        <div className="flex items-center gap-2.5 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+          <span>تم استنفاد رصيدك اليومي ({dailyLimit} نقطة). سيتجدد غداً إن شاء الله.</span>
+        </div>
+      )}
+
+      {!isDailyDepleted && isBudgetDepleted && (
+        <div className="flex items-center gap-2.5 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+          <span>تم استنفاد ميزانيتك الإجمالية (0 نقطة متبقية).</span>
+        </div>
+      )}
+
+      {!isDailyDepleted && !isBudgetDepleted && exceedsDailyLimit && pointsToApply > 0 && (
+        <div className="flex items-center gap-2.5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+          <span>النقاط المطلوبة تتجاوز رصيدك اليومي المتبقي ({dailyRemaining} نقطة).</span>
+        </div>
+      )}
+
+      {!isDailyDepleted && !isBudgetDepleted && !exceedsDailyLimit && exceedsTotalBudget && pointsToApply > 0 && (
+        <div className="flex items-center gap-2.5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+          <span>النقاط المطلوبة تتجاوز ميزانيتك الإجمالية المتبقية ({totalBudgetRemaining} نقطة).</span>
+        </div>
+      )}
+
       <Button
         className="w-full"
         size="lg"
         loading={grantMutation.isPending}
         disabled={
-          isManual
+          (isManual
             ? (!manualActivityName.trim() || pointsToApply <= 0)
-            : (!selectedActivity || pointsToApply <= 0)
+            : (!selectedActivity || pointsToApply <= 0)) ||
+          isDailyDepleted ||
+          isBudgetDepleted ||
+          exceedsDailyLimit ||
+          exceedsTotalBudget
         }
         onClick={() => grantMutation.mutate()}
       >
-        منح {pointsToApply > 0 ? `${pointsToApply} نقطة` : 'النقاط'}
+        {isDailyDepleted
+          ? 'الرصيد اليومي مستنفد'
+          : isBudgetDepleted
+            ? 'الميزانية الإجمالية مستنفدة'
+            : exceedsDailyLimit
+              ? `يتجاوز الرصيد اليومي (${dailyRemaining} نقطة)`
+              : exceedsTotalBudget
+                ? `يتجاوز الميزانية (${totalBudgetRemaining} نقطة)`
+                : `منح ${pointsToApply > 0 ? `${pointsToApply} نقطة` : 'النقاط'}`}
       </Button>
 
       <Link
@@ -488,62 +548,7 @@ export function StudentCardPage() {
     </div>
   );
 
-  // معلم / رائد: سجل + منح فقط (بدون بطاقة QR)
-  if (canGrant) {
-    return (
-      <div className="min-h-screen bg-navy-950 text-white p-4 font-cairo pb-10" dir="rtl">
-        <div className="max-w-lg mx-auto space-y-4">
-          <div className="bg-navy-900 border border-white/5 rounded-3xl p-5 space-y-4">
-            <div className="flex items-start gap-3">
-              {student.photo_url ? (
-                <img
-                  src={student.photo_url}
-                  alt=""
-                  className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-xl bg-gold-500/15 border border-gold-500/20 flex items-center justify-center shrink-0">
-                  <User className="w-6 h-6 text-gold-400" />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-white/40 text-[10px] mb-0.5">سجل الطالب</p>
-                <h2 className="text-white font-bold text-base leading-tight truncate">
-                  {student.full_name}
-                </h2>
-                <p className="text-white/45 text-xs mt-1">
-                  {student.grade} • {student.class_name} • {student.admission_number}
-                </p>
-              </div>
-              <div className="text-left shrink-0">
-                <p className="text-gold-400 font-black font-mono text-xl leading-none">
-                  {student.score}
-                </p>
-                <p className="text-white/35 text-[10px] mt-0.5">نقطة</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {axisRows.map((row) => (
-                <div
-                  key={row.key}
-                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2"
-                >
-                  <p className="text-white/40 text-[10px]">{row.label}</p>
-                  <p className={clsx('text-sm font-bold font-mono mt-0.5', CATEGORY_COLORS[row.key])}>
-                    {row.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {ledgerBlock}
-          {grantBlock}
-        </div>
-      </div>
-    );
-  }
 
   // زائر / طالب / ولي: البطاقة العامة + السجل
   return (
@@ -640,17 +645,21 @@ export function StudentCardPage() {
 
         {ledgerBlock}
 
-        <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center">
-          <Link
-            to={`/login?redirect=${encodeURIComponent(
-              student ? `/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr` : (window.location.pathname + window.location.search),
-            )}`}
-          >
-            <Button variant="secondary" size="md" icon={<LogIn className="w-4 h-4" />}>
-              تسجيل الدخول للمنح
-            </Button>
-          </Link>
-        </div>
+        {canGrant ? (
+          grantBlock
+        ) : !authUser ? (
+          <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center">
+            <Link
+              to={`/login?redirect=${encodeURIComponent(
+                window.location.pathname + window.location.search,
+              )}`}
+            >
+              <Button variant="secondary" size="md" icon={<LogIn className="w-4 h-4" />}>
+                تسجيل الدخول للمنح
+              </Button>
+            </Link>
+          </div>
+        ) : null}
       </div>
     </div>
   );
