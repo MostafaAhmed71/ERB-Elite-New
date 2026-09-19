@@ -1,7 +1,8 @@
 -- =============================================================
--- إنشاء وتجهيز حساب معلم تجريبي شامل لجميع الصفوف والفصول
+-- إنشاء وتجهيز حساب معلم شامل لجميع الصفوف والفصول
 -- البريد: mostafa@gmail.com
 -- كلمة المرور: 74129800
+-- الجوال: 0563062846
 -- =============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -20,14 +21,19 @@ BEGIN
   -- 1) البحث عن الحساب بالبريد أو برقم الجوال إن كان مسجلاً مسبقاً
   SELECT id INTO v_user_id FROM auth.users 
   WHERE lower(email) = lower(v_email) 
-     OR phone IN ('+966563062846', '0563062846', '966563062846') 
   LIMIT 1;
+
+  IF v_user_id IS NULL THEN
+    SELECT id INTO v_user_id FROM auth.users 
+    WHERE phone IN ('+966563062846', '0563062846', '966563062846') 
+    LIMIT 1;
+  END IF;
 
   IF v_user_id IS NULL THEN
     v_user_id := gen_random_uuid();
   END IF;
 
-  -- تحرير رقم الجوال من أي حساب آخر لتفادي تعارض unique constraint (users_phone_key)
+  -- تحرير رقم الجوال من أي حساب آخر لتفادي تعارض unique constraint
   UPDATE auth.users 
   SET phone = NULL 
   WHERE phone IN ('+966563062846', '0563062846', '966563062846') 
@@ -38,23 +44,41 @@ BEGIN
   WHERE phone IN ('0563062846', '966563062846', '+966563062846') 
     AND id <> v_user_id;
 
-  -- 2) إنشاء أو تحديث في auth.users
+  -- 2) إنشاء أو تحديث في auth.users دون تمرير سلاسل فارغة لأعمدة الـ email_change
   INSERT INTO auth.users (
-    id, instance_id, aud, role, email, phone, phone_confirmed_at, encrypted_password,
-    email_confirmed_at, created_at, updated_at,
-    raw_app_meta_data, raw_user_meta_data, is_super_admin,
-    confirmation_token, recovery_token, email_change_token_new, email_change
+    id,
+    instance_id,
+    aud,
+    role,
+    email,
+    phone,
+    phone_confirmed_at,
+    encrypted_password,
+    email_confirmed_at,
+    created_at,
+    updated_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    is_super_admin
   ) VALUES (
-    v_user_id, v_instance_id, 'authenticated', 'authenticated', lower(v_email),
-    '+966563062846', NOW(),
+    v_user_id,
+    v_instance_id,
+    'authenticated',
+    'authenticated',
+    lower(v_email),
+    '+966563062846',
+    NOW(),
     crypt(v_password, gen_salt('bf')),
-    NOW(), NOW(), NOW(),
+    NOW(),
+    NOW(),
+    NOW(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('full_name', v_full_name, 'role', 'teacher', 'phone', v_phone),
-    false, '', '', '', ''
+    false
   )
   ON CONFLICT (id) DO UPDATE SET
     instance_id = EXCLUDED.instance_id,
+    email = lower(v_email),
     phone = '+966563062846',
     phone_confirmed_at = COALESCE(auth.users.phone_confirmed_at, NOW()),
     encrypted_password = crypt(v_password, gen_salt('bf')),
@@ -62,25 +86,33 @@ BEGIN
     updated_at = NOW(),
     raw_app_meta_data = EXCLUDED.raw_app_meta_data,
     raw_user_meta_data = jsonb_build_object('full_name', v_full_name, 'role', 'teacher', 'phone', v_phone),
-    confirmation_token = '',
-    recovery_token = '',
-    email_change_token_new = '',
-    email_change = '';
+    email_change = NULL,
+    email_change_token_new = NULL,
+    confirmation_token = NULL,
+    recovery_token = NULL;
 
   -- 3) ربط الهوية في auth.identities
   INSERT INTO auth.identities (
-    id, user_id, provider_id, identity_data, provider,
-    last_sign_in_at, created_at, updated_at
+    id,
+    user_id,
+    provider_id,
+    identity_data,
+    provider,
+    last_sign_in_at,
+    created_at,
+    updated_at
   ) VALUES (
-    gen_random_uuid(), v_user_id, lower(v_email),
+    gen_random_uuid(),
+    v_user_id,
+    v_user_id::text,
     jsonb_build_object(
       'sub', v_user_id::text,
-      'email', lower(v_email),
-      'phone', v_phone,
-      'email_verified', true,
-      'phone_verified', true
+      'email', lower(v_email)
     ),
-    'email', NOW(), NOW(), NOW()
+    'email',
+    NOW(),
+    NOW(),
+    NOW()
   )
   ON CONFLICT (provider_id, provider) DO UPDATE SET
     user_id = EXCLUDED.user_id,
@@ -94,6 +126,7 @@ BEGIN
     v_user_id, lower(v_email), v_phone, v_full_name, 'teacher', true, false, true
   )
   ON CONFLICT (id) DO UPDATE SET
+    email = lower(v_email),
     phone = v_phone,
     role = 'teacher',
     full_name = v_full_name,
@@ -120,10 +153,8 @@ BEGIN
   END IF;
 
   -- 6) إسناد جميع الصفوف والفصول لبرنامج الأولمبياد والنقاط (teacher_classes)
-  -- حذف القديم لهذا المعلم لتحديثه بالكامل
   DELETE FROM public.teacher_classes WHERE teacher_id = v_teacher_id;
 
-  -- أ) إسناد الصفوف والفصول الافتراضية
   INSERT INTO public.teacher_classes (teacher_id, grade, class_name, academic_year)
   SELECT
     v_teacher_id,
@@ -142,7 +173,6 @@ BEGIN
   ) AS c(class_name)
   ON CONFLICT (teacher_id, grade, class_name, academic_year) DO NOTHING;
 
-  -- ب) إسناد أي صفوف أو فصول أخرى موجودة حالياً في جدول الطلاب
   INSERT INTO public.teacher_classes (teacher_id, grade, class_name, academic_year)
   SELECT DISTINCT
     v_teacher_id,
@@ -154,7 +184,6 @@ BEGIN
   ON CONFLICT (teacher_id, grade, class_name, academic_year) DO NOTHING;
 
   -- 7) إسناد الصلاحيات الأكاديمية (الخطط الأسبوعية والواجبات)
-  -- تجهيز إعدادات المعلم الأكاديمية (academic_teacher_setups)
   BEGIN
     INSERT INTO public.academic_teacher_setups (
       teacher_id,
@@ -174,11 +203,9 @@ BEGIN
       grades_by_level = '{"middle": [1, 2, 3]}'::jsonb,
       sections_by_grade = '{"middle_1": ["أ", "ب", "ج", "د"], "middle_2": ["أ", "ب", "ج", "د"], "middle_3": ["أ", "ب", "ج", "د"]}'::jsonb,
       is_setup_complete = true;
-  EXCEPTION WHEN undefined_table THEN
-    NULL; -- إذا كان الجدول غير موجود
+  EXCEPTION WHEN undefined_table THEN NULL;
   END;
 
-  -- إسناد التعيينات الأكاديمية (academic_teacher_assignments)
   BEGIN
     INSERT INTO public.academic_teacher_assignments (
       teacher_id,
@@ -191,9 +218,8 @@ BEGIN
       'middle'::public.academic_education_level,
       '{"1": ["أ", "ب", "ج", "د"], "2": ["أ", "ب", "ج", "د"], "3": ["أ", "ب", "ج", "د"]}'::jsonb
     );
-  EXCEPTION WHEN undefined_table THEN
-    NULL;
+  EXCEPTION WHEN undefined_table THEN NULL;
   END;
 
-  RAISE NOTICE 'تم إنشاء حساب المعلم بنجاح وإسناد جميع الصفوف والفصول!';
+  RAISE NOTICE 'تم تجهيز حساب المعلم بنجاح!';
 END $$;
