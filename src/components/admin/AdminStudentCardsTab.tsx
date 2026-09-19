@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Printer, CheckCircle, Archive, Download } from 'lucide-react';
+import { Search, Printer, CheckCircle, Archive, Download, Globe } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -15,7 +15,12 @@ import {
 import type { DbStudent } from '../../types';
 import { BarsLoader } from '../ui/BarsLoader';
 import { Button } from '../ui/Button';
-import { getStudentQRUrl } from '../../lib/qr';
+import {
+  getStudentQRUrl,
+  getBaseAppUrl,
+  DEFAULT_PRODUCTION_DOMAIN,
+  ALTERNATE_VERCEL_DOMAIN,
+} from '../../lib/qr';
 import { StudentCard } from '../student/StudentCard';
 
 type StudentWithAvatar = DbStudent & { photoUrl: string | null };
@@ -39,7 +44,14 @@ export function AdminStudentCardsTab() {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState({ done: 0, total: 0 });
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [qrBaseDomain, setQrBaseDomain] = useState(() => getBaseAppUrl());
   const { data: catalog } = useGradeClassCatalog();
+
+  const handleDomainChange = (domain: string) => {
+    setQrBaseDomain(domain);
+    localStorage.setItem('erb_qr_domain', domain);
+    toast.success(`تم ضبط رابط الـ QR على: ${domain}`);
+  };
 
   const { data: students = [], isLoading, isError, error } = useQuery({
     queryKey: ['admin', 'students', 'id-cards'],
@@ -117,7 +129,9 @@ export function AdminStudentCardsTab() {
   const handleDownloadSingle = async (student: StudentWithAvatar) => {
     setDownloadingId(student.id);
     try {
-      await downloadStudentCardImage(toExportItem(student));
+      await downloadStudentCardImage(toExportItem(student), {
+        customBaseUrl: qrBaseDomain,
+      });
       toast.success(`تم تحميل بطاقة ${student.full_name}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل تحميل البطاقة');
@@ -138,6 +152,7 @@ export function AdminStudentCardsTab() {
     try {
       await exportStudentCardsZip(targets.map(toExportItem), {
         zipFileName: `${zipLabel}-${new Date().toISOString().slice(0, 10)}.zip`,
+        customBaseUrl: qrBaseDomain,
         onProgress: (done, total) => setExportProgress({ done, total }),
       });
       toast.success(`تم تحميل ${targets.length} بطاقة في ملف مضغوط`);
@@ -171,9 +186,28 @@ export function AdminStudentCardsTab() {
       `}</style>
 
       <div className="flex flex-wrap items-center gap-3 no-print">
-        <p className="w-full text-xs text-cyan-300/80">
-          بطاقات أولمبياد رائد النشاط — المرحلة المتوسطة فقط
-        </p>
+        <div className="w-full flex items-center justify-between flex-wrap gap-2">
+          <p className="text-xs text-cyan-300/80">
+            بطاقات أولمبياد رائد النشاط — المرحلة المتوسطة فقط
+          </p>
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-navy-900/70 px-3 py-1 text-xs text-white/80">
+            <Globe className="h-3.5 w-3.5 text-gold-400 shrink-0" />
+            <span className="text-[11px] text-[#A3AED0]">نطاق الـ QR:</span>
+            <select
+              value={qrBaseDomain}
+              onChange={(e) => handleDomainChange(e.target.value)}
+              className="rounded-lg border-0 bg-transparent py-0.5 text-xs font-semibold text-gold-300 focus:outline-none cursor-pointer"
+            >
+              <option value={DEFAULT_PRODUCTION_DOMAIN} className="bg-navy-900 text-white">
+                northelite.tech (الأساسي)
+              </option>
+              <option value={ALTERNATE_VERCEL_DOMAIN} className="bg-navy-900 text-white">
+                erp-elite.vercel.app (Vercel)
+              </option>
+            </select>
+          </div>
+        </div>
+
         <div className="relative min-w-[200px] flex-1">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
           <input
@@ -304,7 +338,7 @@ export function AdminStudentCardsTab() {
                   grade={student.grade}
                   studentClass={student.class_name}
                   admissionNumber={student.admission_number}
-                  qrValue={getStudentQRUrl(student.id, student.qr_token)}
+                  qrValue={getStudentQRUrl(student.id, student.qr_token, qrBaseDomain)}
                 />
               </div>
             );
@@ -320,7 +354,7 @@ export function AdminStudentCardsTab() {
             grade={student.grade}
             studentClass={student.class_name}
             admissionNumber={student.admission_number}
-            qrValue={getStudentQRUrl(student.id, student.qr_token)}
+            qrValue={getStudentQRUrl(student.id, student.qr_token, qrBaseDomain)}
             printSize
             wrapperClassName="shadow-none"
           />

@@ -99,7 +99,7 @@ async function waitForRender(container: HTMLElement): Promise<void> {
   });
 }
 
-async function captureCardPng(item: StudentCardExportItem): Promise<Blob> {
+async function captureCardPng(item: StudentCardExportItem, customBaseUrl?: string): Promise<Blob> {
   const host = document.createElement('div');
   host.style.cssText =
     'position:fixed;left:-10000px;top:0;z-index:-1;background:#fff;pointer-events:none;';
@@ -125,7 +125,7 @@ async function captureCardPng(item: StudentCardExportItem): Promise<Blob> {
         admissionNumber: item.admission_number,
         logoLeftUrl: logoLeftUrl ?? undefined,
         logoRightUrl: logoRightUrl ?? undefined,
-        qrValue: getStudentQRUrl(item.id, item.qr_token),
+        qrValue: getStudentQRUrl(item.id, item.qr_token, customBaseUrl),
         printSize: true,
         wrapperClassName: 'shadow-none',
         useSystemFont: true,
@@ -153,9 +153,9 @@ async function captureCardPng(item: StudentCardExportItem): Promise<Blob> {
 
 export async function downloadStudentCardImage(
   student: StudentCardExportItem,
-  options?: { fileName?: string }
+  options?: { fileName?: string; customBaseUrl?: string }
 ): Promise<void> {
-  const blob = await captureCardPng(student);
+  const blob = await captureCardPng(student, options?.customBaseUrl);
   const fileName =
     options?.fileName ??
     `${sanitizeFileName(student.full_name)}_${student.admission_number}.png`;
@@ -171,6 +171,7 @@ export async function exportStudentCardsZip(
   students: StudentCardExportItem[],
   options?: {
     zipFileName?: string;
+    customBaseUrl?: string;
     onProgress?: (done: number, total: number) => void;
   }
 ): Promise<void> {
@@ -184,7 +185,7 @@ export async function exportStudentCardsZip(
 
   for (let i = 0; i < students.length; i++) {
     const student = students[i]!;
-    const blob = await captureCardPng(student);
+    const blob = await captureCardPng(student, options?.customBaseUrl);
     zip.file(buildUniqueFileName(student.full_name, student.admission_number, used), blob);
     options?.onProgress?.(i + 1, total);
   }

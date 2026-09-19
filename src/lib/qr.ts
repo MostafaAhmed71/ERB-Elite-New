@@ -3,8 +3,38 @@ export type ParsedStudentQR = {
   qrToken?: string;
 };
 
-export function getStudentQRUrl(studentId: string, qrToken?: string | null): string {
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+export const DEFAULT_PRODUCTION_DOMAIN = 'https://northelite.tech';
+export const ALTERNATE_VERCEL_DOMAIN = 'https://erp-elite.vercel.app';
+
+/**
+ * يسترجع دومين المنصة الصالح لروابط الـ QR:
+ * يُمنع منعاً باتاً وضع localhost أو 127.0.0.1 لأن الهواتف لا تستطيع الوصول إليها عند مسح الكود
+ */
+export function getBaseAppUrl(): string {
+  if (typeof window !== 'undefined') {
+    const savedDomain = localStorage.getItem('erb_qr_domain')?.trim();
+    if (savedDomain && !savedDomain.includes('localhost') && !savedDomain.includes('127.0.0.1')) {
+      return savedDomain.replace(/\/$/, '');
+    }
+  }
+
+  const envUrl = (import.meta.env.VITE_APP_URL as string | undefined)?.trim();
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin.trim();
+    if (!origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      return origin.replace(/\/$/, '');
+    }
+  }
+
+  return DEFAULT_PRODUCTION_DOMAIN;
+}
+
+export function getStudentQRUrl(studentId: string, qrToken?: string | null, customBaseUrl?: string): string {
+  const appUrl = (customBaseUrl || getBaseAppUrl()).replace(/\/$/, '');
   if (qrToken) return `${appUrl}/card/t/${qrToken}`;
   return `${appUrl}/card/${studentId}`;
 }
