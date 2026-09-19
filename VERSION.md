@@ -1,5 +1,30 @@
 # ERB-Elite — Version History
 
+## Version: v2.16.0
+**Date:** 2026-09-19
+
+### Changes
+- إضافة نظام النسخ الاحتياطي الشامل للبيانات لرائد النشاط والمسؤول والمدير (`/admin/backup` و `/principal/backup`).
+- دعم تصدير كامل البيانات إلى ملف إكسيل متعدد الصفحات (`.xlsx`) وملف كائنات مهيكل (`.json`).
+- شمول 16 قطاعاً وقاعدة بيانات: الطلاب، المستخدمين، الحسابات المولدة وكلمات المرور، سجل النقاط، الأنشطة، التحاضير والخطط الدراسية، الواجبات، مراجعات الاختبارات، جداول الحصص الأسبوعية، توزيع المعلمين، جلسات الحضور، وإعدادات المدرسة.
+- واجهة تحكم تفاعلية مع شريط تقدم لحظي وإحصائيات مباشرة لكل جدول ومتابعة توقيت آخر نسخة احتياطية.
+
+### Files Modified / Created
+- `src/lib/systemBackupService.ts` ← **[NEW]**
+- `src/pages/admin/AdminBackupPage.tsx` ← **[NEW]**
+- `src/router/index.tsx`
+- `src/types/index.ts`
+- `src/lib/navGroups.ts`
+- `src/layouts/AppLayout.tsx`
+- `src/components/ui/MobileRoleDock.tsx`
+- `src/components/admin/AdminDashboard.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.15.0 → الجديد: v2.16.0 (Minor — نظام النسخ الاحتياطي المتكامل للمنصة)
+
+---
+
 ## Version: v2.15.0
 **Date:** 2026-09-16
 

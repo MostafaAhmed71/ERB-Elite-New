@@ -163,6 +163,7 @@ import { DevFeatureFlagsPage } from '../pages/dev/DevFeatureFlagsPage';
 import { DevBackupPage } from '../pages/dev/DevBackupPage';
 import { DevSupportPage } from '../pages/dev/DevSupportPage';
 import { SupportPage } from '../pages/SupportPage';
+import { AdminBackupPage } from '../pages/admin/AdminBackupPage';
 
 export const router = createBrowserRouter([
   {
@@ -512,6 +513,14 @@ export const router = createBrowserRouter([
               {
                 path: '/admin/attendance',
                 element: <AdminAttendanceHubPage />,
+              },
+              {
+                path: '/admin/backup',
+                element: <AdminBackupPage />,
+              },
+              {
+                path: '/principal/backup',
+                element: <AdminBackupPage />,
               },
             ],
           },

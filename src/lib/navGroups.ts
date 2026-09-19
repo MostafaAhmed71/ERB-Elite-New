@@ -21,6 +21,7 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
         '/principal/bulk-upload',
         '/principal/import-export',
         '/principal/bulk-accounts',
+        '/principal/backup',
         '/points/grant',
         '/points/grant?bulk=1',
         '/principal/settings',
@@ -79,7 +80,7 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
         '/admin/equity',
       ],
     },
-    { title: 'الإعدادات', paths: ['/admin/settings'] },
+    { title: 'الإعدادات والنسخ', paths: ['/admin/settings', '/admin/backup'] },
     { title: 'الدعم', paths: ['/support'] },
   ],
   activity_leader: [
@@ -110,7 +111,7 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
         '/admin/equity',
       ],
     },
-    { title: 'الإعدادات', paths: ['/admin/settings'] },
+    { title: 'الإعدادات والنسخ', paths: ['/admin/settings', '/admin/backup'] },
     { title: 'الدعم', paths: ['/support'] },
   ],
   supervisor: [

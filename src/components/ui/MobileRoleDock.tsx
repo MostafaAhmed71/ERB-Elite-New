@@ -7,7 +7,7 @@ import {
   HelpCircle, ClipboardList, TrendingUp, Trophy, User,
   CreditCard, Calendar, ClipboardCheck, BookMarked, Settings, School, Scale, Lightbulb, UserPlus,
   Brain, Flame, LineChart, ShieldAlert, FlaskConical, Gift, MessageSquare, Search, FileText, Download,
-  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset, Home, MoreHorizontal, X, LogOut,
+  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset, Home, MoreHorizontal, X, LogOut, Database,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTeacherModeStore } from '../../stores/teacherModeStore';
@@ -27,7 +27,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   HelpCircle, ClipboardList, TrendingUp, Trophy, User,
   CreditCard, Calendar, ClipboardCheck, BookMarked, Settings, School, Scale, Lightbulb, UserPlus,
   Brain, Flame, LineChart, ShieldAlert, FlaskConical, Gift, MessageSquare, Search, FileText, Download,
-  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset, Home,
+  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset, Home, Database,
 };
 
 /** Phase 9 / T — شريط سفلي للجوال: اختصارات حسب الدور/الوضع + المزيد */

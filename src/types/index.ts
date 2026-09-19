@@ -117,6 +117,7 @@ export const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'تقييم المعلمين', path: '/principal/evaluation', icon: 'Award' },
     { label: 'مساعد الذكاء', path: '/principal/ai-settings', icon: 'Sparkles' },
     { label: 'المسابقة اليومية', path: '/competition/admin', icon: 'Sparkles' },
+    { label: 'النسخ الاحتياطي للبيانات', path: '/principal/backup', icon: 'Database' },
     { label: 'الدعم الفني', path: '/support', icon: 'Headset' },
   ],
   activity_leader: [
@@ -132,6 +133,7 @@ export const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'المسابقة اليومية', path: '/competition/admin', icon: 'Sparkles' },
     { label: 'البطاقات', path: '/admin/id-cards', icon: 'CreditCard' },
     { label: 'مركز التقارير', path: '/admin/reports-hub', icon: 'BarChart3' },
+    { label: 'النسخ الاحتياطي للبيانات', path: '/admin/backup', icon: 'Database' },
     { label: 'إعدادات البرنامج', path: '/admin/settings', icon: 'Settings' },
     { label: 'الدعم الفني', path: '/support', icon: 'Headset' },
   ],
@@ -149,6 +151,7 @@ export const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'المسابقة اليومية', path: '/competition/admin', icon: 'Sparkles' },
     { label: 'البطاقات', path: '/admin/id-cards', icon: 'CreditCard' },
     { label: 'مركز التقارير', path: '/admin/reports-hub', icon: 'BarChart3' },
+    { label: 'النسخ الاحتياطي للبيانات', path: '/admin/backup', icon: 'Database' },
     { label: 'إعدادات البرنامج', path: '/admin/settings', icon: 'Settings' },
     { label: 'الدعم الفني', path: '/support', icon: 'Headset' },
   ],

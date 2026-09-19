@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Award, Clock, Shield, Star, Trophy, CreditCard, BarChart3, PlusCircle, Zap,
-  Lightbulb, CalendarCheck, QrCode, FileText, Monitor, Gift,
+  Lightbulb, CalendarCheck, QrCode, FileText, Monitor, Gift, Database,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -197,6 +197,7 @@ export function AdminDashboard() {
     { label: 'الأنشطة', to: '/admin/activities', icon: Star, tint: 'purple' as const },
     { label: 'المتصدرون', to: '/admin/leaderboard', icon: Trophy, tint: 'lime' as const },
     { label: 'التقارير', to: '/admin/reports-hub', icon: BarChart3, tint: 'pink' as const },
+    { label: 'النسخ الاحتياطي', to: '/admin/backup', icon: Database, tint: 'purple' as const },
   ];
 
   const dailyOps = useMemo((): GlassOpsItem[] => {
@@ -348,6 +349,7 @@ export function AdminDashboard() {
               <ul className="space-y-2">
                 {[
                   { to: '/admin/add-points', label: 'نقاط يدوية', icon: PlusCircle },
+                  { to: '/admin/backup', label: 'نسخ احتياطي شامل', icon: Database },
                   { to: '/admin/event-checkin', label: 'حضور فعالية', icon: QrCode },
                   { to: '/admin/id-cards', label: 'بطاقات التعريف', icon: CreditCard },
                   { to: '/admin/rewards', label: 'متجر المكافآت', icon: Gift },

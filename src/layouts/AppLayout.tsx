@@ -7,7 +7,7 @@ import {
   HelpCircle, ClipboardList, TrendingUp, Trophy, User,
   CreditCard, Calendar, ClipboardCheck, BookMarked, Settings, School, Scale, Lightbulb, UserPlus,
   Brain, Flame, LineChart, ShieldAlert, FlaskConical, Gift, MessageSquare, Search, FileText, Download,
-  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset,
+  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset, Database,
   LogOut, Menu, X, ChevronLeft, ChevronUp, ChevronDown, ListOrdered, RotateCcw,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -47,7 +47,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   HelpCircle, ClipboardList, TrendingUp, Trophy, User,
   CreditCard, Calendar, ClipboardCheck, BookMarked, Settings, School, Scale, Lightbulb, UserPlus,
   Brain, Flame, LineChart, ShieldAlert, FlaskConical, Gift, MessageSquare, Search, FileText, Download,
-  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset,
+  Sparkles, Link2, ArrowLeftRight, LayoutTemplate, Headset, Database,
 };
 
 const DESKTOP_BREAKPOINT = 1024;
