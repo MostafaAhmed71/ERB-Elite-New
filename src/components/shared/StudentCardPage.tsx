@@ -130,12 +130,12 @@ export function StudentCardPage() {
 
   const navigate = useNavigate();
 
-  // للمعلم المسجل: التوجيه التلقائي المباشر إلى شاشة منح النقاط للطالب الممسوح
+  // للكادر المسجل (معلم / وكيل / مدير / رائد نشاط / مسؤول): التوجيه التلقائي المباشر إلى شاشة منح النقاط للطالب الممسوح
   useEffect(() => {
-    if (student?.id && canGrant && effectiveRole === 'teacher') {
+    if (student?.id && canGrant) {
       navigate(`/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr`, { replace: true });
     }
-  }, [student?.id, canGrant, effectiveRole, navigate]);
+  }, [student?.id, canGrant, navigate]);
 
   // للزائر غير المسجل: حفظ وجهة منح النقاط ليتم تحويله إليها فور تسجيل الدخول
   useEffect(() => {
@@ -640,10 +640,7 @@ export function StudentCardPage() {
 
         {ledgerBlock}
 
-        <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center space-y-3">
-          <p className="text-white/55 text-xs leading-relaxed">
-            لمنح نقاط لهذا الطالب سجّل دخولك (كمعلم، رائد نشاط، وكيل أو مدير) للمتابعة.
-          </p>
+        <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center">
           <Link
             to={`/login/staff?redirect=${encodeURIComponent(
               student ? `/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr` : (window.location.pathname + window.location.search),

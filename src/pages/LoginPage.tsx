@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { signIn, resolveLoginTarget, rememberPreferredLoginPath } from '../lib/auth';
 import { toLoginErrorMessage } from '../lib/errors';
@@ -192,6 +192,19 @@ export function LoginPage() {
               <button id="login-submit" type="submit" className="login-submit" disabled={busy}>
                 {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
               </button>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-white/10 text-center">
+              <Link
+                to={(() => {
+                  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+                  const redir = params?.get('redirect');
+                  return redir ? `/login/staff?redirect=${encodeURIComponent(redir)}` : '/login/staff';
+                })()}
+                className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border border-gold-500/30 bg-gold-500/10 text-gold-300 hover:bg-gold-500/20 hover:text-gold-200 text-xs font-semibold transition-colors"
+              >
+                <span>تسجيل الدخول للمنح (الكادر التعليمي) ←</span>
+              </Link>
             </div>
           </form>
         </div>
