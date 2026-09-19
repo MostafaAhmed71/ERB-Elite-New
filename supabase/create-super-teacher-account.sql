@@ -17,11 +17,26 @@ DECLARE
   v_full_name text := 'الأستاذ مصطفى أحمد';
   v_academic_year text := EXTRACT(YEAR FROM NOW())::TEXT;
 BEGIN
-  -- 1) فحص وجود المستخدم مسبقاً أو توليد ID جديد
-  SELECT id INTO v_user_id FROM auth.users WHERE lower(email) = lower(v_email) LIMIT 1;
+  -- 1) البحث عن الحساب بالبريد أو برقم الجوال إن كان مسجلاً مسبقاً
+  SELECT id INTO v_user_id FROM auth.users 
+  WHERE lower(email) = lower(v_email) 
+     OR phone IN ('+966563062846', '0563062846', '966563062846') 
+  LIMIT 1;
+
   IF v_user_id IS NULL THEN
     v_user_id := gen_random_uuid();
   END IF;
+
+  -- تحرير رقم الجوال من أي حساب آخر لتفادي تعارض unique constraint (users_phone_key)
+  UPDATE auth.users 
+  SET phone = NULL 
+  WHERE phone IN ('+966563062846', '0563062846', '966563062846') 
+    AND id <> v_user_id;
+
+  UPDATE public.users 
+  SET phone = NULL 
+  WHERE phone IN ('0563062846', '966563062846', '+966563062846') 
+    AND id <> v_user_id;
 
   -- 2) إنشاء أو تحديث في auth.users
   INSERT INTO auth.users (
