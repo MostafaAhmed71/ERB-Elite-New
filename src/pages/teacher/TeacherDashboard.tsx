@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Award, Users, Trophy, Bell, ArrowLeft, AlertTriangle, BarChart3, BookOpen,
-  Calendar, ClipboardList, FileText,
+  Calendar, ClipboardList, FileText, QrCode,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
@@ -30,6 +30,13 @@ import { DailyOpsInbox, type DailyOpsItem } from '../../components/shared/DailyO
 import { ModeWorkspaceBanner } from '../../components/teacher/ModeWorkspaceBanner';
 
 const OLYMPIAD_ACTIONS = [
+  {
+    to: '/points/grant?scan=1',
+    label: 'مسح QR الطالب',
+    description: 'كاميرا فورية لمنح نقاط بالباركود',
+    icon: QrCode,
+    accent: 'gold' as const,
+  },
   {
     to: '/points/grant',
     label: 'منح النقاط',
@@ -120,6 +127,7 @@ const ACADEMIC_ACTIONS = [
 ];
 
 const ACTION_FEATURE: Record<string, string> = {
+  '/points/grant?scan=1': 'widget:teacher:quick_grant',
   '/points/grant': 'widget:teacher:quick_grant',
   '/points/grant?bulk=1': 'widget:teacher:quick_bulk',
   '/students': 'widget:teacher:quick_students',

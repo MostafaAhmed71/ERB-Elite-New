@@ -1,5 +1,34 @@
 # ERB-Elite — Version History
 
+## Version: v2.16.1
+**Date:** 2026-09-19
+
+### Changes
+- **إصلاح توجيه مسح بطاقة QR للطالب**: عند مسح رمز QR لبطاقة الطالب بواسطة المعلم، يتم توجيهه مباشرة إلى شاشة منح النقاط (`/points/grant?studentId=...`) مع تحديد الطالب تلقائياً، بدلاً من التحويل إلى لوحة التحكم العامة.
+- **حفظ رابط التوجيه بعد تسجيل الدخول**: في حال مسح المعلم للـ QR وهو غير مسجل للدخول، يتم الاحتفاظ بصفحة الطالب ونقله إليها فور اكتمال تسجيل الدخول.
+- **إتاحة منح النقاط لأي طالب في المدرسة**: إلغاء تقييد المعلم بفصوله المسندة فقط في منح النقاط، ليتمكن المعلم من تحفيز أي طالب في المدرسة بكل مرونة وسرعة عبر البحث أو مسح QR.
+- **دعم التكرار اليومي**: السماح بمنح الطالب أكثر من مرة في نفس اليوم أو الفصل الدراسي ما دام المعلم يمتلك رصيداً يومياً متاحاً.
+- **إشعار واضح عند استنفاد الرصيد اليومي**: إظهار رسالة تحذيرية واضحة في واجهة المعلم وتجميد زر المنح فور استنفاد الرصيد اليومي أو الميزانية، مع عرض الرصيد المتبقي بدقة.
+- **إجراء سريع في لوحة المعلم**: إضافة خيار "مسح QR الطالب" لفتح ماسح الكاميرا مباشرة بلمسة واحدة.
+
+### Files Modified / Created
+- `supabase/fix-teacher-grant-any-student.sql` ← **[NEW]**
+- `supabase/migrations/143_teacher_grant_any_student.sql` ← **[NEW]**
+- `src/components/shared/StudentCardPage.tsx`
+- `src/components/teacher/QRQuickGrant.tsx`
+- `src/lib/teacherScope.ts`
+- `src/pages/AuthCallbackPage.tsx`
+- `src/pages/LoginPage.tsx`
+- `src/pages/StaffLoginPage.tsx`
+- `src/pages/points/GrantPointsPage.tsx`
+- `src/pages/teacher/TeacherDashboard.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.16.0 → الجديد: v2.16.1 (Patch — إصلاح توجيه QR ومنح النقاط المرن لأي طالب مع حماية الرصيد اليومي)
+
+---
+
 ## Version: v2.16.0
 **Date:** 2026-09-19
 

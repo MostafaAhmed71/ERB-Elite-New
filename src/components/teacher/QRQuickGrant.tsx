@@ -3,18 +3,20 @@ import { QrCode, Camera, Keyboard, AlertCircle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { parseStudentQRPayload } from '../../lib/qr';
+import { supabase } from '../../lib/supabase';
 import type { DbStudent } from '../../types';
 import clsx from 'clsx';
 
 type QRQuickGrantProps = {
   students: DbStudent[];
   onStudentFound: (studentId: string) => void;
+  defaultOpen?: boolean;
 };
 
 type ScanMode = 'camera' | 'manual';
 
-export function QRQuickGrant({ students, onStudentFound }: QRQuickGrantProps) {
-  const [open, setOpen] = useState(false);
+export function QRQuickGrant({ students, onStudentFound, defaultOpen = false }: QRQuickGrantProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const [mode, setMode] = useState<ScanMode>('camera');
   const [manualInput, setManualInput] = useState('');
   const [error, setError] = useState('');
@@ -23,29 +25,54 @@ export function QRQuickGrant({ students, onStudentFound }: QRQuickGrantProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
 
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
+
   const resolveStudent = useCallback(
-    (raw: string): DbStudent | null => {
+    async (raw: string): Promise<DbStudent | null> => {
       const trimmed = raw.trim();
       if (!trimmed) return null;
 
       const parsed = parseStudentQRPayload(trimmed);
       if (parsed?.qrToken) {
-        return (
-          students.find((s) => (s as DbStudent & { qr_token?: string | null }).qr_token === parsed.qrToken) ??
-          null
+        const localMatch = students.find(
+          (s) => (s as DbStudent & { qr_token?: string | null }).qr_token === parsed.qrToken
         );
+        if (localMatch) return localMatch;
+
+        const { data } = await supabase
+          .from('students')
+          .select('*')
+          .eq('qr_token', parsed.qrToken)
+          .maybeSingle();
+        if (data) return data as DbStudent;
       }
       if (parsed?.studentId) {
-        return students.find((s) => s.id === parsed.studentId) ?? null;
+        const localMatch = students.find((s) => s.id === parsed.studentId);
+        if (localMatch) return localMatch;
+
+        const { data } = await supabase
+          .from('students')
+          .select('*')
+          .eq('id', parsed.studentId)
+          .maybeSingle();
+        if (data) return data as DbStudent;
       }
 
-      return (
-        students.find(
-          (s) =>
-            s.admission_number === trimmed ||
-            s.admission_number.includes(trimmed),
-        ) ?? null
+      const match = students.find(
+        (s) =>
+          s.admission_number === trimmed ||
+          s.admission_number.includes(trimmed),
       );
+      if (match) return match;
+
+      const { data } = await supabase
+        .from('students')
+        .select('*')
+        .eq('admission_number', trimmed)
+        .maybeSingle();
+      return (data as DbStudent | null) ?? null;
     },
     [students],
   );
@@ -95,13 +122,13 @@ export function QRQuickGrant({ students, onStudentFound }: QRQuickGrantProps) {
         try {
           const codes = await detector.detect(videoRef.current);
           if (codes.length > 0) {
-            const student = resolveStudent(codes[0].rawValue);
+            const student = await resolveStudent(codes[0].rawValue);
             if (student) {
               handleFound(student);
               stopCamera();
               return;
             }
-            setError('الطالب غير موجود في فصولك');
+            setError('لم يُعثر على الطالب — تأكد من صحة رمز QR الممسوح');
           }
         } catch {
           // ignore frame errors
@@ -125,8 +152,8 @@ export function QRQuickGrant({ students, onStudentFound }: QRQuickGrantProps) {
     return () => stopCamera();
   }, [open, mode, startCamera, stopCamera]);
 
-  const handleManualSubmit = () => {
-    const student = resolveStudent(manualInput);
+  const handleManualSubmit = async () => {
+    const student = await resolveStudent(manualInput);
     if (student) {
       handleFound(student);
     } else {

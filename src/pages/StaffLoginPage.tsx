@@ -54,7 +54,17 @@ export function StaffLoginPage() {
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get('redirect');
     if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      try { sessionStorage.removeItem('post_login_redirect'); } catch { /* ignore */ }
       return redirect;
+    }
+    try {
+      const stored = sessionStorage.getItem('post_login_redirect');
+      if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+        sessionStorage.removeItem('post_login_redirect');
+        return stored;
+      }
+    } catch {
+      /* ignore */
     }
     return null;
   };

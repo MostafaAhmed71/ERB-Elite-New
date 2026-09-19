@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Award, Users, User, CheckCircle2, AlertCircle, Zap, MinusCircle, Paperclip, X, ChevronDown } from 'lucide-react';
+import { Award, Users, User, CheckCircle2, AlertCircle, Zap, MinusCircle, Paperclip, X, ChevronDown, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { logAction } from '../../lib/auth';
 import { useAuthStore } from '../../stores/authStore';
@@ -20,6 +20,8 @@ import {
   parsePointsGrantError,
   gradesFromAssignments,
   classesFromAssignments,
+  fetchTeacherBudget,
+  fetchTeacherQuotaUsage,
 } from '../../lib/teacherScope';
 import { syncTeacherOlympiadFromAcademic } from '../../lib/academic/olympiadSyncService';
 import { POINT_TEMPLATES, applyPointTemplate } from '../../lib/pointTemplates';
@@ -125,10 +127,10 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
     }
   };
 
-  const { data: catalog } = useGradeClassCatalog(!!user && !isTeacher);
+  const { data: catalog } = useGradeClassCatalog(!!user);
 
   const { data: students = [], isLoading: studentsLoading } = useQuery({
-    queryKey: ['students', isTeacher ? user?.id : olympiadMiddleOnly ? 'olympiad-middle' : 'all', teacherAssignments],
+    queryKey: ['students', olympiadMiddleOnly ? 'olympiad-middle' : 'all'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
@@ -137,11 +139,24 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
         .order('full_name');
       if (error) throw error;
       const all = data as DbStudent[];
-      if (isTeacher) return filterStudentsByAssignments(all, teacherAssignments);
       if (olympiadMiddleOnly) return filterOlympiadMiddleStudents(all);
       return all;
     },
-    enabled: !!user && (!isTeacher || assignmentsFetched),
+    enabled: !!user,
+  });
+
+  const { data: teacherQuota } = useQuery({
+    queryKey: ['teacher', 'quota', user?.id],
+    queryFn: () => fetchTeacherQuotaUsage(user!.id),
+    enabled: isTeacher && !!user,
+    refetchInterval: 30_000,
+  });
+
+  const { data: teacherBudget } = useQuery({
+    queryKey: ['teacher', 'budget', user?.id],
+    queryFn: () => fetchTeacherBudget(user!.id),
+    enabled: isTeacher && !!user,
+    refetchInterval: 30_000,
   });
 
   const { data: activities = [] } = useQuery({
@@ -160,19 +175,16 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
   });
 
   const availableGrades = useMemo(() => {
-    if (isTeacher) return gradesFromAssignments(teacherAssignments);
     const grades = catalog?.grades ?? [];
     return olympiadMiddleOnly ? filterOlympiadMiddleGrades(grades) : grades;
-  }, [isTeacher, teacherAssignments, catalog?.grades, olympiadMiddleOnly]);
+  }, [catalog?.grades, olympiadMiddleOnly]);
 
   const availableClasses = useMemo(() => {
     if (!filterGrade) return [];
-    if (isTeacher) return classesFromAssignments(teacherAssignments, filterGrade);
     return catalog?.classesByGrade[filterGrade] ?? catalog?.allClasses ?? [];
-  }, [isTeacher, teacherAssignments, catalog, filterGrade]);
+  }, [catalog, filterGrade]);
 
   const scopedStudents = useMemo(() => {
-    // للطلاب المجلوبين مسبقاً مفلترين للمعلم؛ أعد التصفية حسب الاختيار
     let list = students;
     if (filterGrade) list = list.filter((s) => gradesMatch(s.grade, filterGrade));
     if (filterClass) list = list.filter((s) => classesMatch(s.class_name, filterClass));
@@ -189,7 +201,7 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
 
   const studentIdParam = searchParams.get('studentId');
   useEffect(() => {
-    if (studentIdParam && students.some((s) => s.id === studentIdParam)) {
+    if (studentIdParam && students.length > 0) {
       const match = students.find((s) => s.id === studentIdParam);
       if (match) {
         setFilterGrade(match.grade);
@@ -206,11 +218,11 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
   }, [selectedActivity, visibleActivities]);
 
   useEffect(() => {
-    if (isTeacher && teacherAssignments.length === 1 && !filterGrade) {
+    if (isTeacher && teacherAssignments.length > 0 && !filterGrade && !studentIdParam) {
       setFilterGrade(teacherAssignments[0].grade);
       setFilterClass(teacherAssignments[0].class_name);
     }
-  }, [isTeacher, teacherAssignments, filterGrade]);
+  }, [isTeacher, teacherAssignments, filterGrade, studentIdParam]);
 
   // عند اختيار صف له فصل واحد فقط — اختَره تلقائياً
   useEffect(() => {
@@ -259,12 +271,24 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
   const totalCost = Math.abs(Number(selectedStudents.length) * signedPoints);
   const canDirectApprove = isStaff;
 
+  const dailyRemaining = teacherQuota?.dailyRemaining ?? null;
+  const dailyLimit = teacherQuota?.dailyLimit ?? null;
+  const totalBudgetRemaining = teacherBudget?.remaining ?? null;
+  const isDailyDepleted = isTeacher && !isDeduct && dailyRemaining !== null && dailyRemaining <= 0;
+  const isBudgetDepleted = isTeacher && !isDeduct && totalBudgetRemaining !== null && totalBudgetRemaining <= 0;
+  const exceedsDailyLimit = isTeacher && !isDeduct && dailyRemaining !== null && totalCost > dailyRemaining;
+  const exceedsTotalBudget = isTeacher && !isDeduct && totalBudgetRemaining !== null && totalCost > totalBudgetRemaining;
+
   const grantMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('غير مصرح');
       if (selectedStudents.length === 0) throw new Error('اختر طالباً على الأقل');
       if (pointsToApply <= 0) throw new Error('النقاط يجب أن تكون أكبر من صفر');
       if (!filterGrade || !filterClass) throw new Error('اختر الصف والفصل أولاً');
+      if (isDailyDepleted) throw new Error('تم استنفاد رصيدك اليومي من النقاط لهذا اليوم');
+      if (isBudgetDepleted) throw new Error('تم استنفاد ميزانيتك الإجمالية من النقاط');
+      if (exceedsDailyLimit) throw new Error(`النقاط المطلوبة (${totalCost}) تتجاوز رصيدك اليومي المتبقي (${dailyRemaining} نقطة)`);
+      if (exceedsTotalBudget) throw new Error(`النقاط المطلوبة (${totalCost}) تتجاوز ميزانيتك الإجمالية المتبقية (${totalBudgetRemaining} نقطة)`);
 
       let activityId = selectedActivity;
       let ledgerNote = note.trim() || null;
@@ -442,7 +466,11 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
           actions={
             <div className="flex items-center gap-2 flex-wrap">
               {!isDeduct && !bulkMode && (
-                <QRQuickGrant students={scopedStudents} onStudentFound={handleQRStudent} />
+                <QRQuickGrant
+                  students={students}
+                  onStudentFound={handleQRStudent}
+                  defaultOpen={searchParams.get('scan') === '1'}
+                />
               )}
               <div className="flex rounded-xl border border-white/10 overflow-hidden">
                 <button
@@ -478,6 +506,54 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
       )}
 
       {isTeacher && !isDeduct && <TeacherBudgetBanner />}
+
+      {isDailyDepleted && (
+        <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" />
+          <div>
+            <p className="font-semibold text-red-100">تم استنفاد رصيدك اليومي من النقاط ({dailyLimit} نقطة)</p>
+            <p className="text-red-200/80 text-xs mt-0.5">
+              لقد استهلكت كامل رصيدك اليومي المخصص. لا يمكنك منح المزيد من النقاط اليوم حتى يتجدد الرصيد غداً إن شاء الله.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isDailyDepleted && isBudgetDepleted && (
+        <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" />
+          <div>
+            <p className="font-semibold text-red-100">تم استنفاد ميزانيتك الإجمالية</p>
+            <p className="text-red-200/80 text-xs mt-0.5">
+              رصيدك الإجمالي المتبقي هو 0 نقطة. يُرجى مراجعة إدارة المدرسة لزيادة الميزانية.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isDailyDepleted && !isBudgetDepleted && exceedsDailyLimit && totalCost > 0 && (
+        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-sm">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+          <div>
+            <p className="font-semibold text-amber-100">النقاط المطلوبة ({totalCost} نقطة) تتجاوز رصيدك اليومي المتبقي ({dailyRemaining} نقطة)</p>
+            <p className="text-amber-200/80 text-xs mt-0.5">
+              يرجى تقليل عدد الطلاب المحددين أو تقليل قيمة النقاط للمتابعة.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isDailyDepleted && !isBudgetDepleted && !exceedsDailyLimit && exceedsTotalBudget && totalCost > 0 && (
+        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-sm">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+          <div>
+            <p className="font-semibold text-amber-100">النقاط المطلوبة ({totalCost} نقطة) تتجاوز ميزانيتك الإجمالية المتبقية ({totalBudgetRemaining} نقطة)</p>
+            <p className="text-amber-200/80 text-xs mt-0.5">
+              يرجى تقليل قيمة النقاط للمتابعة أو طلب زيادة الميزانية من الإدارة.
+            </p>
+          </div>
+        </div>
+      )}
 
       {!isDeduct && activityWeek && isActivityWeekActive(activityWeek) && (
         <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-200 text-sm">
@@ -1022,25 +1098,36 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
               selectedStudents.length === 0 ||
               !filterGrade ||
               !filterClass ||
-              (isTeacher && teacherAssignments.length === 0)
+              isDailyDepleted ||
+              isBudgetDepleted ||
+              exceedsDailyLimit ||
+              exceedsTotalBudget
             }
             onClick={() => grantMutation.mutate()}
           >
-            {canDirectApprove
-              ? isDeduct
-                ? bulkMode
-                  ? `خصم ${Math.abs(signedPoints)} نقطة من الفصل`
-                  : `خصم ${Math.abs(signedPoints)} نقطة`
-                : bulkMode
-                  ? `منح الفصل ${pointsToApply} نقطة`
-                  : `منح ${pointsToApply} نقطة`
-              : isDeduct
-                ? bulkMode
-                  ? 'إرسال طلب خصم الفصل'
-                  : 'إرسال طلب الخصم'
-                : bulkMode
-                  ? 'إرسال طلب منح الفصل'
-                  : 'إرسال طلب النقاط'}
+            {isDailyDepleted
+              ? 'الرصيد اليومي مستنفد'
+              : isBudgetDepleted
+                ? 'الميزانية الإجمالية مستنفدة'
+                : exceedsDailyLimit
+                  ? `يتجاوز الرصيد اليومي (${dailyRemaining} نقطة)`
+                  : exceedsTotalBudget
+                    ? `يتجاوز الميزانية (${totalBudgetRemaining} نقطة)`
+                    : canDirectApprove
+                      ? isDeduct
+                        ? bulkMode
+                          ? `خصم ${Math.abs(signedPoints)} نقطة من الفصل`
+                          : `خصم ${Math.abs(signedPoints)} نقطة`
+                        : bulkMode
+                          ? `منح الفصل ${pointsToApply} نقطة`
+                          : `منح ${pointsToApply} نقطة`
+                      : isDeduct
+                        ? bulkMode
+                          ? 'إرسال طلب خصم الفصل'
+                          : 'إرسال طلب الخصم'
+                        : bulkMode
+                          ? 'إرسال طلب منح الفصل'
+                          : 'إرسال طلب النقاط'}
           </Button>
           <p className="text-white/30 text-xs text-center">
             {canDirectApprove

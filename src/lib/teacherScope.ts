@@ -332,24 +332,24 @@ export function parsePointsGrantError(message: string): string {
     return 'لا يمكن منح نقاط لطالب خارج مرحلتك التعليمية';
   }
   if (message.includes('INSUFFICIENT_BUDGET') || message.includes('رصيد النقاط غير كاف')) {
-    const match = message.match(/المتبقي:\s*(\d+)/);
+    const match = message.match(/المتبقي(?:\s*لديك)?:\s*(\d+)/);
     return match
-      ? `رصيد النقاط غير كافٍ. المتبقي: ${match[1]} نقطة`
-      : 'رصيد النقاط غير كافٍ لإتمام هذه العملية';
+      ? `رصيد النقاط غير كافٍ. المتبقي لديك: ${match[1]} نقطة`
+      : 'رصيد النقاط الإجمالي غير كافٍ لإتمام هذه العملية. راجع إدارة المدرسة لزيادة رصيدك.';
   }
   if (message.includes('TEACHER_PROFILE_MISSING')) {
-    return 'ملف المعلم غير مكتمل. تواصل مع الإدارة';
+    return 'ملف المعلم غير مكتمل. تواصل مع إدارة المدرسة';
   }
-  if (message.includes('DAILY_LIMIT_EXCEEDED') || message.includes('الحد اليومي')) {
-    const match = message.match(/المتبقي:\s*(\d+)/);
+  if (message.includes('DAILY_LIMIT_EXCEEDED') || message.includes('الحد اليومي') || message.includes('استنفدت رصيدك اليومي')) {
+    const match = message.match(/المتبقي(?:\s*لك اليوم)?:\s*(\d+)/);
     return match
-      ? `تجاوزت الحد اليومي للمنح. المتبقي: ${match[1]} نقطة`
-      : 'تجاوزت الحد اليومي لمنح النقاط';
+      ? `لقد استنفدت رصيدك اليومي لمنح النقاط. المتبقي لك اليوم: ${match[1]} نقطة. يتجدد الرصيد غداً بإذن الله.`
+      : 'لقد استنفدت كامل رصيدك اليومي لمنح النقاط. يمكنك مواصلة المنح غداً عند تجدد الرصيد اليومي، أو التواصل مع إدارة المدرسة.';
   }
   if (message.includes('WEEKLY_LIMIT_EXCEEDED') || message.includes('الحد الأسبوعي')) {
-    const match = message.match(/المتبقي:\s*(\d+)/);
+    const match = message.match(/المتبقي(?:\s*هذا الأسبوع)?:\s*(\d+)/);
     return match
-      ? `تجاوزت الحد الأسبوعي للمنح. المتبقي: ${match[1]} نقطة`
+      ? `تجاوزت الحد الأسبوعي للمنح. المتبقي هذا الأسبوع: ${match[1]} نقطة`
       : 'تجاوزت الحد الأسبوعي لمنح النقاط';
   }
   if (message.includes('BEHAVIOR_WEEKLY_CAP') || message.includes('سقف نقاط السلوك')) {

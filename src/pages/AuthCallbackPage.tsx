@@ -80,6 +80,17 @@ export function AuthCallbackPage() {
 
         if (cancelled) return;
 
+        try {
+          const stored = sessionStorage.getItem('post_login_redirect');
+          if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+            sessionStorage.removeItem('post_login_redirect');
+            navigate(stored, { replace: true });
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
+
         const teacherTarget = await resolveTeacherPostLoginPath(profile);
         const target = teacherTarget ?? resolveLoginTarget(session, profile);
         navigate(target, { replace: true });

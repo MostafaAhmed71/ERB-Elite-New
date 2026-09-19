@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ShieldAlert,
@@ -127,6 +127,27 @@ export function StudentCardPage() {
     },
     enabled: !!(studentId || qrToken),
   });
+
+  const navigate = useNavigate();
+
+  // للمعلم المسجل: التوجيه التلقائي المباشر إلى شاشة منح النقاط للطالب الممسوح
+  useEffect(() => {
+    if (student?.id && canGrant && effectiveRole === 'teacher') {
+      navigate(`/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr`, { replace: true });
+    }
+  }, [student?.id, canGrant, effectiveRole, navigate]);
+
+  // للزائر غير المسجل: حفظ وجهة منح النقاط ليتم تحويله إليها فور تسجيل الدخول
+  useEffect(() => {
+    if (student?.id && !authUser) {
+      const grantUrl = `/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr`;
+      try {
+        sessionStorage.setItem('post_login_redirect', grantUrl);
+      } catch {
+        // ignore
+      }
+    }
+  }, [student?.id, authUser]);
 
   const { data: activities = [] } = useQuery({
     queryKey: ['activities', 'active', 'card-grant'],
@@ -625,7 +646,7 @@ export function StudentCardPage() {
           </p>
           <Link
             to={`/login/staff?redirect=${encodeURIComponent(
-              window.location.pathname + window.location.search,
+              student ? `/points/grant?studentId=${encodeURIComponent(student.id)}&source=qr` : (window.location.pathname + window.location.search),
             )}`}
           >
             <Button variant="secondary" size="md" icon={<LogIn className="w-4 h-4" />}>

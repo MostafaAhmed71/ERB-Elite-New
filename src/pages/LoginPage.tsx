@@ -37,11 +37,36 @@ export function LoginPage() {
     rememberPreferredLoginPath('/login');
   }, []);
 
+  const getRedirectTarget = () => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      try { sessionStorage.removeItem('post_login_redirect'); } catch { /* ignore */ }
+      return redirect;
+    }
+    try {
+      const stored = sessionStorage.getItem('post_login_redirect');
+      if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+        sessionStorage.removeItem('post_login_redirect');
+        return stored;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  };
+
   useEffect(() => {
     if (!initialized || !session || redirectingRef.current) return;
     redirectingRef.current = true;
     void (async () => {
       const profile = await setAuthSession(session);
+      const redirectTarget = getRedirectTarget();
+      if (redirectTarget) {
+        navigate(redirectTarget, { replace: true });
+        return;
+      }
       const teacherTarget = await resolveTeacherPostLoginPath(profile);
       navigate(teacherTarget ?? resolveLoginTarget(session, profile), { replace: true });
     })();
@@ -62,6 +87,11 @@ export function LoginPage() {
         setLoading(false);
         redirectingRef.current = false;
         await supabaseSignOutQuiet();
+        return;
+      }
+      const redirectTarget = getRedirectTarget();
+      if (redirectTarget) {
+        navigate(redirectTarget, { replace: true });
         return;
       }
       const teacherTarget = await resolveTeacherPostLoginPath(profile);
