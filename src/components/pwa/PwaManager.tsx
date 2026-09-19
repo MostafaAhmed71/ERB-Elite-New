@@ -23,48 +23,53 @@ export function triggerAndroidInstall(): void {
   androidInstallHandler?.();
 }
 
-/** تسجيل SW للتحديثات — إنتاج فقط (التطوير يُكسر بـ Workbox على /src و Vite) */
+/** تسجيل SW للتحديثات — إنتاج فقط مع إشعار للمستخدم بدلاً من إعادة التحميل القسري */
 function PwaUpdateBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [hasExternalUpdate, setHasExternalUpdate] = useState(false);
+  const applyingRef = useRef(false);
+
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    immediate: true,
+    immediate: false,
     onRegisteredSW(_url, registration) {
       if (!registration) return;
+      // نتحقق من التحديث بعد فترة بهدوء وبشكل متباعد، دون أي استماع لـ visibilitychange أو pageshow
       const check = () => {
         void registration.update().catch(() => undefined);
       };
-      check();
-      window.setInterval(check, 60_000);
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') check();
-      });
-      window.addEventListener('pageshow', check);
+      const initialTimer = window.setTimeout(check, 60_000);
+      const interval = window.setInterval(check, 60 * 60 * 1000); // كل ساعة
+      return () => {
+        window.clearTimeout(initialTimer);
+        window.clearInterval(interval);
+      };
     },
     onRegisterError() {
       /* optional */
     },
   });
 
-  useEffect(() => {
-    if (needRefresh) {
-      void updateServiceWorker(true);
-    }
-  }, [needRefresh, updateServiceWorker]);
-
+  // التحكم بإعادة التحميل عند تغيير الـ Service Worker:
+  // يُعاد التحميل فقط إذا كان المستخدم قد وافق وضغط على زر التحديث
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     let refreshing = false;
     const onControllerChange = () => {
       if (refreshing) return;
       refreshing = true;
-      window.location.reload();
+      if (applyingRef.current) {
+        window.location.reload();
+      }
     };
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
     return () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
   }, []);
 
+  // فحص إصدار المنصة بهدوء كل 30 دقيقة بدون إعادة تحميل تلقائية
   useEffect(() => {
     if (!import.meta.env.PROD) return;
     let stopped = false;
@@ -77,8 +82,8 @@ function PwaUpdateBanner() {
         const id = `${data.version ?? ''}|${data.builtAt ?? ''}`;
         const prev = sessionStorage.getItem(KEY);
         if (prev && prev !== id) {
-          sessionStorage.setItem(KEY, id);
-          window.location.reload();
+          // إظهار إشعار التحديث بدلاً من إعادة تحميل الصفحة في وجه المستخدم
+          setHasExternalUpdate(true);
           return;
         }
         sessionStorage.setItem(KEY, id);
@@ -86,29 +91,77 @@ function PwaUpdateBanner() {
         /* شبكة */
       }
     };
-    void poll();
     const t = window.setInterval(() => {
-      if (!stopped && document.visibilityState === 'visible') void poll();
-    }, 90_000);
+      if (!stopped) void poll();
+    }, 30 * 60 * 1000);
     return () => {
       stopped = true;
       window.clearInterval(t);
     };
   }, []);
 
-  if (!needRefresh) return null;
+  const showPrompt = (needRefresh || hasExternalUpdate) && !dismissed;
+
+  const handleApplyUpdate = async () => {
+    applyingRef.current = true;
+    setApplying(true);
+    try {
+      if (needRefresh) {
+        await updateServiceWorker(true);
+      } else {
+        window.location.reload();
+      }
+    } catch {
+      window.location.reload();
+    }
+  };
+
+  if (!showPrompt) return null;
 
   return (
     <div
       className={clsx(
-        'fixed top-16 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-md z-[70]',
-        'p-3 rounded-xl border border-cyan-500/25 bg-navy-900/95 backdrop-blur-xl shadow-xl pt-safe-offset',
+        'fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[80]',
+        'p-4 rounded-2xl border border-cyan-500/30 bg-navy-900/95 backdrop-blur-xl shadow-2xl pb-safe-offset animate-in fade-in slide-in-from-bottom-3 duration-300',
       )}
       dir="rtl"
     >
-      <div className="flex items-center gap-3">
-        <RefreshCw className="w-4 h-4 text-cyan-400 flex-shrink-0 animate-spin" />
-        <p className="text-white/80 text-xs flex-1">جاري تطبيق التحديث…</p>
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center flex-shrink-0">
+          <RefreshCw className={clsx('w-5 h-5 text-cyan-400', applying && 'animate-spin')} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm">تحديث جديد متوفر</p>
+          <p className="text-white/60 text-xs mt-1 leading-relaxed">
+            يتوفر إصدار جديد من المنصة مع تحسينات جديدة. اضغط لتطبيق التحديث.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              disabled={applying}
+              onClick={handleApplyUpdate}
+              className="flex-1 px-3 py-2 rounded-xl bg-cyan-500 text-navy-950 text-xs font-bold hover:bg-cyan-400 transition-colors disabled:opacity-50"
+            >
+              {applying ? 'جاري التحديث…' : 'تحديث الآن'}
+            </button>
+            <button
+              type="button"
+              disabled={applying}
+              onClick={() => setDismissed(true)}
+              className="px-3 py-2 rounded-xl border border-white/10 text-white/60 text-xs hover:bg-white/5 transition-colors"
+            >
+              لاحقاً
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="p-1 text-white/30 hover:text-white/70 transition-colors flex-shrink-0"
+          aria-label="إغلاق"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
