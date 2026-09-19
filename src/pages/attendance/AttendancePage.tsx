@@ -284,7 +284,7 @@ export function AttendancePage({
                   <tr key={student.id} className="hover:bg-white/3 transition-colors">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-xs font-bold">
                           {student.full_name.charAt(0)}
                         </div>
                         <div>

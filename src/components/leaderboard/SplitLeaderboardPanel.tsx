@@ -7,7 +7,6 @@ import { StudentPodium, StudentRankList } from './StudentRankList';
 import { ClassPodium, ClassRankList } from './ClassRankList';
 import {
   LeaderboardPeriodTabs,
-  applyPeriodPlaceholder,
 } from './LeaderboardShared';
 import { useAuthStore } from '../../stores/authStore';
 import { classProfileKey } from '../../lib/mediaUpload';
@@ -16,10 +15,22 @@ type SplitLeaderboardPanelProps = {
   students: StudentRankEntry[];
   classes: ClassRankEntry[];
   className?: string;
+  studentPeriod?: LeaderboardPeriod;
+  classPeriod?: LeaderboardPeriod;
+  onStudentPeriodChange?: (period: LeaderboardPeriod) => void;
+  onClassPeriodChange?: (period: LeaderboardPeriod) => void;
 };
 
 /** عرض مقسوم: الطلاب | الفصول — منصة أسطوانية + قائمة */
-export function SplitLeaderboardPanel({ students, classes, className }: SplitLeaderboardPanelProps) {
+export function SplitLeaderboardPanel({
+  students,
+  classes,
+  className,
+  studentPeriod: controlledStudentPeriod,
+  classPeriod: controlledClassPeriod,
+  onStudentPeriodChange,
+  onClassPeriodChange,
+}: SplitLeaderboardPanelProps) {
   const role = useAuthStore((s) => s.role);
   const canUploadClassPhoto =
     role === 'principal' ||
@@ -29,14 +40,17 @@ export function SplitLeaderboardPanel({ students, classes, className }: SplitLea
     role === 'teacher';
 
   const qc = useQueryClient();
-  const [studentPeriod, setStudentPeriod] = useState<LeaderboardPeriod>('weekly');
-  const [classPeriod, setClassPeriod] = useState<LeaderboardPeriod>('weekly');
+  const [internalStudentPeriod, setInternalStudentPeriod] = useState<LeaderboardPeriod>('weekly');
+  const [internalClassPeriod, setInternalClassPeriod] = useState<LeaderboardPeriod>('weekly');
+
+  const studentPeriod = controlledStudentPeriod ?? internalStudentPeriod;
+  const classPeriod = controlledClassPeriod ?? internalClassPeriod;
+
+  const handleStudentPeriodChange = onStudentPeriodChange ?? setInternalStudentPeriod;
+  const handleClassPeriodChange = onClassPeriodChange ?? setInternalClassPeriod;
+
   /** صور مرفوعة محلياً قبل إعادة الجلب */
   const [photoOverrides, setPhotoOverrides] = useState<Record<string, string>>({});
-
-  // TODO: wire to backend date-range filter
-  applyPeriodPlaceholder(studentPeriod, students);
-  applyPeriodPlaceholder(classPeriod, classes);
 
   const classesWithPhotos = useMemo(
     () =>
@@ -74,7 +88,7 @@ export function SplitLeaderboardPanel({ students, classes, className }: SplitLea
           <h2 className="text-lg font-bold text-white">الطلاب</h2>
           <span className="text-white/40 text-sm tabular-nums">{students.length}</span>
           <div className="mr-auto">
-            <LeaderboardPeriodTabs value={studentPeriod} onChange={setStudentPeriod} />
+            <LeaderboardPeriodTabs value={studentPeriod} onChange={handleStudentPeriodChange} />
           </div>
         </div>
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden p-3 lg:p-4 gap-3">
@@ -108,7 +122,7 @@ export function SplitLeaderboardPanel({ students, classes, className }: SplitLea
           <h2 className="text-lg font-bold text-white">الفصول</h2>
           <span className="text-white/40 text-sm tabular-nums">{classesWithPhotos.length}</span>
           <div className="mr-auto">
-            <LeaderboardPeriodTabs value={classPeriod} onChange={setClassPeriod} />
+            <LeaderboardPeriodTabs value={classPeriod} onChange={handleClassPeriodChange} />
           </div>
         </div>
         <p className="shrink-0 px-5 py-1 text-[11px] text-white/35 border-b border-white/5">

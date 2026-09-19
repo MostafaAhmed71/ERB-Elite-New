@@ -26,18 +26,75 @@ export function triggerAndroidInstall(): void {
 /** تسجيل SW للتحديثات — إنتاج فقط (التطوير يُكسر بـ Workbox على /src و Vite) */
 function PwaUpdateBanner() {
   const {
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(registration) {
-      if (registration) {
-        registration.update().catch(() => undefined);
-      }
+    immediate: true,
+    onRegisteredSW(_url, registration) {
+      if (!registration) return;
+      const check = () => {
+        void registration.update().catch(() => undefined);
+      };
+      check();
+      window.setInterval(check, 60_000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      window.addEventListener('pageshow', check);
     },
     onRegisterError() {
       /* optional */
     },
   });
+
+  useEffect(() => {
+    if (needRefresh) {
+      void updateServiceWorker(true);
+    }
+  }, [needRefresh, updateServiceWorker]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    let refreshing = false;
+    const onControllerChange = () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+    let stopped = false;
+    const KEY = 'erb_build_id';
+    const poll = async () => {
+      try {
+        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as { version?: string; builtAt?: string };
+        const id = `${data.version ?? ''}|${data.builtAt ?? ''}`;
+        const prev = sessionStorage.getItem(KEY);
+        if (prev && prev !== id) {
+          sessionStorage.setItem(KEY, id);
+          window.location.reload();
+          return;
+        }
+        sessionStorage.setItem(KEY, id);
+      } catch {
+        /* شبكة */
+      }
+    };
+    void poll();
+    const t = window.setInterval(() => {
+      if (!stopped && document.visibilityState === 'visible') void poll();
+    }, 90_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(t);
+    };
+  }, []);
 
   if (!needRefresh) return null;
 
@@ -50,23 +107,8 @@ function PwaUpdateBanner() {
       dir="rtl"
     >
       <div className="flex items-center gap-3">
-        <RefreshCw className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-        <p className="text-white/80 text-xs flex-1">يتوفر تحديث جديد للتطبيق</p>
-        <button
-          type="button"
-          onClick={() => updateServiceWorker(true)}
-          className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-semibold border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors"
-        >
-          تحديث
-        </button>
-        <button
-          type="button"
-          onClick={() => setNeedRefresh(false)}
-          className="p-1 text-white/30 hover:text-white/60"
-          aria-label="تجاهل"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <RefreshCw className="w-4 h-4 text-cyan-400 flex-shrink-0 animate-spin" />
+        <p className="text-white/80 text-xs flex-1">جاري تطبيق التحديث…</p>
       </div>
     </div>
   );

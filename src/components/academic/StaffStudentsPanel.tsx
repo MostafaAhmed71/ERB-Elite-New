@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ArrowLeftRight, Search, Users } from 'lucide-react';
+import { ArrowLeftRight, Download, Search, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { PageHeader } from '../ui/PageHeader';
@@ -18,6 +18,7 @@ import {
 } from '../../lib/academic/staffStudents';
 import { useGradeClassCatalog } from '../../hooks/useGradeClassCatalog';
 import { gradeBelongsToEducationLevel } from '../../lib/academic/stageScope';
+import { exportStudentsRosterExcel } from '../../lib/olympiadMiddleScope';
 
 type Props = {
   /** null = كل المدرسة (مدير) */
@@ -138,6 +139,19 @@ export function StaffStudentsPanel({
     setDestClass('');
   };
 
+  const handleExportExcel = () => {
+    if (students.length === 0) {
+      toast.error('لا يوجد طلاب للتصدير');
+      return;
+    }
+    try {
+      const count = exportStudentsRosterExcel(students);
+      toast.success(`تم تصدير ${count} طالباً إلى Excel`);
+    } catch {
+      toast.error('فشل تصدير الملف');
+    }
+  };
+
   return (
     <div className="space-y-5" dir="rtl">
       <PageHeader
@@ -149,6 +163,17 @@ export function StaffStudentsPanel({
             : 'كل طلاب المدرسة — نقل الفصول مع بقاء النقاط الفردية')
         }
         icon={Users}
+        actions={
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={students.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 disabled:opacity-40"
+          >
+            <Download className="w-4 h-4" />
+            تصدير Excel ({students.length})
+          </button>
+        }
       />
 
       <div className="rounded-2xl border border-gold-400/25 bg-gradient-to-l from-gold-500/15 to-transparent px-5 py-4 flex flex-wrap items-center justify-between gap-3">

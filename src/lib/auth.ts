@@ -5,6 +5,7 @@ import { needsFamilyOnboarding } from './familyOnboarding';
 import { needsTeacherProfileOnboarding } from './teacherSignup';
 import { SELECTABLE_USER_ROLES } from '../types';
 import { extractErrorMessage } from './errors';
+import { withTimeout } from './utils/asyncUtils';
 
 const ALL_ROLES: UserRole[] = [
   'principal',
@@ -318,15 +319,6 @@ export function resolveLoginTarget(session: Session, profile: DbUser | null = nu
   return getPostLoginPath(role, resolveIsFirstLogin(profile, session));
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(message)), ms);
-    }),
-  ]);
-}
-
 // =============================================================
 // Sign in with email + password
 // =============================================================
@@ -375,20 +367,24 @@ const LOGIN_PREF_KEY = 'erb_preferred_login_path';
 export function rememberPreferredLoginPath(path: string) {
   try {
     sessionStorage.setItem(LOGIN_PREF_KEY, path);
+    localStorage.setItem(LOGIN_PREF_KEY, path);
   } catch {
     /* ignore */
   }
 }
 
-/** لصفحات الحماية بعد انتهاء الجلسة */
-export function getPreferredLoginPath(): string {
+/** لصفحات الحماية بعد انتهاء الجلسة — localStorage يبقى بعد تثبيت PWA */
+export function getPreferredLoginPath(): '/login' | '/login/staff' {
   try {
-    const saved = sessionStorage.getItem(LOGIN_PREF_KEY);
-    if (saved === '/login/staff' || saved === '/login') return saved;
+    const sessionVal = sessionStorage.getItem(LOGIN_PREF_KEY);
+    if (sessionVal === '/login/staff' || sessionVal === '/login') return sessionVal;
+    const localVal = localStorage.getItem(LOGIN_PREF_KEY);
+    if (localVal === '/login/staff' || localVal === '/login') return localVal;
   } catch {
     /* ignore */
   }
-  return '/login';
+  // التطبيق المثبّت للطاقم — افتراضياً دخول المعلمين والإدارة
+  return '/login/staff';
 }
 
 // =============================================================

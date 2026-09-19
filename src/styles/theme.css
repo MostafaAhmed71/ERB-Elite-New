@@ -1,0 +1,344 @@
+/* ═══════════════════════════════════════════════════════════
+   Theme tokens — Light (default) / Dark
+   تباين عالٍ + هوية كحلي/ذهبي | بدون شبكات خلفية
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --background: #FAFBFC;
+  --surface: #FFFFFF;
+  --primary: #0F2744;
+  --primary-secondary: #1A3A5C;
+  --accent: #C99A2E;
+  --text-primary: #0A0F1A;
+  --text-secondary: #334155;
+  --border: #0A0F1A;
+  --success: #157A42;
+  --warning: #B8860B;
+  --error: #C0392B;
+
+  --brand-navy: #0F2744;
+  --brand-gold: #C99A2E;
+  --color-secondary: #C99A2E;
+
+  --color-primary-bg: var(--primary);
+  --navy-950: #0F2744;
+  --navy-900: #122548;
+  --navy-800: #0e1f3a;
+  --navy-700: #1d3a66;
+  --gold-300: #f2c96a;
+  --gold-400: #eeba48;
+  --gold-500: #C99A2E;
+  --gold-600: #b38624;
+
+  --surface-card: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --text-muted: #334155;
+  --text-subtle: #475569;
+  --border-subtle: #0A0F1A;
+  --border-soft: #0A0F1A;
+  --accent-violet: #5B4BDB;
+  --accent-violet-soft: rgba(201, 154, 46, 0.12);
+  --radius-card: 1.25rem;
+  --shadow-card: 0 8px 28px rgba(15, 39, 68, 0.06);
+  --shadow-sidebar: 4px 0 28px rgba(10, 15, 26, 0.07);
+  --glow-gold: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 10px 28px rgba(201, 154, 46, 0.12);
+
+  color-scheme: light;
+}
+
+html.dark {
+  --background: #162e54;
+  --surface: #122548;
+  --primary: #0e1f3a;
+  --primary-secondary: #1d3a66;
+  --accent: #e6aa32;
+  --text-primary: #ffffff;
+  --text-secondary: #a3aed0;
+  --border: rgba(255, 255, 255, 0.12);
+  --success: #27AE60;
+  --warning: #eeba48;
+  --error: #ef4444;
+
+  --brand-navy: #162e54;
+  --brand-gold: #e6aa32;
+  --color-secondary: #e6aa32;
+  --color-primary-bg: #162e54;
+
+  --navy-950: #162e54;
+  --navy-900: #122548;
+  --navy-800: #0e1f3a;
+  --navy-700: #1d3a66;
+  --gold-300: #f2c96a;
+  --gold-400: #eeba48;
+  --gold-500: #e6aa32;
+  --gold-600: #cc9628;
+
+  --surface-card: #111c44;
+  --surface-elevated: rgba(17, 28, 68, 0.92);
+  --text-muted: #a3aed0;
+  --text-subtle: rgba(255, 255, 255, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-soft: rgba(255, 255, 255, 0.1);
+  --accent-violet: #7551ff;
+  --accent-violet-soft: rgba(117, 81, 255, 0.2);
+  --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.22);
+  --shadow-sidebar: 4px 0 24px rgba(0, 0, 0, 0.3);
+  --glow-gold: 0 0 24px rgba(230, 170, 50, 0.15);
+
+  color-scheme: dark;
+}
+
+/* نص أبيض إجباري فوق الخلفيات الداكنة/الملونة */
+.text-on-contrast {
+  color: #ffffff !important;
+}
+
+/* ─── Light Mode remaps ─── */
+html:not(.dark) .bg-navy-950 {
+  background-color: var(--background) !important;
+}
+html:not(.dark) .bg-navy-900,
+html:not(.dark) .bg-navy-900\/95,
+html:not(.dark) .bg-navy-900\/80,
+html:not(.dark) .bg-navy-900\/50,
+html:not(.dark) .bg-navy-900\/40,
+html:not(.dark) .bg-navy-900\/60,
+html:not(.dark) .bg-navy-900\/70 {
+  background-color: var(--surface) !important;
+}
+html:not(.dark) .bg-navy-800,
+html:not(.dark) .bg-navy-800\/50,
+html:not(.dark) .bg-navy-800\/40 {
+  background-color: #F1F5F9 !important;
+}
+html:not(.dark) .bg-navy-700 {
+  background-color: var(--primary) !important;
+  color: #fff !important;
+}
+
+/* خلفيات hex داكنة شائعة → سطح فاتح */
+html:not(.dark) .bg-\[\#0a1228\],
+html:not(.dark) .bg-\[\#0b1526\],
+html:not(.dark) .bg-\[\#0b1526\]\/95,
+html:not(.dark) .bg-\[\#0d1b2e\],
+html:not(.dark) .bg-\[\#0f1a2e\],
+html:not(.dark) .bg-\[\#0a1020\],
+html:not(.dark) .bg-\[\#0a1020\]\/75,
+html:not(.dark) .bg-\[\#0b1224\],
+html:not(.dark) .bg-\[\#0b1224\]\/80,
+html:not(.dark) .bg-\[\#0d1638\],
+html:not(.dark) .bg-\[\#0d1535\],
+html:not(.dark) .bg-\[\#0d1535\]\/80,
+html:not(.dark) .bg-\[\#060d24\],
+html:not(.dark) .bg-\[\#111c44\],
+html:not(.dark) .bg-\[\#0b1437\],
+html:not(.dark) .bg-\[\#0b1437\]\/90,
+html:not(.dark) .bg-\[\#1B254B\] {
+  background-color: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+html:not(.dark) .hover\:bg-\[\#1B254B\]:hover {
+  background-color: #F1F5F9 !important;
+}
+
+/* نص أبيض على الأسطح الفاتحة → داكن */
+html:not(.dark) .text-white {
+  color: var(--text-primary) !important;
+}
+html:not(.dark) .text-white\/90,
+html:not(.dark) .text-white\/80 {
+  color: var(--text-primary) !important;
+}
+html:not(.dark) .text-white\/70,
+html:not(.dark) .text-white\/60,
+html:not(.dark) .text-white\/50,
+html:not(.dark) .text-white\/45,
+html:not(.dark) .text-white\/40,
+html:not(.dark) .text-white\/35,
+html:not(.dark) .text-white\/30,
+html:not(.dark) .text-white\/25,
+html:not(.dark) .text-white\/20 {
+  color: var(--text-secondary) !important;
+}
+
+/*
+  استثناءات التباين: إبقاء الأبيض فوق الخلفيات الملونة/الكحلية
+  (الأزرار، الشارات، التدرجات، الأفاتار)
+*/
+html:not(.dark) .text-on-contrast,
+html:not(.dark) .bg-\[var\(--primary\)\],
+html:not(.dark) .bg-\[var\(--primary\)\] .text-white,
+html:not(.dark) .bg-\[var\(--primary\)\].text-white,
+html:not(.dark) .bg-\[var\(--primary-secondary\)\],
+html:not(.dark) .bg-\[var\(--accent\)\].text-white,
+html:not(.dark) .bg-\[var\(--accent\)\] .text-white,
+html:not(.dark) .bg-navy-700,
+html:not(.dark) .bg-navy-700 .text-white,
+html:not(.dark) .bg-\[\#7551FF\].text-white,
+html:not(.dark) .bg-\[\#7551FF\] .text-white,
+html:not(.dark) .bg-\[\#422AFB\].text-white,
+html:not(.dark) .bg-\[\#422AFB\] .text-white,
+html:not(.dark) .bg-\[\#01B574\].text-white,
+html:not(.dark) .bg-\[\#01B574\] .text-white,
+html:not(.dark) .bg-red-400.text-white,
+html:not(.dark) .bg-red-500.text-white,
+html:not(.dark) .bg-red-600.text-white,
+html:not(.dark) .bg-red-500 .text-white,
+html:not(.dark) .from-\[\#4481EB\].text-white,
+html:not(.dark) .from-\[\#4481EB\] .text-white,
+html:not(.dark) .from-\[\#7551FF\].text-white,
+html:not(.dark) .from-\[\#7551FF\] .text-white,
+html:not(.dark) .from-\[\#01B574\].text-white,
+html:not(.dark) .from-\[\#E31A1A\].text-white,
+html:not(.dark) .from-blue-500.text-white,
+html:not(.dark) .from-blue-500 .text-white,
+html:not(.dark) .to-purple-600.text-white,
+html:not(.dark) .to-purple-600 .text-white {
+  color: #ffffff !important;
+}
+
+/* تدرجات الأيقونات: الأيقونة داخل الحاوية */
+html:not(.dark) .from-\[\#4481EB\] svg,
+html:not(.dark) .from-\[\#7551FF\] svg,
+html:not(.dark) .from-\[\#01B574\] svg,
+html:not(.dark) .from-\[\#E31A1A\] svg,
+html:not(.dark) .from-blue-500.to-purple-600 svg,
+html:not(.dark) .bg-gradient-to-br.from-blue-500 svg {
+  color: #ffffff !important;
+  stroke: currentColor;
+}
+
+html:not(.dark) .border-white\/5,
+html:not(.dark) .border-white\/\[0\.04\],
+html:not(.dark) .border-white\/\[0\.05\],
+html:not(.dark) .border-white\/\[0\.06\],
+html:not(.dark) .border-white\/\[0\.08\],
+html:not(.dark) .border-white\/10,
+html:not(.dark) .border-white\/15,
+html:not(.dark) .border-white\/20 {
+  border-color: #0A0F1A !important;
+}
+
+html:not(.dark) .bg-white\/5,
+html:not(.dark) .bg-white\/\[0\.02\],
+html:not(.dark) .bg-white\/\[0\.03\],
+html:not(.dark) .bg-white\/\[0\.04\] {
+  background-color: #F8FAFC !important;
+}
+html:not(.dark) .bg-white\/10,
+html:not(.dark) .bg-white\/\[0\.06\],
+html:not(.dark) .bg-white\/\[0\.08\] {
+  background-color: #F1F5F9 !important;
+}
+html:not(.dark) .hover\:bg-white\/5:hover,
+html:not(.dark) .hover\:bg-white\/\[0\.03\]:hover,
+html:not(.dark) .hover\:bg-white\/\[0\.04\]:hover {
+  background-color: #F1F5F9 !important;
+}
+html:not(.dark) .hover\:bg-white\/10:hover {
+  background-color: #E2E8F0 !important;
+}
+html:not(.dark) .hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+
+html:not(.dark) .divide-white\/5 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark) .divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #0A0F1A !important;
+}
+
+html:not(.dark) .placeholder-white\/20::placeholder,
+html:not(.dark) .placeholder\:text-white\/20::placeholder {
+  color: #64748B !important;
+}
+
+html:not(.dark) .shadow-sidebar {
+  box-shadow: var(--shadow-sidebar) !important;
+}
+
+html:not(.dark) .content-grid-bg,
+.content-grid-bg {
+  background-image: none !important;
+}
+
+html:not(.dark) .text-gold-400,
+html:not(.dark) .text-gold-300 {
+  color: #8A6814 !important;
+}
+html:not(.dark) .text-gold-500 {
+  color: #9A7518 !important;
+}
+
+html:not(.dark) .text-\[\#A3AED0\],
+html:not(.dark) .text-\[\#c4b5fd\] {
+  color: var(--text-secondary) !important;
+}
+
+/* لمسة إبداعية — شريط ذهبي رفيع أعلى البطاقات في الوضع الفاتح */
+html:not(.dark) .glass-card,
+html:not(.dark) .horizon-card,
+html:not(.dark) .page-header,
+html:not(.dark) .action-card {
+  position: relative;
+  overflow: hidden;
+}
+html:not(.dark) .glass-card::before,
+html:not(.dark) .horizon-card::before,
+html:not(.dark) .page-header::before,
+html:not(.dark) .action-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 35%,
+    #E8C56A 50%,
+    var(--accent) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+html:not(.dark) .glass-card-hover:hover,
+html:not(.dark) .horizon-card:hover {
+  box-shadow: var(--glow-gold);
+  transform: translateY(-1px);
+}
+
+/* شاشات تبقى داكنة دائماً */
+html.theme-force-dark,
+.theme-force-dark {
+  color-scheme: dark;
+}
+.theme-force-dark {
+  --background: #0D1B2A;
+  --surface: #122548;
+  --primary: #0e1f3a;
+  --text-primary: #ffffff;
+  --text-secondary: #a3aed0;
+  --border: rgba(255, 255, 255, 0.12);
+  --text-muted: #a3aed0;
+  background-color: #0D1B2A;
+  color: #ffffff;
+}
+.theme-force-dark .text-white,
+.theme-force-dark .text-white\/90,
+.theme-force-dark .text-white\/80 {
+  color: #ffffff !important;
+}
+.theme-force-dark .text-white\/70,
+.theme-force-dark .text-white\/60,
+.theme-force-dark .text-white\/50,
+.theme-force-dark .text-white\/40,
+.theme-force-dark .text-white\/30,
+.theme-force-dark .text-white\/20 {
+  color: rgba(255, 255, 255, 0.55) !important;
+}

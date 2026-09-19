@@ -2,8 +2,11 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
-import { StudentCard } from '../components/student/StudentCard';
-import { PLATFORM_ICON } from './branding';
+import {
+  ID_CARD_LOGO_LEFT,
+  ID_CARD_LOGO_RIGHT,
+  StudentCard,
+} from '../components/student/StudentCard';
 import { getStudentQRUrl } from './qr';
 
 export type StudentCardExportItem = {
@@ -13,15 +16,14 @@ export type StudentCardExportItem = {
   class_name: string;
   admission_number: string;
   qr_token?: string | null;
+  /** @deprecated البطاقة لم تعد تعرض صورة الطالب */
   photoUrl?: string | null;
 };
 
 const PNG_CAPTURE_OPTIONS = {
   pixelRatio: 3,
   backgroundColor: '#ffffff',
-  /** تجنّب جلب خطوط Google (تفشل مع Service Worker / CORS) */
   skipFonts: true,
-  /** true يضيف ?t= لروابط blob فيكسر صور الطلاب */
   cacheBust: false,
   filter: (node: HTMLElement) => {
     const tag = node.tagName?.toUpperCase();
@@ -65,7 +67,6 @@ async function fetchAsDataUrl(url: string): Promise<string | null> {
   try {
     const absolute = toAbsoluteUrl(url);
     if (absolute.startsWith('data:')) return absolute;
-
     const response = await fetch(absolute, {
       mode: 'cors',
       credentials: 'omit',
@@ -76,23 +77,6 @@ async function fetchAsDataUrl(url: string): Promise<string | null> {
   } catch {
     return null;
   }
-}
-
-async function resolvePhotoUrl(url: string | null | undefined): Promise<string | null> {
-  if (!url) return null;
-  return fetchAsDataUrl(url);
-}
-
-async function inlineImagesInTree(root: HTMLElement): Promise<void> {
-  const images = Array.from(root.querySelectorAll('img'));
-  await Promise.all(
-    images.map(async (img) => {
-      const src = img.currentSrc || img.getAttribute('src') || '';
-      if (!src || src.startsWith('data:')) return;
-      const dataUrl = await fetchAsDataUrl(src);
-      if (dataUrl) img.src = dataUrl;
-    })
-  );
 }
 
 async function waitForRender(container: HTMLElement): Promise<void> {
@@ -127,9 +111,9 @@ async function captureCardPng(item: StudentCardExportItem): Promise<Blob> {
   let root: Root | null = null;
 
   try {
-    const [photoUrl, platformIconUrl] = await Promise.all([
-      resolvePhotoUrl(item.photoUrl),
-      fetchAsDataUrl(PLATFORM_ICON),
+    const [logoLeftUrl, logoRightUrl] = await Promise.all([
+      fetchAsDataUrl(ID_CARD_LOGO_LEFT),
+      fetchAsDataUrl(ID_CARD_LOGO_RIGHT),
     ]);
 
     root = createRoot(mount);
@@ -139,8 +123,8 @@ async function captureCardPng(item: StudentCardExportItem): Promise<Blob> {
         grade: item.grade,
         studentClass: item.class_name,
         admissionNumber: item.admission_number,
-        photoUrl,
-        platformIconUrl: platformIconUrl ?? undefined,
+        logoLeftUrl: logoLeftUrl ?? undefined,
+        logoRightUrl: logoRightUrl ?? undefined,
         qrValue: getStudentQRUrl(item.id, item.qr_token),
         printSize: true,
         wrapperClassName: 'shadow-none',
@@ -157,9 +141,6 @@ async function captureCardPng(item: StudentCardExportItem): Promise<Blob> {
 
     const cardEl = card as HTMLElement;
     cardEl.style.fontFamily = 'Arial, Helvetica, sans-serif';
-
-    await inlineImagesInTree(cardEl);
-    await waitForRender(cardEl);
 
     const dataUrl = await toPng(cardEl, PNG_CAPTURE_OPTIONS);
     const response = await fetch(dataUrl);

@@ -10,6 +10,8 @@ import { fetchWeeklyAssemblyData } from '../../lib/weeklyAssemblyReport';
 import { averagePerStudent } from '../../lib/classReport';
 import clsx from 'clsx';
 
+import type { LeaderboardPeriod } from '../../components/leaderboard/types';
+
 type DisplaySlide = 'leaderboard' | 'challenge';
 
 const SLIDE_INTERVAL_MS = 45_000;
@@ -34,7 +36,8 @@ function LiveClock() {
 
 /** G2 — وضع شاشة كبيرة للطابور والمتصدرين */
 export function LeaderboardDisplayPage() {
-  const { students, classes, isLoading, refetch } = useLeaderboardData();
+  const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
+  const { students, classes, isLoading, refetch } = useLeaderboardData('', '', period);
   const isEmpty = students.length === 0 && classes.length === 0;
   const [refreshKey, setRefreshKey] = useState(0);
   const [slide, setSlide] = useState<DisplaySlide>('leaderboard');
@@ -160,7 +163,15 @@ export function LeaderboardDisplayPage() {
 
       <main key={`${refreshKey}-${slide}`} className="relative z-10 flex-1 min-h-0 px-4 lg:px-6 py-4 lg:py-5">
         {slide === 'leaderboard' ? (
-          <SplitLeaderboardPanel students={students} classes={classes} className="h-full" />
+          <SplitLeaderboardPanel
+            students={students}
+            classes={classes}
+            studentPeriod={period}
+            classPeriod={period}
+            onStudentPeriodChange={setPeriod}
+            onClassPeriodChange={setPeriod}
+            className="h-full"
+          />
         ) : (
           <div className="h-full flex flex-col items-center justify-center gap-8">
             <div className="text-center space-y-2">

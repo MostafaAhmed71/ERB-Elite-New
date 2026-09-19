@@ -48,7 +48,7 @@ export function UpcomingExamsWidget({ grade, studentId, examsLink = '/student/ex
         .select('*')
         .eq('grade', grade)
         .eq('is_active', true)
-        .order('starts_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;
       return (data as DbExam[]).filter((e) => {

@@ -24,7 +24,8 @@ export function AcademicStaffHubPage() {
   const teacherCards = [
     { to: '/academic/homework', label: 'الواجبات', description: 'إنشاء وإدارة الواجبات اليومية', icon: BookOpen },
     { to: '/academic/weekly-plans', label: 'الخطط الأسبوعية', description: 'تخطيط الحصص أسبوعياً', icon: Calendar },
-    { to: '/academic/schedule', label: 'الجدول الدراسي', description: 'جدول الحصص والمواد', icon: ClipboardList },
+    { to: '/academic/schedule', label: 'الجدول الدراسي', description: 'جدول الحصص والنصاب', icon: ClipboardList },
+    { to: '/academic/teacher-setup', label: 'الملف التعليمي', description: 'تعديل الصفوف والفصول والمواد', icon: Settings },
     { to: '/academic/lesson-topics', label: 'مواضيع الدروس', description: 'قائمة مواضيع كل مادة', icon: FileText },
     { to: '/academic/reviews', label: 'مراجعات PDF', description: 'رفع للمراجع ثم اعتماد المدير والنشر', icon: Upload },
     { to: '/academic/observation-tasks', label: 'طلبات ملاحظات الطلاب', description: 'إفادة طلبات الملاحظة المرسلة إليك', icon: Send },

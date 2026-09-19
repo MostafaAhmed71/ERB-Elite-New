@@ -14,6 +14,7 @@ import { ROLE_LABELS } from '../types';
 import { Logo, LogoIcon } from '../components/ui/Logo';
 import { pageVariants } from '../lib/motionVariants';
 import { NavSection } from '../components/ui/NavSection';
+import { ThemeAppearanceControl } from '../components/theme/ThemeAppearanceControl';
 import { DevCriticalErrorBanner } from '../components/dev/DevCriticalErrorBanner';
 import { DevDebugOverlay } from '../components/dev/DevDebugOverlay';
 
@@ -187,6 +188,7 @@ export function DevLayout() {
         </nav>
 
         <div className="p-3 border-t border-white/5 shrink-0 space-y-2">
+          {sidebarExpanded && <ThemeAppearanceControl variant="compact" />}
           {sidebarExpanded && (
             <div className="px-2 py-1">
               <p className="text-white text-sm font-semibold truncate">{user?.full_name ?? 'مطور'}</p>
@@ -237,7 +239,7 @@ export function DevLayout() {
           </button>
         </header>
 
-        <main className="flex-1 p-3 sm:p-5 md:p-6 overflow-x-hidden content-grid-bg">
+        <main className="flex-1 p-3 sm:p-5 md:p-6 overflow-x-hidden">
           <motion.div
             key={location.pathname}
             variants={pageVariants}

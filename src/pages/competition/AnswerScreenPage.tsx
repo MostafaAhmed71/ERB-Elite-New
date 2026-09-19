@@ -127,7 +127,7 @@ export function AnswerScreenPage() {
 
   if (classLoading || qLoading || !settingsReady) {
     return (
-      <div className="min-h-dvh bg-[#0D1B2A] flex items-center justify-center" dir="rtl">
+      <div className="theme-force-dark min-h-dvh bg-[#0D1B2A] flex items-center justify-center" dir="rtl">
         <TapHandLoader label="جاري التحميل..." fullScreen />
       </div>
     );
@@ -135,7 +135,7 @@ export function AnswerScreenPage() {
 
   if (classError || !klass) {
     return (
-      <div className="min-h-dvh bg-[#0D1B2A] text-white flex items-center justify-center p-6" dir="rtl">
+      <div className="theme-force-dark min-h-dvh bg-[#0D1B2A] text-white flex items-center justify-center p-6" dir="rtl">
         <p className="text-lg text-red-300">{classError ?? 'فصل غير معروف'}</p>
       </div>
     );
@@ -144,7 +144,7 @@ export function AnswerScreenPage() {
   const locked = submitted || Boolean(existing) || !windowOpen;
 
   return (
-    <div className="min-h-dvh bg-[#0D1B2A] text-white overflow-x-hidden" dir="rtl">
+    <div className="theme-force-dark min-h-dvh bg-[#0D1B2A] text-white overflow-x-hidden" dir="rtl">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(244,196,48,0.12),transparent_55%)]" />
 
       <header className="relative z-10 px-4 pt-safe py-4 border-b border-white/10">

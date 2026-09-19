@@ -84,3 +84,7 @@ public/homework temp.jpeg
 public/plane temp.jpeg
 public/i.jpeg
 
+# IMP-006: حماية مفاتيح OAuth من الدخول في Git
+client_secret*.json
+scratch/
+.eslintcache

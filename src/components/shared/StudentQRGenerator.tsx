@@ -1,19 +1,21 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Search, Printer, Shield, CheckCircle, RefreshCw } from 'lucide-react';
+import { CreditCard, Search, Printer, CheckCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { mergeGradeLists } from '../../lib/schoolClasses';
 import { useGradeClassCatalog } from '../../hooks/useGradeClassCatalog';
 import { getStudentQRUrl } from '../../lib/qr';
 import { getApprovedPointsTotal, getLevelInfo } from '../../lib/calculations';
+import {
+  filterOlympiadMiddleGrades,
+  filterOlympiadMiddleStudents,
+} from '../../lib/olympiadMiddleScope';
 import type { DbStudent } from '../../types';
 import { showSuccess, showError } from '../../lib/toast';
 import { BarsLoader } from '../ui/BarsLoader';
 import { ScreenGuideButton } from '../admin/ScreenGuideButton';
+import { StudentCard } from '../student/StudentCard';
 import clsx from 'clsx';
-import { PLATFORM_NAME, PLATFORM_NAME_SHORT } from '../../lib/branding';
-
-type Branding = { school_name: string; tagline: string; logo_url: string };
 
 type StudentQRGeneratorProps = {
   embedded?: boolean;
@@ -52,7 +54,7 @@ export function StudentQRGenerator({ embedded = false }: StudentQRGeneratorProps
         studentEntries[item.student_id].push(item);
       });
 
-      return (studentsData as DbStudent[]).map(s => {
+      const mapped = (studentsData as DbStudent[]).map(s => {
         const entries = studentEntries[s.id] || [];
         const score = getApprovedPointsTotal(entries);
         const level = getLevelInfo(score);
@@ -62,14 +64,8 @@ export function StudentQRGenerator({ embedded = false }: StudentQRGeneratorProps
           level,
         };
       });
-    },
-  });
-
-  const { data: branding } = useQuery({
-    queryKey: ['school-branding'],
-    queryFn: async () => {
-      const { data } = await supabase.from('school_settings').select('value').eq('key', 'school_branding').maybeSingle();
-      return (data?.value ?? { school_name: PLATFORM_NAME_SHORT, tagline: PLATFORM_NAME, logo_url: '' }) as Branding;
+      // أولمبياد رائد النشاط + QR: المرحلة المتوسطة فقط
+      return filterOlympiadMiddleStudents(mapped);
     },
   });
 
@@ -88,7 +84,10 @@ export function StudentQRGenerator({ embedded = false }: StudentQRGeneratorProps
   });
 
   const grades = useMemo(
-    () => mergeGradeLists(catalog?.grades, students.map((s) => s.grade)),
+    () =>
+      filterOlympiadMiddleGrades(
+        mergeGradeLists(catalog?.grades, students.map((s) => s.grade)),
+      ),
     [catalog?.grades, students]
   );
 
@@ -174,8 +173,15 @@ export function StudentQRGenerator({ embedded = false }: StudentQRGeneratorProps
             <CreditCard className="w-6 h-6 text-gold-400" />
             بطاقات التعريف الذكية (QR)
           </h1>
-          <p className="text-white/40 text-sm mt-1">توليد وطباعة بطاقات التعريف للطلاب التي تحتوي على رموز QR</p>
+          <p className="text-white/40 text-sm mt-1">
+            توليد وطباعة بطاقات QR — المرحلة المتوسطة فقط (أولمبياد رائد النشاط)
+          </p>
         </div>
+        )}
+        {embedded && (
+          <p className="text-xs text-cyan-300/80 no-print w-full">
+            نطاق الأولمبياد: طلاب المرحلة المتوسطة فقط
+          </p>
         )}
         <div className={clsx('flex gap-2 flex-wrap items-center', embedded && 'w-full justify-between')}>
           {!embedded && <ScreenGuideButton path="/admin/id-cards" />}
@@ -286,52 +292,18 @@ export function StudentQRGenerator({ embedded = false }: StudentQRGeneratorProps
       <div id="print-area" className="hidden">
         {students
           .filter(s => selectedStudentIds.includes(s.id))
-          .map(student => {
-            const qrUrl = getStudentQRUrl(student.id, (student as DbStudent).qr_token);
-            const qrCodeApi = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrUrl)}`;
-            const scorePercent = student.level.nextMin
-              ? Math.round(((student.score - student.level.min) / (student.level.nextMin - student.level.min)) * 100)
-              : 100;
-
-            return (
-              <div key={student.id} className="card-container border-2 border-black p-4 flex flex-col justify-between h-[280px] bg-white text-black rounded-xl shadow-none">
-                <div className="flex justify-between items-start card-header-print border-b pb-2">
-                  <div className="text-right">
-                    <h2 className="text-black font-extrabold text-base leading-tight">{student.full_name}</h2>
-                    <p className="text-black/60 text-xs mt-1">{student.grade} • {student.class_name}</p>
-                    <p className="text-black/40 text-[9px] font-mono mt-0.5">الرقم: {student.admission_number}</p>
-                  </div>
-                  <div className="text-center font-bold text-[10px] text-black shrink-0 border border-black/20 p-1.5 rounded-lg bg-slate-50 max-w-[90px]">
-                    {branding?.school_name ?? PLATFORM_NAME_SHORT}
-                    <p className="text-[7px] font-normal text-black/50 mt-0.5">{branding?.tagline}</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center py-2">
-                  <div className="space-y-1.5 flex-1 pr-2">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-black/60">إجمالي النقاط:</span>
-                      <strong className="text-black">{student.score} ن</strong>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-black/60">المستوى:</span>
-                      <strong className="text-black">{student.level.name}</strong>
-                    </div>
-                    <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-black" style={{ width: `${Math.min(scorePercent, 100)}%` }} />
-                    </div>
-                  </div>
-                  <div className="w-20 h-20 p-1 border border-black/15 rounded-lg shrink-0 bg-white qr-img-print">
-                    <img src={qrCodeApi} alt="QR Code" className="w-full h-full object-contain" />
-                  </div>
-                </div>
-
-                <div className="text-center text-[8px] border-t pt-1.5 text-black/50 border-black/10">
-                  امسح رمز الاستجابة QR لعرض البطاقة والمحاور التعليمية للتميز
-                </div>
-              </div>
-            );
-          })}
+          .map(student => (
+            <StudentCard
+              key={student.id}
+              studentName={student.full_name}
+              grade={student.grade}
+              studentClass={student.class_name}
+              admissionNumber={student.admission_number}
+              qrValue={getStudentQRUrl(student.id, (student as DbStudent).qr_token)}
+              printSize
+              wrapperClassName="shadow-none card-container"
+            />
+          ))}
       </div>
     </div>
   );

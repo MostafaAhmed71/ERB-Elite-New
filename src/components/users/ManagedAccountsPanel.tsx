@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   KeyRound,
-  Search,
   RefreshCw,
   Download,
   Pencil,
@@ -11,6 +10,7 @@ import {
   User,
   Users,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
@@ -19,11 +19,13 @@ import {
   fetchManagedCredentials,
   type ManagedCredential,
 } from '../../lib/managedAccounts';
+import { deleteBulkGeneratedAccounts, deleteAllBulkGeneratedAccounts } from '../../lib/bulkAccounts';
 import { exportRowsToExcel } from '../../lib/exportExcel';
 import { SearchInput } from '../ui/SearchInput';
 import { BarsLoader } from '../ui/BarsLoader';
 import { Button } from '../ui/Button';
 import { useGradeClassCatalog } from '../../hooks/useGradeClassCatalog';
+
 
 function CredentialEditModal({
   row,
@@ -130,6 +132,80 @@ function CredentialEditModal({
   );
 }
 
+/** مودال تأكيد حذف حساب الطالب وولي الأمر */
+function DeleteConfirmModal({
+  row,
+  pairedParentRow,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  row: ManagedCredential;
+  pairedParentRow?: ManagedCredential | null;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" dir="rtl">
+      <div className="w-full max-w-md rounded-2xl border border-[#EE5D50]/30 bg-[#111c44] p-6 shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-[#EE5D50]/10 border border-[#EE5D50]/20 flex items-center justify-center flex-shrink-0">
+            <Trash2 className="w-5 h-5 text-[#EE5D50]" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">حذف الحساب بالكامل</h3>
+            <p className="text-[#A3AED0] text-sm">{row.student_name}</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 mb-5 space-y-2 text-sm">
+          <p className="text-[#A3AED0]">سيتم حذف الحسابات التالية نهائياً:</p>
+          <div className="flex items-center gap-2 text-blue-300">
+            <User className="w-4 h-4" />
+            <span>حساب الطالب: <span className="font-mono" dir="ltr">{row.account_type === 'student' ? row.email : (pairedParentRow?.email ?? '—')}</span></span>
+          </div>
+          {pairedParentRow && (
+            <div className="flex items-center gap-2 text-amber-300">
+              <Users className="w-4 h-4" />
+              <span>حساب ولي الأمر: <span className="font-mono" dir="ltr">{pairedParentRow.email}</span></span>
+            </div>
+          )}
+          <p className="text-[#EE5D50] text-xs mt-2">
+            ⚠️ هذا الإجراء لا يمكن التراجع عنه. سيتم حذف حسابات الدخول من النظام.
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1"
+          >
+            إلغاء
+          </Button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#EE5D50] hover:bg-[#EE5D50]/90 text-white font-semibold text-sm transition-colors disabled:opacity-50"
+          >
+            {loading ? (
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            تأكيد الحذف
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ManagedAccountsPanel() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -138,6 +214,11 @@ export function ManagedAccountsPanel() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'student' | 'parent'>('all');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [editRow, setEditRow] = useState<ManagedCredential | null>(null);
+  const [deleteRow, setDeleteRow] = useState<ManagedCredential | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+
 
   const { data: catalog } = useGradeClassCatalog(true);
 
@@ -201,6 +282,65 @@ export function ManagedAccountsPanel() {
     );
     toast.success('تم تصدير الحسابات');
   };
+
+  /** إيجاد الصف المرتبط بنفس الطالب ورقم القيد (ولي أمر أو طالب) */
+  const findPairedRow = (row: ManagedCredential): ManagedCredential | null => {
+    const targetType = row.account_type === 'student' ? 'parent' : 'student';
+    return rows.find(
+      (r) => r.admission_number === row.admission_number && r.account_type === targetType
+    ) ?? null;
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteRow) return;
+    setDeleting(true);
+
+    const pairedRow = findPairedRow(deleteRow);
+
+    // تحديد حساب الطالب وولي الأمر
+    const studentRow = deleteRow.account_type === 'student' ? deleteRow : pairedRow;
+    const parentRow = deleteRow.account_type === 'parent' ? deleteRow : pairedRow;
+
+    if (!studentRow) {
+      toast.error('لم يتم العثور على حساب الطالب لحذفه');
+      setDeleting(false);
+      return;
+    }
+
+    try {
+      await deleteBulkGeneratedAccounts({
+        studentUserId: studentRow.user_id,
+        parentUserId: parentRow?.user_id ?? null,
+      });
+      toast.success(`تم حذف حسابات ${deleteRow.student_name} بنجاح`);
+      setDeleteRow(null);
+      queryClient.invalidateQueries({ queryKey: ['managed-account-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'فشل الحذف');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      const userIds = filtered.map((r) => r.user_id);
+      const { deleted, failed } = await deleteAllBulkGeneratedAccounts(userIds);
+      toast.success(`تم حذف ${deleted} حساب${failed > 0 ? ` (فشل ${failed})` : ''}`);
+      setDeleteAllConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ['managed-account-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'فشل الحذف');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
 
   if (error) {
     return (
@@ -295,6 +435,16 @@ export function ManagedAccountsPanel() {
           <Download className="w-4 h-4" />
           تصدير Excel
         </Button>
+        {filtered.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setDeleteAllConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 text-sm font-semibold transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            حذف الكل ({filtered.length})
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -366,14 +516,25 @@ export function ManagedAccountsPanel() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setEditRow(row)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#422AFB]/20 text-[#a78bfa] hover:bg-[#422AFB]/30 text-xs font-semibold"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        تعديل
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditRow(row)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#422AFB]/20 text-[#a78bfa] hover:bg-[#422AFB]/30 text-xs font-semibold"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          تعديل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteRow(row)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#EE5D50]/10 text-[#EE5D50] hover:bg-[#EE5D50]/20 text-xs font-semibold"
+                          title="حذف الحساب"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          حذف
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -392,6 +553,65 @@ export function ManagedAccountsPanel() {
             queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
           }}
         />
+      )}
+
+      {deleteRow && (
+        <DeleteConfirmModal
+          row={deleteRow}
+          pairedParentRow={findPairedRow(deleteRow)}
+          onClose={() => setDeleteRow(null)}
+          onConfirm={() => void handleDeleteConfirm()}
+          loading={deleting}
+        />
+      )}
+
+      {deleteAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" dir="rtl">
+          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[#111c44] p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">حذف جميع الحسابات المعروضة</h3>
+                <p className="text-[#A3AED0] text-sm">{filtered.length} حساب سيتم حذفه</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 mb-5 text-sm text-[#A3AED0]">
+              <p className="mb-2">سيتم حذف جميع الحسابات المعروضة حالياً (بحسب الفلتر المطبّق):</p>
+              <ul className="space-y-1 text-xs">
+                {gradeFilter && <li>• الصف: {gradeFilter}</li>}
+                {classFilter && <li>• الفصل: {classFilter}</li>}
+                {typeFilter !== 'all' && <li>• النوع: {typeFilter === 'student' ? 'طلاب' : 'أولياء أمور'}</li>}
+                {search && <li>• بحث: {search}</li>}
+                {!gradeFilter && !classFilter && typeFilter === 'all' && !search && (
+                  <li className="text-red-300">⚠️ لا يوجد فلتر — سيُحذف الكل</li>
+                )}
+              </ul>
+              <p className="text-red-400 text-xs mt-3">⚠️ هذا الإجراء لا يمكن التراجع عنه.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setDeleteAllConfirm(false)} disabled={deletingAll} className="flex-1">
+                إلغاء
+              </Button>
+              <button
+                onClick={() => void handleDeleteAll()}
+                disabled={deletingAll}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors disabled:opacity-50"
+              >
+                {deletingAll ? (
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                تأكيد حذف {filtered.length} حساب
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

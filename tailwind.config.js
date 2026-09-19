@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
@@ -22,15 +23,31 @@ export default {
           500: '#e6aa32',
           600: '#cc9628',
         },
+        /* Semantic theme tokens (CSS variables) */
+        background: 'var(--background)',
+        surface: 'var(--surface)',
+        primary: {
+          DEFAULT: 'var(--primary)',
+          secondary: 'var(--primary-secondary)',
+        },
+        accent: 'var(--accent)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
+        border: {
+          DEFAULT: 'var(--border)',
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        error: 'var(--error)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(circle, var(--tw-gradient-stops))',
       },
       boxShadow: {
-        card: '0 4px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+        card: 'var(--shadow-card)',
         'card-hover': '0 12px 40px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07)',
         glow: '0 0 20px rgba(230, 170, 50, 0.15)',
-        sidebar: '4px 0 24px rgba(0, 0, 0, 0.3)',
+        sidebar: 'var(--shadow-sidebar)',
       },
       animation: {
         'scale-in': 'scale-in 0.2s ease-out',

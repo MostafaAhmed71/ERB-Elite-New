@@ -3,6 +3,11 @@ import { createUser, deleteUser } from './auth';
 import { extractErrorMessage } from './errors';
 import { syncManagedCredentialPassword } from './managedAccounts';
 
+/** انتظر مدة قصيرة ريثما تُنفَّذ trigger قاعدة البيانات (handle_new_user) */
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 export type BulkStudentInput = {
   full_name: string;
   admission_number?: string;
@@ -17,6 +22,9 @@ export type BulkAccountResultRow = {
   parent_password: string;
   success: boolean;
   error?: string;
+  /** IDs محفوظة مباشرةً بدل البحث بالإيميل في public.users — تحل مشكلة async trigger */
+  student_user_id?: string;
+  parent_user_id?: string;
 };
 
 export type BulkCreateClassAccountsParams = {
@@ -51,21 +59,22 @@ export function buildAccountEmails(admission: string, domain: string) {
   const slug = sanitizeAdmission(admission) || `id${Date.now()}`;
   const cleanDomain = domain.trim().toLowerCase().replace(/^@/, '');
   return {
-    student: `s${slug}@${cleanDomain}`,
+    student: `sa${slug}@${cleanDomain}`,
     parent: `p${slug}@${cleanDomain}`,
   };
 }
 
-/** يتحقق أن البريد يتبع الصيغة: sرقم@نطاق للطالب و pرقم@نطاق لولي الأمر */
+/** يتحقق أن البريد يتبع الصيغة: saرقم@نطاق للطالب و pرقم@نطاق لولي الأمر */
 export function isBulkAccountEmailFormatValid(studentEmail: string, parentEmail: string): boolean {
   const studentLocal = studentEmail.split('@')[0] ?? '';
   const parentLocal = parentEmail.split('@')[0] ?? '';
-  return /^s[a-z0-9]+$/i.test(studentLocal) && /^p[a-z0-9]+$/i.test(parentLocal);
+  return /^sa[a-z0-9]+$/i.test(studentLocal) && /^p[a-z0-9]+$/i.test(parentLocal);
 }
 
+/** كشف الصيغة القديمة جداً: إيميل الطالب لا يبدأ بـ s على الإطلاق */
 function hasLegacyBulkEmailResults(results: BulkAccountResultRow[]): boolean {
   return results.some(
-    (r) => r.success && r.student_email && !isBulkAccountEmailFormatValid(r.student_email, r.parent_email)
+    (r) => r.success && r.student_email && !/^s[a-z0-9]+@/i.test(r.student_email)
   );
 }
 
@@ -111,42 +120,11 @@ function shouldUseCreateUserFallback(error: unknown, data: unknown): boolean {
 }
 
 async function invokeBulkEdgeFunction(
-  params: BulkCreateClassAccountsParams
+  _params: BulkCreateClassAccountsParams
 ): Promise<BulkCreateClassAccountsResponse | null> {
-  try {
-    const { data, error } = await supabase.functions.invoke('bulk-create-class-accounts', {
-      body: params,
-    });
-
-    if (!error && data && !data.error) {
-      const response = data as BulkCreateClassAccountsResponse;
-      if (hasLegacyBulkEmailResults(response.results ?? [])) {
-        if (response.success_count > 0) {
-          throw new Error(
-            'الخادم أنشأ حسابات بصيغة بريد قديمة (بدون حرف s). احذف هذه الحسابات من Supabase → Authentication ثم أعد التوليد.'
-          );
-        }
-        console.warn('bulk-create-class-accounts returned legacy email format, using create-user fallback');
-        return null;
-      }
-      return response;
-    }
-
-    if (shouldUseCreateUserFallback(error, data)) {
-      console.warn('bulk-create-class-accounts unavailable, using create-user fallback');
-      return null;
-    }
-
-    if (data?.error) throw new Error(extractErrorMessage(data.error));
-    if (error) throw new Error(extractErrorMessage(error.message));
-  } catch (err) {
-    if (shouldUseCreateUserFallback(err, null)) {
-      console.warn('bulk-create-class-accounts invoke failed, using create-user fallback', err);
-      return null;
-    }
-    throw err;
-  }
-
+  // Edge function على الخادم تستخدم بادئة s القديمة — نتجاوزها ونستخدم الـ fallback
+  // الذي يولّد sa prefix صحيح. أعد نشر العملية على Supabase لتفعيلها مجدداً.
+  console.info('bulk-create-class-accounts: bypassed — using create-user fallback (sa prefix)');
   return null;
 }
 
@@ -182,7 +160,8 @@ async function bulkCreateViaCreateUser(
     }
 
     if (withAccount.has(admission)) {
-      results.push(emptyResultRow(studentName, 'الطالب لديه حساب مسبقاً', admission));
+      // نتجاوز فقط إذا كان الطالب مرتبطاً بحساب فعلاً — لا نمنع التوليد للحسابات المُلغاة
+      results.push(emptyResultRow(studentName, 'الطالب لديه حساب مرتبط مسبقاً — احذف الحساب القديم أولاً', admission));
       continue;
     }
 
@@ -191,14 +170,17 @@ async function bulkCreateViaCreateUser(
       continue;
     }
 
+    let parentId: string | null = null;
+    let studentUserId: string | null = null;
+
     const { student: studentEmail, parent: parentEmail } = buildAccountEmails(admission, domain);
     const studentPassword = generateTempPassword();
     const parentPassword = generateTempPassword();
 
-    let parentId: string | null = null;
-
     try {
+      // 1) إنشاء حساب ولي الأمر
       parentId = await createUser({
+
         email: parentEmail,
         password: parentPassword,
         full_name: `ولي أمر ${studentName}`,
@@ -206,7 +188,11 @@ async function bulkCreateViaCreateUser(
         is_first_login: true,
       });
 
-      const studentUserId = await createUser({
+      // انتظار بسيط ريثما تُنفَّذ trigger handle_new_user في قاعدة البيانات
+      await sleep(400);
+
+      // 2) إنشاء حساب الطالب
+      studentUserId = await createUser({
         email: studentEmail,
         password: studentPassword,
         full_name: studentName,
@@ -214,6 +200,9 @@ async function bulkCreateViaCreateUser(
         is_first_login: true,
       });
 
+      await sleep(400);
+
+      // 3) ربط الحسابات بسجل الطالب
       const { error: linkErr } = await supabase.rpc('link_bulk_student_account', {
         p_student_user_id: studentUserId,
         p_parent_id: parentId,
@@ -225,7 +214,7 @@ async function bulkCreateViaCreateUser(
       });
 
       if (linkErr) {
-        // مسار بديل إذا لم تُنفَّذ migration 035 بعد
+        // مسار بديل إذا لم تُنفَّذ migration بعد
         const { error: studentRowErr } = await supabase.from('students').upsert(
           {
             user_id: studentUserId,
@@ -240,8 +229,9 @@ async function bulkCreateViaCreateUser(
           { onConflict: 'admission_number' }
         );
         if (studentRowErr) {
-          await deleteUser(studentUserId);
-          await deleteUser(parentId);
+          // تراجع: حذف كلا الحسابين
+          if (studentUserId) await safeDeleteUser(studentUserId);
+          await safeDeleteUser(parentId);
           throw linkErr;
         }
       }
@@ -256,15 +246,13 @@ async function bulkCreateViaCreateUser(
         parent_email: parentEmail,
         parent_password: parentPassword,
         success: true,
+        student_user_id: studentUserId ?? undefined,
+        parent_user_id: parentId ?? undefined,
       });
     } catch (err) {
-      if (parentId) {
-        try {
-          await deleteUser(parentId);
-        } catch {
-          // ignore rollback failure
-        }
-      }
+      // تراجع: حذف الحسابات التي أُنشئت
+      if (studentUserId) await safeDeleteUser(studentUserId);
+      if (parentId) await safeDeleteUser(parentId);
       results.push({
         student_name: studentName,
         admission_number: admission,
@@ -284,6 +272,15 @@ async function bulkCreateViaCreateUser(
     success_count,
     failed_count: results.length - success_count,
   };
+}
+
+/** حذف مستخدم مع تجاهل الأخطاء (للتراجع) */
+async function safeDeleteUser(userId: string): Promise<void> {
+  try {
+    await deleteUser(userId);
+  } catch {
+    console.warn('safeDeleteUser: تعذّر حذف المستخدم', userId);
+  }
 }
 
 function emptyResultRow(name: string, error: string, admission = ''): BulkAccountResultRow {
@@ -327,20 +324,24 @@ async function persistBulkCredentialsFromResults(
   const successful = results.filter((r) => r.success);
   if (successful.length === 0) return;
 
-  const emails = successful.flatMap((r) => [r.student_email, r.parent_email].filter(Boolean));
-  const { data: users, error: usersErr } = await supabase
-    .from('users')
-    .select('id, email')
-    .in('email', emails);
-
-  if (usersErr) {
-    console.warn('persistBulkCredentialsFromResults users:', usersErr.message);
-    return;
-  }
+  // إذا تم تخزين user_ids في النتائج نستخدمها مباشرةً بدل البحث بالإيميل
+  // هذا يحل مشكلة async trigger handle_new_user الذي قد لا يكتمل بعد وقت البحث
+  const needsEmailLookup = successful.some((r) => !r.student_user_id);
 
   const byEmail = new Map<string, string>();
-  for (const u of users ?? []) {
-    if (u.email) byEmail.set(u.email.toLowerCase(), u.id);
+  if (needsEmailLookup) {
+    const emails = successful.flatMap((r) => [r.student_email, r.parent_email].filter(Boolean));
+    const { data: users, error: usersErr } = await supabase
+      .from('users')
+      .select('id, email')
+      .in('email', emails);
+
+    if (usersErr) {
+      console.warn('persistBulkCredentialsFromResults users:', usersErr.message);
+    }
+    for (const u of users ?? []) {
+      if (u.email) byEmail.set(u.email.toLowerCase(), u.id);
+    }
   }
 
   const {
@@ -348,8 +349,9 @@ async function persistBulkCredentialsFromResults(
   } = await supabase.auth.getUser();
 
   const rows = successful.flatMap((r) => {
-    const studentId = byEmail.get(r.student_email.toLowerCase());
-    const parentId = byEmail.get(r.parent_email.toLowerCase());
+    // أولوية: استخدم الـ ID المحفوظ مباشرةً ، وإلا البحث بالإيميل
+    const studentId = r.student_user_id ?? byEmail.get(r.student_email.toLowerCase());
+    const parentId = r.parent_user_id ?? byEmail.get(r.parent_email.toLowerCase());
     const out: Array<Record<string, unknown>> = [];
 
     if (studentId) {
@@ -387,7 +389,10 @@ async function persistBulkCredentialsFromResults(
     return out;
   });
 
-  if (rows.length === 0) return;
+  if (rows.length === 0) {
+    console.warn('persistBulkCredentialsFromResults: لا توجد صفوف للحفظ');
+    return;
+  }
 
   const { error } = await supabase
     .from('managed_account_credentials')
@@ -422,4 +427,73 @@ export async function completeFirstLogin(newPassword: string): Promise<void> {
   }
 
   await syncManagedCredentialPassword(newPassword);
+}
+
+// =============================================================
+// حذف جميع الحسابات المولّدة دفعةً واحدة بحسب الفلتر
+// =============================================================
+export async function deleteAllBulkGeneratedAccounts(
+  userIds: string[]
+): Promise<{ deleted: number; failed: number }> {
+  if (userIds.length === 0) return { deleted: 0, failed: 0 };
+
+  let deleted = 0;
+  let failed = 0;
+
+  // حذف كل حساب من Auth
+  for (const userId of userIds) {
+    try {
+      await safeDeleteUser(userId);
+      deleted++;
+    } catch {
+      failed++;
+    }
+  }
+
+  // حذف من managed_account_credentials
+  await supabase
+    .from('managed_account_credentials')
+    .delete()
+    .in('user_id', userIds);
+
+  // إلغاء ربط سجلات الطلاب فقط (لا يحذف بيانات الطالب)
+  await supabase
+    .from('students')
+    .update({ user_id: null, updated_at: new Date().toISOString() })
+    .in('user_id', userIds);
+
+  return { deleted, failed };
+}
+
+// =============================================================
+// حذف حسابات طالب وولي أمره المولَّدة (حذف فردي)
+// =============================================================
+export type DeleteBulkAccountParams = {
+  studentUserId: string;
+  parentUserId?: string | null;
+};
+
+export async function deleteBulkGeneratedAccounts(params: DeleteBulkAccountParams): Promise<void> {
+  const errors: string[] = [];
+
+  await safeDeleteUser(params.studentUserId);
+
+  if (params.parentUserId) {
+    await safeDeleteUser(params.parentUserId);
+  }
+
+  const ids = [params.studentUserId, ...(params.parentUserId ? [params.parentUserId] : [])];
+  const { error } = await supabase
+    .from('managed_account_credentials')
+    .delete()
+    .in('user_id', ids);
+
+  if (error) errors.push(error.message);
+
+  await supabase
+    .from('students')
+    .update({ user_id: null, is_active: false, updated_at: new Date().toISOString() })
+    .eq('user_id', params.studentUserId);
+
+  if (errors.length > 0) throw new Error(errors.join(' | '));
 }

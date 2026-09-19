@@ -57,7 +57,7 @@ type TeacherRow = {
 
 export function PrincipalWhatsAppRemindersPage() {
   const defaults = getDefaultSemesterWeek();
-  const [kind, setKind] = useState<PrincipalReminderKind>('homework');
+  const [kind, setKind] = useState<PrincipalReminderKind>('platform_update');
   const [dateIso, setDateIso] = useState(todayIso());
   const [semester, setSemester] = useState<AcademicSemester>(defaults.semester);
   const [weekNumber, setWeekNumber] = useState(defaults.week);
@@ -194,7 +194,7 @@ export function PrincipalWhatsAppRemindersPage() {
     <AcademicLayout size="lg">
       <AcademicPageHeader
         title="إرسال تذكيرات واتساب"
-        subtitle="أي نوع تذكير — اختر القالب أو اكتب نصاً حراً وأرسل للمعلمين"
+        subtitle="قالب «تحديث المنصة» جاهز — حدّد المعلمين ثم أرسل واتساب"
         backTo="/principal/academic"
       />
 

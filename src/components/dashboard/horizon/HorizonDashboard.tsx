@@ -30,9 +30,9 @@ type HorizonIconBoxProps = {
 };
 
 const ICON_VARIANTS = {
-  soft: 'bg-white/[0.08] text-[#f0b429]',
+  soft: 'bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_30%,transparent)]',
   gradient: 'bg-gradient-to-br from-[#f0b429] to-[#d4a017] text-[#111c44]',
-  blue: 'bg-gradient-to-r from-[#4481EB] to-[#04BEFE] text-white',
+  blue: 'bg-gradient-to-r from-[#4481EB] to-[#04BEFE] text-on-contrast',
 };
 
 export function HorizonIconBox({ icon: Icon, variant = 'soft', className }: HorizonIconBoxProps) {
@@ -128,8 +128,8 @@ type HorizonActionCardProps = {
 
 const ACTION_ACCENTS = {
   gold: 'from-[#f0b429] to-[#d4a017] text-[#111c44]',
-  blue: 'from-[#4481EB] to-[#04BEFE] text-white',
-  purple: 'from-[#7551FF] to-[#422AFB] text-white',
+  blue: 'from-[#4481EB] to-[#04BEFE] text-on-contrast',
+  purple: 'from-[#7551FF] to-[#422AFB] text-on-contrast',
 };
 
 export function HorizonActionCard({

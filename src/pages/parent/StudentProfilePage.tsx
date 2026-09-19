@@ -38,7 +38,7 @@ export function StudentProfilePage() {
           <>
             <div className="glass-card p-6">
               <div className="flex flex-col sm:flex-row items-center gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-3xl font-bold shadow-xl">
                   {selectedChild.full_name.charAt(0)}
                 </div>
                 <div className="text-center sm:text-right">

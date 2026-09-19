@@ -30,6 +30,7 @@ import {
   academicBtnDanger,
 } from '../../components/academic/AcademicUi';
 import { AcademicSubjectSelect } from '../../components/academic/AcademicSubjectSelect';
+import { subjectsFromTeacherSetup } from '../../lib/academic/subjectHelpers';
 import { TapHandLoader } from '../../components/ui/TapHandLoader';
 import { downloadFileFromUrl } from '../../lib/downloadFile';
 
@@ -381,7 +382,7 @@ export function AcademicExamReviewsPage() {
               grade={grade}
               value={subject}
               onChange={setSubject}
-              teacherSetupSubjects={setup?.subjects}
+              teacherSetupSubjects={subjectsFromTeacherSetup(setup, level, grade)}
               required
             />
             <select

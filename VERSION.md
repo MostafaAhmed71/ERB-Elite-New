@@ -1,5 +1,903 @@
 # ERB-Elite — Version History
 
+## Version: v2.15.0
+**Date:** 2026-09-16
+
+### Changes (Bug Fix Audit — Phase 1 & 2)
+- BUG-001: توحيد دالة `withTimeout` في `src/lib/utils/asyncUtils.ts` — حذف التعريف المكرر من authStore وauth
+- BUG-003: إعادة ضبط `initPromise = null` عند فشل تهيئة المصادقة للسماح بإعادة المحاولة
+- BUG-004: إصلاح كلاس CSS `py-0.2` غير الصالح في Tailwind إلى `py-px` في ملفين
+- BUG-006: توحيد مفتاح cache لـ `display_leaderboard_rpc` + إضافته لـ REALTIME_SUBSCRIPTIONS
+- BUG-007: إضافة `withTimeout` ومعالجة أخطاء كاملة لـ `refreshUser` في authStore
+- BUG-008: إصلاح `periodStart` لاستخدام توقيت السعودية (Asia/Riyadh) بدلاً من توقيت المتصفح
+- BUG-011: تأخير تقييم `allowedRoles` في `ProtectedRoute` حتى اكتمال جلب الملف الشخصي
+- IMP-006: إضافة `client_secret*.json` لـ `.gitignore` لحماية مفاتيح OAuth
+- تحديث `vite.config.ts` لاستثناء `Versions/**` و`*.zip` من مراقب الملفات (EBUSY fix)
+
+### Files Modified
+- `src/lib/utils/asyncUtils.ts` ← **[NEW]**
+- `src/stores/authStore.ts`
+- `src/lib/auth.ts`
+- `src/router/ProtectedRoute.tsx`
+- `src/lib/teacherScope.ts`
+- `src/lib/realtimeConfig.ts`
+- `src/components/student/ClassRankSection.tsx`
+- `src/components/student/StudentDashboard.tsx`
+- `.gitignore`
+- `vite.config.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.6 → الجديد: v2.15.0 (Minor — إصلاح 7 مشاكل + ميزة توحيد utils)
+
+---
+
+## Version: v2.14.6
+**Date:** 2026-09-11
+
+### Changes
+- خيار تصدير PDF على ورق A4: 9 بطاقات في الصفحة (3×3)
+
+### Files Modified
+- `src/lib/exportStudentCardsZip.ts`
+- `src/components/admin/AdminStudentCardsTab.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.5 → الجديد: v2.14.6 (Patch)
+
+---
+
+## Version: v2.14.5
+**Date:** 2026-09-11
+
+### Changes
+- تصدير PDF جاهز للطباعة بحجم بطاقة الهوية CR80 (54×86 مم) — صفحة لكل بطاقة
+- تحسين الطباعة من المتصفح لنفس الحجم
+- جودة PNG أعلى (~300 DPI) للتصدير
+
+### Files Modified
+- `src/lib/exportStudentCardsZip.ts`
+- `src/components/admin/AdminStudentCardsTab.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.4 → الجديد: v2.14.5 (Patch)
+
+---
+
+## Version: v2.14.4
+**Date:** 2026-09-11
+
+### Changes
+- تحسين تصميم بطاقة الهوية: شريط ذهبي، إطار كحلي، حقول أوضح بخطوط فاصلة، QR بإطار أنيق
+
+### Files Modified
+- `src/components/student/StudentCard.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.3 → الجديد: v2.14.4 (Patch)
+
+---
+
+## Version: v2.14.3
+**Date:** 2026-09-11
+
+### Changes
+- زر PNG في بطاقات الهوية: نص أبيض ثابت على خلفية كحلية واضحة
+
+### Files Modified
+- `src/components/admin/AdminStudentCardsTab.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.2 → الجديد: v2.14.3 (Patch)
+
+---
+
+## Version: v2.14.2
+**Date:** 2026-09-11
+
+### Changes
+- بطاقة الطالب: تكبير خط الاسم والصف والفصل وإنزالها قليلاً للأسفل
+
+### Files Modified
+- `src/components/student/StudentCard.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.1 → الجديد: v2.14.2 (Patch)
+
+---
+
+## Version: v2.14.1
+**Date:** 2026-09-11
+
+### Changes
+- توضيح نص خيار «تطبيق الحد الافتراضي على جميع المعلمين» وتحسين تباينه
+- تحديث ألوان صفحة حدود المعلمين لتستخدم متغيرات الثيم (وضع فاتح/داكن)
+
+### Files Modified
+- `src/components/admin/TeacherLimitsSettings.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.14.0 → الجديد: v2.14.1 (Patch)
+
+---
+
+## Version: v2.14.0
+**Date:** 2026-09-11
+
+### Changes
+- فحص شامل لتباين الوضع الفاتح وإصلاح النصوص المختفية فوق الخلفيات الملونة/الكحلية
+- تعزيز `theme.css`: استثناءات `text-on-contrast`، تحويل الخلفيات الـ hex الداكنة، حدود سوداء
+- لمسة تصميم: شريط ذهبي أعلى البطاقات، ظل ذهبي خفيف عند المرور، أفاتار بهوية كحلي بدل بنفسجي
+- شريط الجوال السفلي متوافق مع الوضع الفاتح
+- شاشات المسابقة محمية بـ `theme-force-dark`
+- أزرار/ترويسات/تبديل وضع المعلم/تبويبات الإدارة بألوان الهوية وتباين صحيح
+
+### Files Modified
+- `src/styles/theme.css`
+- `src/index.css`
+- `src/components/ui/Button.tsx`
+- `src/components/ui/PageHeader.tsx`
+- `src/components/ui/MobileRoleDock.tsx`
+- `src/components/theme/ThemeAppearanceControl.tsx` (سابق)
+- `src/components/dashboard/horizon/HorizonDashboard.tsx`
+- `src/components/academic/AcademicUi.tsx`
+- `src/components/teacher/TeacherModeToggle.tsx`
+- `src/components/teacher/ModeWorkspaceBanner.tsx`
+- `src/components/users/BulkAccountGenerator.tsx` + جداول/صفحات الأفاتار
+- `src/layouts/AppLayout.tsx`
+- `src/pages/competition/*Screen*.tsx`, `CompLeaderboardPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.13.0 → الجديد: v2.14.0 (Minor)
+- نسخة استرجاع: `Versions/2026-09-11_v2.14.0_BeforeLightContrastAudit.zip`
+
+---
+## Version: v2.13.0
+**Date:** 2026-09-11
+
+### Changes
+- تحسين الوضع الفاتح: تباين أوضح، حدود سوداء، خلفية بيضاء بلا شبكة
+- إصلاح نص أبيض على خلفية كحلية (اختيار المظهر والأيقونات الملونة)
+- إزالة `content-grid-bg` من التخطيطات
+
+### Files Modified
+- `src/styles/theme.css`
+- `src/index.css`
+- `src/components/theme/ThemeAppearanceControl.tsx`
+- `src/components/dashboard/horizon/HorizonDashboard.tsx`
+- `src/layouts/AppLayout.tsx`
+- `src/layouts/DevLayout.tsx`
+- `src/App.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.12.2 → الجديد: v2.13.0 (Minor)
+- نسخة استرجاع: `Versions/2026-09-11_v2.13.0_BeforeLightModeContrastFix.zip`
+
+---
+## Version: v2.12.2
+**Date:** 2026-09-11
+
+### Changes
+- إزالة شبكة المربعات من خلفية الصفحات (وضع فاتح وداكن)
+
+### Files Modified
+- `src/index.css`
+- `src/styles/theme.css`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.12.1 → الجديد: v2.12.2 (Patch)
+
+---
+
+## Version: v2.12.1
+**Date:** 2026-09-11
+
+### Changes
+- إصلاح تباين بطاقة الهوية في الوضع الفاتح (نص أبيض ثابت على الشارات الكحلية)
+- حدود البطاقة وإطارات QR والنصوص على الأبيض أصبحت سوداء بدل الرمادي/الكحلي الباهت
+- حدود الوضع الفاتح العامة أصبحت سوداء للتماشي مع الخلفية البيضاء
+- حذف `public/id-card/reference.png` الذي كان يسبب تعطل Vite (EBUSY)
+
+### Files Modified
+- `src/components/student/StudentCard.tsx`
+- `src/styles/theme.css`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.12.0 → الجديد: v2.12.1 (Patch)
+
+---
+
+### Changes
+- إعادة تصميم بطاقة الهوية وفق قالب المدرسة الرسمي (إطار كحلي، شعاران، شارات عنوان)
+- المحتوى: الاسم + الصف + الفصل + QR بإطارات زاوية + توقيع مدير المدرسة
+- إضافة أصول الشعارات في `public/id-card/`
+
+### Files Modified
+- `src/components/student/StudentCard.tsx`
+- `src/lib/exportStudentCardsZip.ts`
+- `public/id-card/logo-left.png` (جديد)
+- `public/id-card/logo-right.png` (جديد)
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.11.0 → الجديد: v2.12.0 (Minor)
+- نسخة استرجاع: `Versions/2026-09-11_v2.12.0_BeforeSchoolIdCardDesign.zip`
+
+---
+## Version: v2.11.0
+**Date:** 2026-09-11
+
+### Changes
+- بطاقة الهوية أصبحت بسيطة: اسم الطالب + الصف + الفصل + QR فقط
+- إزالة البنر والشعار والصورة ورقم القيد والشريط السفلي من البطاقة
+- توحيد طباعة تبويب QR مع نفس التصميم المبسط
+- تسريع تصدير PNG (بدون جلب صور أو شعار المنصة)
+
+### Files Modified
+- `src/components/student/StudentCard.tsx`
+- `src/components/student/StudentCardPanel.tsx`
+- `src/components/admin/AdminStudentCardsTab.tsx`
+- `src/components/shared/StudentQRGenerator.tsx`
+- `src/lib/exportStudentCardsZip.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.10.2 → الجديد: v2.11.0 (Minor)
+- نسخة استرجاع: `Versions/2026-09-11_v2.11.0_BeforeMinimalIdCard.zip`
+
+---
+## Version: v2.10.2
+**Date:** 2026-09-06
+
+### Changes
+- إصلاح المنح اليدوي: إنشاء/تفعيل نشاط «نشاط يدوي» تلقائياً قبل الإدراج
+- ملف SQL جاهز للتشغيل: `fix-ensure-manual-teacher-activity.sql`
+- دالة `ensure_manual_teacher_activity()` في قاعدة البيانات
+
+### Files Modified
+- `supabase/migrations/134_ensure_manual_teacher_activity.sql` (جديد)
+- `supabase/fix-ensure-manual-teacher-activity.sql` (جديد)
+- `supabase/fix-manual-activity-evidence.sql`
+- `src/lib/pointsEvidence.ts`
+- `src/pages/points/GrantPointsPage.tsx`
+- `src/lib/teacherScope.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.10.1 → الجديد: v2.10.2 (Patch)
+
+### مطلوب على قاعدة البيانات
+شغّل في Supabase SQL Editor:
+`supabase/fix-ensure-manual-teacher-activity.sql`
+
+---
+
+## Version: v2.10.1
+**Date:** 2026-09-06
+
+### Changes
+- إصلاح حد النشاط/طالب: احتساب المنح الموجبة فقط — الخصم لم يعد يمنع إعادة منح نفس النشاط
+- تحسين رسائل فشل `points_ledger` (حد النشاط، الشواهد، المفتاح الأجنبي)
+- المنح اليدوي: عدم إرسال `evidence_urls` فارغاً لتفادي فشل الإدراج عند عدم مزامنة العمود
+- إضافة **خصم جماعي للفصل** في صفحة النقاط الجماعية (`/admin/bulk-grant`)
+
+### Files Modified
+- `supabase/migrations/133_fix_activity_term_limit_grants_only.sql` (جديد)
+- `supabase/fix-activity-term-limit-grants-only.sql` (جديد — تشغيل يدوي)
+- `src/lib/teacherScope.ts`
+- `src/pages/points/GrantPointsPage.tsx`
+- `src/pages/admin/ClassBulkGrantPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.10.0 → الجديد: v2.10.1 (Patch)
+
+### Rollback
+- `Versions/2026-09-06_v2.10.0_BeforePointsLimitAndBulkDeduct.zip`
+
+### مطلوب على قاعدة البيانات
+شغّل على Supabase SQL Editor:
+`supabase/fix-activity-term-limit-grants-only.sql`
+أو طبّق migration `133`.
+
+---
+
+## Version: v2.10.0
+**Date:** 2026-09-05
+
+### Changes
+- إضافة نظام مظهر مركزي (فاتح / داكن / حسب الجهاز) مع حفظ الاختيار ومنع وميض الثيم عند التحميل
+- جعل Light Mode الوضع الافتراضي بهوية كحلي + ذهبي وأسطح بيضاء نظيفة (بدون تدرجات)
+- الإبقاء على Dark Mode بالكامل مع Theme Tokens وCSS Variables
+- عنصر اختيار المظهر في الهيدر والشريط الجانبي وصفحات الدخول
+
+### Files Modified
+- `src/styles/theme.css` (جديد)
+- `src/lib/theme.ts` (جديد)
+- `src/stores/themeStore.ts` (جديد)
+- `src/components/theme/ThemeProvider.tsx` (جديد)
+- `src/components/theme/ThemeAppearanceControl.tsx` (جديد)
+- `src/index.css`
+- `tailwind.config.js`
+- `index.html`
+- `src/App.tsx`
+- `src/layouts/AppLayout.tsx`
+- `src/layouts/DevLayout.tsx`
+- `src/components/ui/Button.tsx`
+- `src/components/ui/PageHeader.tsx`
+- `src/components/dashboard/glass/glass.css`
+- `src/pages/LoginPage.css`
+- `src/pages/LoginPage.tsx`
+- `src/pages/StaffLoginPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.9.0 → الجديد: v2.10.0 (Minor — ميزة المظهر الفاتح)
+
+### Rollback
+- `Versions/2026-09-05_v2.9.0_BeforeLightTheme.zip`
+
+---
+
+## Version: v2.9.0
+**Date:** 2026-09-05
+
+### Changes
+- تصدير أسماء الطلاب إلى Excel (اسم الطالب، رقم الهوية، الصف، الفصل) من دليل العائلة ومن قائمة طلاب الإدارة/الوكيل
+- أولمبياد رائد النشاط مقصور على المرحلة المتوسطة فقط: QR، بطاقات التعريف، الصور، المنح الجماعي، حضور الفعاليات، ومنح النقاط
+
+### Files Modified
+- `src/lib/olympiadMiddleScope.ts` (جديد)
+- `src/components/users/FamilyDirectoryPanel.tsx`
+- `src/components/academic/StaffStudentsPanel.tsx`
+- `src/components/shared/StudentQRGenerator.tsx`
+- `src/components/admin/AdminStudentCardsTab.tsx`
+- `src/components/admin/ProfileImagesTab.tsx`
+- `src/components/admin/EventCheckInPanel.tsx`
+- `src/pages/admin/AdminIdCardsHubPage.tsx`
+- `src/pages/admin/ClassBulkGrantPage.tsx`
+- `src/pages/points/GrantPointsPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.55 → الجديد: v2.9.0 (Minor — ميزة تصدير + تقييد نطاق الأولمبياد)
+
+### Rollback
+- `Versions/2026-09-05_v2.8.55_BeforeMiddleOlympiadExport.zip`
+
+---
+
+## Version: v2.8.55
+**Date:** 2026-09-02
+
+### Changes
+- إزالة إعلان «تحديث المنصة» من لوحة الشؤون الأكاديمية
+
+### Files Modified
+- `src/pages/academic/AcademicStaffHubPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.54 → الجديد: v2.8.55 (Patch)
+
+---
+
+## Version: v2.8.54
+**Date:** 2026-09-02
+
+### Changes
+- PWA: يفتح مباشرة على دخول الطاقم — بدون صفحة اختيار أو ظهور شاشة ولي الأمر/الطالب
+- فصل الشاشات: إزالة رابط «دخول الطالب/ولي الأمر» من شاشة الطاقم
+- ولي الأمر/الطالب يدخلون من `/login` فقط (رابط مباشر)
+
+### Files Modified
+- `src/lib/auth.ts`
+- `src/router/index.tsx`
+- `src/pages/StaffLoginPage.tsx`
+- `vite.config.ts`
+- `src/pages/AppLaunchPage.tsx` (حُذف)
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.53 → الجديد: v2.8.54 (Patch)
+
+---
+
+## Version: v2.8.53
+**Date:** 2026-09-02
+
+### Changes
+- PWA: صفحة اختيار الدخول (`/start`) — طاقم أو عائلة بدل توجيه الجميع لولي الأمر/الطالب
+- `start_url` للتطبيق المثبّت → `/start` مع اختصارات دخول الطاقم والعائلة
+- تذكّر آخر نوع دخول (طاقم/عائلة) في localStorage
+
+### Files Modified
+- `src/pages/AppLaunchPage.tsx` (جديد)
+- `src/lib/auth.ts`
+- `src/router/index.tsx`
+- `vite.config.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.52 → الجديد: v2.8.53 (Minor)
+
+---
+
+## Version: v2.8.52
+**Date:** 2026-09-02
+
+### Changes
+- إصلاح: تغيير تاريخ الواجب ليوم بلا حصص يُظهر «ليس لديك حصص» بدل نموذج كامل
+- إيقاف الرجوع لكل الفصول في أيام العطلة أو الأيام بدون حصص
+
+### Files Modified
+- `src/lib/academic/scheduleDayHelpers.ts`
+- `src/pages/academic/AcademicHomeworkPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.51 → الجديد: v2.8.52 (Patch)
+
+---
+
+## Version: v2.8.51
+**Date:** 2026-09-02
+
+### Changes
+- إصلاح: ظهور المادة في الواجبات — عرض مواد الجدول مباشرة + مطابقة أسماء الأيام
+
+### Files Modified
+- `src/lib/academic/subjectHelpers.ts`
+- `src/lib/academic/scheduleDayHelpers.ts`
+- `src/pages/academic/AcademicHomeworkPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.50 → الجديد: v2.8.51 (Patch)
+
+---
+
+## Version: v2.8.50
+**Date:** 2026-09-02
+
+### Changes
+- ربط الواجبات بالجدول الدراسي: المواد والفصول حسب حصص اليوم المختار
+- رسالة «ليس لديك حصص اليوم» عند عدم وجود حصص (أو يوم عطلة)
+- توجيه لإعداد الجدول الدراسي إن لم يُسجَّل بعد
+
+### Files Modified
+- `src/lib/academic/scheduleDayHelpers.ts` (جديد)
+- `src/pages/academic/AcademicHomeworkPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.49 → الجديد: v2.8.50 (Minor)
+
+### Backup
+- `Versions/2026-09-02_v2.8.49_HomeworkScheduleLink.zip`
+
+---
+
+## Version: v2.8.49
+**Date:** 2026-09-02
+
+### Changes
+- صفحة «خططي»: زر حذف لكل خطة مع تأكيد — يحذف حصص المعلم فقط في الخطة المشتركة
+
+### Files Modified
+- `src/pages/academic/AcademicMyWeeklyPlansPage.tsx`
+- `src/lib/academic/weeklyPlanService.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.48 → الجديد: v2.8.49 (Patch)
+
+---
+
+## Version: v2.8.48
+**Date:** 2026-09-02
+
+### Changes
+- إصلاح SQL: دمج خطط أسبوعية مكررة قبل إنشاء الفهرس الفريد (خطأ 23505)
+- إصلاح `teacher_teaches_academic_class`: استخدام `grades_with_sections` بدل `grade`/`sections` غير الموجودين
+
+### Files Modified
+- `supabase/fix-weekly-plan-save.sql`
+- `supabase/fix-weekly-plan-dedupe.sql` (جديد)
+- `supabase/migrations/132_dedupe_weekly_plans.sql` (جديد)
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.47 → الجديد: v2.8.48 (Patch)
+
+---
+
+## Version: v2.8.47
+**Date:** 2026-09-02
+
+### Changes
+- إصلاح «خططي»: الخطط المحفوظة تظهر بعد الحفظ عبر RPC `list_my_weekly_plans` + تصفية أدق
+- بعد حفظ الخطة يُوجَّه المعلم تلقائياً إلى صفحة «خططي»
+- تحسين فلاتر المرحلة/الصف/الأسبوع وإعادة جلب البيانات عند فتح الصفحة
+
+### Files Modified
+- `src/lib/academic/weeklyPlanHelpers.ts`
+- `src/lib/academic/weeklyPlanService.ts`
+- `src/lib/academic/supabaseError.ts`
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `src/pages/academic/AcademicMyWeeklyPlansPage.tsx`
+- `supabase/migrations/131_list_my_weekly_plans.sql`
+- `supabase/fix-weekly-plan-save.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.46 → الجديد: v2.8.47 (Patch)
+
+---
+
+## Version: v2.8.46
+**Date:** 2026-09-02
+
+### Changes
+- نسخ «المواضيع متشابهة»: المطابقة بالمادة فقط — كل حصص نفس المادة في الفصول الأخرى تحصل على الموضوع
+
+### Files Modified
+- `src/lib/academic/weeklyPlanHelpers.ts`
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.45 → الجديد: v2.8.46 (Patch)
+
+---
+
+## Version: v2.8.45
+**Date:** 2026-09-02
+
+### Changes
+- وضع «المواضيع متشابهة»: نسخ أوسع (اليوم+الحصة) + معاينة قبل الحفظ + تنبيه إن لم تُنسخ لفصل
+
+### Files Modified
+- `src/lib/academic/weeklyPlanHelpers.ts`
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.44 → الجديد: v2.8.45 (Patch)
+
+---
+
+## Version: v2.8.44
+**Date:** 2026-09-02
+
+### Changes
+- صفحة الخطط الأسبوعية للمعلم: إنشاء/تعديل فقط — إخفاء قائمة الخطط السابقة (تظهر في «خططي»)
+
+### Files Modified
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.43 → الجديد: v2.8.44 (Patch)
+
+---
+
+## Version: v2.8.43
+**Date:** 2026-09-02
+
+### Changes
+- «خططي»: شاشة كاملة `/academic/my-weekly-plans` بفلاتر المرحلة والصف والفصل والأسبوع + بحث نصي (بدلاً من نافذة منبثقة)
+
+### Files Modified
+- `src/pages/academic/AcademicMyWeeklyPlansPage.tsx` (جديد)
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `src/router/index.tsx`
+- `src/components/academic/TeacherMyWeeklyPlansModal.tsx` (حُذف)
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.42 → الجديد: v2.8.43 (Patch)
+
+---
+
+## Version: v2.8.42
+**Date:** 2026-09-02
+
+### Changes
+- الخطة الأسبوعية: زر «خططي» يعرض خطط المعلم مجمّعة حسب الصف والفصل والأسبوع
+- إصلاح حفظ الخطة (دمج الحصص + التحقق من الحفظ + رسالة نجاح واضحة)
+- إصلاح مسح إدخال المواضيع عند وضع «كل فصل على حدة»
+
+### Files Modified
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `src/lib/academic/weeklyPlanService.ts`
+- `src/lib/academic/weeklyPlanHelpers.ts`
+- `src/components/academic/TeacherMyWeeklyPlansModal.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.41 → الجديد: v2.8.42 (Patch)
+
+---
+
+## Version: v2.8.41
+**Date:** 2026-08-24
+
+### Changes
+- الخطة الأسبوعية: اختيار الصف ثم إدخال حصص كل الفصول في شاشة واحدة، أو نسخ المواضيع المتشابهة للحصص المطابقة فقط
+
+### Files Modified
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `src/lib/academic/weeklyPlanHelpers.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.40 → الجديد: v2.8.41 (Minor)
+
+---
+
+## Version: v2.8.40
+**Date:** 2026-08-24
+
+### Changes
+- تحديث نص إعلان المعلمين (واتساب فردي + جروبات) ليشمل وصول التحديث دون إعادة تثبيت التطبيق
+
+### Files Modified
+- `src/lib/whatsappReminder.ts`
+- `src/pages/academic/AcademicStaffHubPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.39 → الجديد: v2.8.40 (Patch)
+
+---
+
+## Version: v2.8.39
+**Date:** 2026-08-24
+
+### Changes
+- إجبار وصول التحديث بعد الرفع: منع كاش index/SW على الاستضافة، تفعيل Service Worker فوراً، وإعادة تحميل التطبيق المثبت (بما فيه آيفون) دون حذفه
+
+### Files Modified
+- `src/sw.ts`
+- `src/components/pwa/PwaManager.tsx`
+- `public/.htaccess`
+- `vite.config.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.38 → الجديد: v2.8.39 (Patch)
+
+---
+
+## Version: v2.8.38
+**Date:** 2026-08-24
+
+### Changes
+- رسالة جاهزة للمعلمين عن الإصلاحات والإضافات: قالب واتساب «تحديث المنصة» وإعلان في لوحة الشؤون الأكاديمية
+
+### Files Modified
+- `src/lib/whatsappReminder.ts`
+- `src/pages/principal/academic/PrincipalWhatsAppRemindersPage.tsx`
+- `src/pages/academic/AcademicStaffHubPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.37 → الجديد: v2.8.38 (Patch)
+
+---
+
+## Version: v2.8.37
+**Date:** 2026-08-24
+
+### Changes
+- زر حذف كل مهام طابور المنصة من صفحات Jobs و Queue
+
+### Files Modified
+- `src/pages/dev/DevJobsPage.tsx`
+- `src/pages/dev/DevQueuePage.tsx`
+- `src/lib/platformJobs.ts`
+- `supabase/migrations/130_purge_platform_jobs.sql`
+- `supabase/fix-purge-platform-jobs.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.36 → الجديد: v2.8.37 (Patch)
+
+---
+
+## Version: v2.8.36
+**Date:** 2026-08-24
+
+### Changes
+- مسح سجل أخطاء شاشة المطوّر بالكامل للبدء من صفر (SQL + زر مسح السجل)
+
+### Files Modified
+- `src/pages/dev/DevErrorsPage.tsx`
+- `src/lib/platformErrors.ts`
+- `supabase/migrations/129_purge_platform_errors.sql`
+- `supabase/fix-purge-platform-errors.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.35 → الجديد: v2.8.36 (Patch)
+
+---
+
+## Version: v2.8.35
+**Date:** 2026-08-24
+
+### Changes
+- مراجعة 270 خطأ من شاشة المطوّر: إصلاح أيقونة الدخول، منع استخدام مفتاح API كنموذج ذكاء، وتصفية ضجيج الإضافات وأخطاء المستخدم المتوقعة
+
+### Files Modified
+- `public/icon.jpeg`
+- `public/icon.png`
+- `src/lib/platformErrors.ts`
+- `src/pages/principal/academic/PrincipalAiSettingsPage.tsx`
+- `supabase/functions/ai-generate/index.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.34 → الجديد: v2.8.35 (Patch)
+
+---
+
+## Version: v2.8.34
+**Date:** 2026-08-24
+
+### Changes
+- دخول المعلم: جوال (واتساب) أو حساب جيميل فقط — بدون إدخال بريد وكلمة مرور يدوياً
+
+### Files Modified
+- `src/pages/StaffLoginPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.33 → الجديد: v2.8.34 (Patch)
+
+---
+
+## Version: v2.8.33
+**Date:** 2026-08-24
+
+### Changes
+- منع أكثر من جدول دراسي لنفس الفصل لنفس المعلم: الحفظ يعدّل الجدول الموجود، مع قيد فريد في قاعدة البيانات
+
+### Files Modified
+- `src/pages/academic/AcademicSchedulePage.tsx`
+- `src/lib/academic/teacherService.ts`
+- `supabase/migrations/128_unique_teacher_class_schedule.sql`
+- `supabase/fix-unique-teacher-class-schedule.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.32 → الجديد: v2.8.33 (Patch)
+
+---
+
+## Version: v2.8.32
+**Date:** 2026-08-24
+
+### Changes
+- حذف الخطة الأسبوعية يحذف الخطة كاملة وليس الحصص فقط
+
+### Files Modified
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `src/lib/academic/weeklyPlanService.ts`
+- `supabase/migrations/127_delete_weekly_plan.sql`
+- `supabase/fix-weekly-plan-delete.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.31 → الجديد: v2.8.32 (Patch)
+
+---
+
+## Version: v2.8.31
+**Date:** 2026-08-24
+
+### Changes
+- شاشة مراقبة الأخطاء للمطور: نسخ جميع الأخطاء (حسب التصفية) أو خطأ واحد إلى الحافظة بصيغة جاهزة للصق وحلّها
+
+### Files Modified
+- `src/pages/dev/DevErrorsPage.tsx`
+- `src/lib/platformErrors.ts`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.30 → الجديد: v2.8.31 (Patch)
+
+---
+
+## Version: v2.8.31
+**Date:** 2026-08-24
+
+### Changes
+- إصلاح رسالة «عمود الفصل الدراسي غير موجود» عند حفظ الخطة — السبب دالة 067 وليس عمود 058
+- مسار احتياطي للحفظ إن لم تُثبت الدالة بعد
+- ملف SQL جاهز: `supabase/fix-weekly-plan-save.sql`
+
+### Files Modified
+- `src/lib/academic/supabaseError.ts`
+- `src/lib/academic/weeklyPlanService.ts`
+- `supabase/fix-weekly-plan-save.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.30 → الجديد: v2.8.31 (Patch)
+
+---
+
+## Version: v2.8.30
+**Date:** 2026-08-24
+
+### Changes
+- تبويب المعلم: دخول بجوجل أو البريد (جيميل) بالإضافة لواتساب
+- الخطط الأسبوعية: اختيار الفصل والأسبوع بحرية (لم يعد ثابتاً بالأسبوع الحالي)
+- تعديل الملف التعليمي بعد الإنشاء (مواد/صفوف/فصول) من لوحة الأكاديمي
+- الجدول الدراسي: نصاب كل فصل + النصاب الجماعي (عدد الحصص)
+
+### Files Modified
+- `src/pages/StaffLoginPage.tsx`
+- `src/pages/academic/AcademicWeeklyPlansPage.tsx`
+- `src/pages/academic/AcademicTeacherSetupPage.tsx`
+- `src/pages/academic/AcademicStaffHubPage.tsx`
+- `src/pages/academic/AcademicSchedulePage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.29 → الجديد: v2.8.30 (Patch)
+
+---
+
+## Version: v2.8.29
+**Date:** 2026-08-23
+
+### Changes
+- إزالة رابط دخول الطاقم من شاشة دخول الطلاب/أولياء الأمور
+
+### Files Modified
+- `src/pages/LoginPage.tsx`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.28 → الجديد: v2.8.29 (Patch)
+
+---
+
+## Version: v2.8.28
+**Date:** 2026-08-23
+
+### Changes
+- إعداد الملف التعليمي: اختيار المادة مرتبط بالصف فقط (لا تُعمَّم على كل الصفوف)
+- تثبيت PWA للمعلمين: تذكر شاشة دخول الطاقم (`/login/staff`) بدل دخول الطلاب
+
+### Files Modified
+- `src/pages/academic/AcademicTeacherSetupPage.tsx`
+- `src/lib/academic/subjectHelpers.ts` · `types.ts`
+- `src/pages/academic/AcademicSchedulePage.tsx` · `AcademicHomeworkPage.tsx` · `AcademicExamReviewsPage.tsx` · `AcademicLessonTopicsPage.tsx`
+- `src/lib/academic/olympiadSyncService.ts` · `adminService.ts` · `src/lib/teacherAnalytics.ts`
+- `src/lib/auth.ts` · `src/stores/authStore.ts` · `src/pages/LoginPage.tsx` · `src/pages/StaffLoginPage.tsx`
+- `supabase/migrations/126_teacher_subjects_by_grade.sql`
+- `supabase/fix-academic-subjects-by-grade.sql`
+- `VERSION.md`
+
+### Version bump
+- السابق: v2.8.27 → الجديد: v2.8.28 (Patch)
+
+---
+
 ## Version: v2.8.27
 **Date:** 2026-08-21
 

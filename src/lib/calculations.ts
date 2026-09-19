@@ -1,7 +1,7 @@
 export interface PointEntry {
   id: string;
   points: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'pending_principal' | 'approved' | 'rejected';
   activity_id: string;
   activities?: {
     name: string;

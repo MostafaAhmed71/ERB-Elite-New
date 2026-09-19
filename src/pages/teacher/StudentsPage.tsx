@@ -321,7 +321,7 @@ export function StudentsPage() {
                 onClick={() => setProfileStudent(student)}
                 className="flex items-center gap-3 w-full text-right min-h-[48px]"
               >
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-sm font-bold shrink-0">
                   {student.full_name.charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -389,7 +389,7 @@ export function StudentsPage() {
                         onClick={() => setProfileStudent(student)}
                         className="flex items-center gap-3 text-right hover:opacity-80 transition-opacity"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-sm font-bold">
                           {student.full_name.charAt(0)}
                         </div>
                         <div>

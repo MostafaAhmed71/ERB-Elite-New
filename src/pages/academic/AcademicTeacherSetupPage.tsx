@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -16,7 +16,7 @@ import {
   DEFAULT_SECTIONS,
   formatGradeLabel,
 } from '../../lib/academic/constants';
-import { subjectsForGrade, gradeSectionKey } from '../../lib/academic/subjectHelpers';
+import { subjectsForGrade, gradeSectionKey, flattenSubjectsByGrade } from '../../lib/academic/subjectHelpers';
 import type { AcademicEducationLevel } from '../../lib/academic/types';
 import { academicBtnPrimary, academicBtnSecondary } from '../../components/academic/AcademicUi';
 import { PLATFORM_NAME } from '../../lib/branding';
@@ -130,8 +130,39 @@ export function AcademicTeacherSetupPage() {
   const [levels, setLevels] = useState<AcademicEducationLevel[]>([]);
   const [gradesByLevel, setGradesByLevel] = useState<Record<string, number[]>>({});
   const [sectionsByGrade, setSectionsByGrade] = useState<Record<string, string[]>>({});
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectsByGrade, setSubjectsByGrade] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  const { data: existingSetup } = useQuery({
+    queryKey: ['academic-teacher-setup', user?.id],
+    queryFn: () => academicTeacherService.getSetup(user!.id),
+    enabled: !!user,
+  });
+
+  const isEditing = !!existingSetup?.is_setup_complete;
+
+  useEffect(() => {
+    if (!existingSetup || hydrated) return;
+    const levelsIn = (existingSetup.education_levels ?? []) as AcademicEducationLevel[];
+    setLevels(levelsIn);
+    setGradesByLevel(existingSetup.grades_by_level ?? {});
+    setSectionsByGrade(existingSetup.sections_by_grade ?? {});
+    const bag = existingSetup.subjects_by_grade;
+    if (bag && Object.keys(bag).length > 0) {
+      setSubjectsByGrade(bag);
+    } else if (existingSetup.subjects?.length) {
+      const next: Record<string, string[]> = {};
+      for (const l of levelsIn) {
+        for (const g of existingSetup.grades_by_level?.[l] ?? []) {
+          next[gradeSectionKey(l, g)] = [...existingSetup.subjects];
+        }
+      }
+      setSubjectsByGrade(next);
+    }
+    setHydrated(true);
+    setStep((s) => (existingSetup.is_setup_complete && s === 0 ? 1 : s));
+  }, [existingSetup, hydrated]);
 
   const { data: enabledLevels = ['middle', 'high'] as AcademicEducationLevel[] } = useQuery({
     queryKey: ['academic-enabled-levels'],
@@ -165,24 +196,26 @@ export function AcademicTeacherSetupPage() {
       case 1: return levels.length > 0;
       case 2: return selectedGradeCount > 0;
       case 3: return selectedSectionCount > 0;
-      case 4: return subjects.length > 0;
+      case 4: return flattenSubjectsByGrade(subjectsByGrade).length > 0;
       default: return true;
     }
-  }, [step, levels, selectedGradeCount, selectedSectionCount, subjects]);
+  }, [step, levels, selectedGradeCount, selectedSectionCount, subjectsByGrade]);
 
   const finish = async () => {
     if (!user) return;
     setSaving(true);
     try {
       await academicTeacherService.saveSetup({
+        id: existingSetup?.id,
         teacher_id: user.id,
         education_levels: levels,
         grades_by_level: gradesByLevel,
         sections_by_grade: sectionsByGrade,
-        subjects,
+        subjects: flattenSubjectsByGrade(subjectsByGrade),
+        subjects_by_grade: subjectsByGrade,
         is_setup_complete: true,
       });
-      navigate('/academic/schedule?setup=1');
+      navigate(isEditing ? '/academic' : '/academic/schedule?setup=1');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'فشل الحفظ');
     } finally {
@@ -208,9 +241,13 @@ export function AcademicTeacherSetupPage() {
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-500 to-gold-600 text-navy-950 shadow-lg shadow-gold-500/25">
             <School className="h-7 w-7" strokeWidth={2} />
           </div>
-          <h1 className="text-2xl font-bold text-white">إعداد الملف التعليمي</h1>
+          <h1 className="text-2xl font-bold text-white">
+            {isEditing ? 'تعديل الملف التعليمي' : 'إعداد الملف التعليمي'}
+          </h1>
           <p className="mt-1 text-sm text-[#A3AED0]">
-            {PLATFORM_NAME} · خطوات سريعة لتهيئة فصولك وموادك
+            {isEditing
+              ? 'يمكنك تغيير المراحل والصفوف والفصول والمواد في أي وقت'
+              : `${PLATFORM_NAME} · خطوات سريعة لتهيئة فصولك وموادك`}
           </p>
         </div>
 
@@ -227,7 +264,7 @@ export function AcademicTeacherSetupPage() {
                     className={clsx(
                       'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300',
                       active && 'border-gold-400 bg-gold-500/15 text-gold-300 shadow-lg shadow-gold-500/20',
-                      done && 'border-[#01B574] bg-[#01B574] text-white',
+                      done && 'border-[#01B574] bg-[#01B574] text-on-contrast',
                       !active && !done && 'border-white/15 bg-white/[0.03] text-[#A3AED0]',
                     )}
                   >
@@ -387,28 +424,31 @@ export function AcademicTeacherSetupPage() {
                 <StepHeading
                   icon={BookOpen}
                   title="اختر موادك"
-                  description="حدّد المواد التي تدرّسها. يمكنك اختيار أكثر من مادة لكل صف."
+                  description="اختر مواد كل صف على حدة. المادة التي تختارها لصف لا تظهر تلقائياً في صفوف أخرى."
                 />
                 <div className="space-y-4">
                   {levels.flatMap((l) =>
                     (gradesByLevel[l] ?? []).map((g) => {
+                      const gradeKey = gradeSectionKey(l, g);
+                      const gradePicked = subjectsByGrade[gradeKey] ?? [];
                       const gradeSubjects = subjectsForGrade(allSubjects, l, g);
                       if (gradeSubjects.length === 0) return null;
                       return (
-                        <div key={gradeSectionKey(l, g)} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                        <div key={gradeKey} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
                           <p className="mb-3 text-sm font-bold text-white">{formatGradeLabel(l, g)}</p>
                           <div className="flex flex-wrap gap-2">
                             {gradeSubjects.map((s) => (
                               <SelectablePill
                                 key={s.id}
                                 label={s.name}
-                                selected={subjects.includes(s.name)}
+                                selected={gradePicked.includes(s.name)}
                                 onClick={() =>
-                                  setSubjects(
-                                    subjects.includes(s.name)
-                                      ? subjects.filter((x) => x !== s.name)
-                                      : [...subjects, s.name],
-                                  )
+                                  setSubjectsByGrade({
+                                    ...subjectsByGrade,
+                                    [gradeKey]: gradePicked.includes(s.name)
+                                      ? gradePicked.filter((x) => x !== s.name)
+                                      : [...gradePicked, s.name],
+                                  })
                                 }
                               />
                             ))}
@@ -435,7 +475,7 @@ export function AcademicTeacherSetupPage() {
                 الفصول: <b className="text-white">{selectedSectionCount}</b>
               </span>
               <span className="rounded-full bg-white/[0.05] px-3 py-1">
-                المواد: <b className="text-white">{subjects.length}</b>
+                المواد: <b className="text-white">{flattenSubjectsByGrade(subjectsByGrade).length}</b>
               </span>
             </div>
           )}
@@ -462,7 +502,7 @@ export function AcademicTeacherSetupPage() {
                 disabled={saving || !canProceed}
                 onClick={finish}
               >
-                {saving ? 'جاري الحفظ...' : 'إنهاء الإعداد'}
+                {saving ? 'جاري الحفظ...' : isEditing ? 'حفظ التعديلات' : 'إنهاء الإعداد'}
                 {!saving && <Check className="h-4 w-4" strokeWidth={3} />}
               </button>
             ) : (

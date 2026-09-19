@@ -22,7 +22,7 @@ export function AdminIdCardsHubPage() {
     <div className="space-y-6" dir="rtl">
       <PageHeader
         title="بطاقات التعريف"
-        subtitle="طباعة بطاقات الهوية الرسمية وإدارة رموز QR للطلاب"
+        subtitle="بطاقات الهوية ورموز QR — أولمبياد المرحلة المتوسطة فقط"
         icon={CreditCard}
         guidePath="/admin/id-cards"
         actions={<ScreenGuideButton path="/admin/id-cards" />}

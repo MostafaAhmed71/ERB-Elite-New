@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, FileDown, Copy, ChevronLeft, CalendarDays } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Plus, FileDown, Copy, ChevronLeft, CalendarDays, BookOpen, Search } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
 import { academicWeeklyPlanService } from '../../lib/academic/weeklyPlanService';
 import { academicTeacherService } from '../../lib/academic/teacherService';
@@ -10,6 +11,8 @@ import {
   formatWeeklyPlanConflictMessage,
   filterEntriesForTeacher,
   mergeTeacherSlotsIntoMap,
+  copyLessonTopicsToMatchingSlots,
+  countCopyableLessonSlots,
 } from '../../lib/academic/weeklyPlanHelpers';
 import {
   buildScheduleSlotsByClass,
@@ -20,7 +23,7 @@ import {
 import {
   ACADEMIC_LEVEL_LABELS,
   formatGradeSection,
-  getDefaultSemesterWeek,
+  formatGradeLabel,
   formatSemesterWeek,
   SEMESTER_LABELS,
   weekOptionsForSemester,
@@ -30,7 +33,6 @@ import {
 import {
   mergeTeacherClassRefs,
   findClassRef,
-  scheduleSlotCount,
   type TeacherClassRef,
 } from '../../lib/academic/teacherSetupHelpers';
 import type { AcademicEducationLevel, AcademicSemester, AcademicTeacherSchedule, AcademicWeeklyPlan } from '../../lib/academic/types';
@@ -60,6 +62,8 @@ import clsx from 'clsx';
 
 const LAST_PLAN_KEY = 'academic_weekly_plan_last_context';
 
+type WeeklyFillMode = 'each' | 'copy';
+
 type PlanContext = {
   level: AcademicEducationLevel;
   grade: number;
@@ -83,6 +87,8 @@ function saveLastContext(ctx: PlanContext) {
 
 export function AcademicWeeklyPlansPage() {
   const { user, role } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const isTeacher = isAcademicTeacher(role);
   const isSupervisor = isAcademicSupervisorView(role);
@@ -90,6 +96,7 @@ export function AcademicWeeklyPlansPage() {
   const weekCal = useSemesterWeekCalendar();
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<AcademicWeeklyPlan | null>(null);
+  const openedFromMyPlansRef = useRef<string | null>(null);
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['academic-schedules', user?.id],
@@ -112,12 +119,12 @@ export function AcademicWeeklyPlansPage() {
     queryKey: ['academic-plans', user?.id, role, teacherClasses.length],
     queryFn: () => {
       if (role === 'teacher' && user) {
-        return academicWeeklyPlanService.listForTeacherClasses(user.id, teacherClasses);
+        return academicWeeklyPlanService.listByTeacher(user.id);
       }
       if (role === 'deputy' && deputyLevel) return academicWeeklyPlanService.listByLevel(deputyLevel);
       return academicWeeklyPlanService.listAll();
     },
-    enabled: !!user && (role !== 'teacher' || teacherClasses.length > 0 || !!setup),
+    enabled: !!user,
   });
 
   // جداول كل المعلمين (للوكيل/المدير) — لمعرفة المعلم المسؤول عن كل حصة
@@ -140,15 +147,20 @@ export function AcademicWeeklyPlansPage() {
     setShowForm(true);
   };
 
-  const openEdit = (plan: AcademicWeeklyPlan) => {
-    setEditingPlan(plan);
-    setShowForm(true);
-  };
-
   const closeForm = () => {
     setShowForm(false);
     setEditingPlan(null);
   };
+
+  const [levelFilter, setLevelFilter] = useState<string>(() => {
+    if (role === 'deputy' && deputyLevel) return deputyLevel;
+    if (role === 'supervisor' && user?.staff_education_level && (user.staff_education_level === 'middle' || user.staff_education_level === 'high')) {
+      return user.staff_education_level;
+    }
+    return 'all';
+  });
+  const [weekFilter, setWeekFilter] = useState<number | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sortedPlans = useMemo(
     () =>
@@ -162,13 +174,38 @@ export function AcademicWeeklyPlansPage() {
     [plans],
   );
 
+  const filteredPlans = useMemo(() => {
+    return sortedPlans.filter((plan) => {
+      if (levelFilter !== 'all' && plan.education_level !== levelFilter) return false;
+      if (weekFilter !== 'all' && plan.week_number !== weekFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matchTeacher = plan.teacher_name?.toLowerCase().includes(q);
+        const matchGrade = formatGradeLabel(plan.education_level, plan.grade).toLowerCase().includes(q);
+        const matchSection = `فصل ${plan.section}`.toLowerCase().includes(q);
+        if (!matchTeacher && !matchGrade && !matchSection) return false;
+      }
+      return true;
+    });
+  }, [sortedPlans, levelFilter, weekFilter, searchQuery]);
+
+  useEffect(() => {
+    const editPlanId = (location.state as { editPlanId?: string } | null)?.editPlanId;
+    if (!editPlanId || !plans.length || openedFromMyPlansRef.current === editPlanId) return;
+    const plan = plans.find((p) => p.id === editPlanId);
+    if (!plan) return;
+    openedFromMyPlansRef.current = editPlanId;
+    setEditingPlan(plan);
+    setShowForm(true);
+  }, [location.state, plans]);
+
   return (
     <AcademicLayout size="6xl">
       <AcademicPageHeader
         title="الخطط الأسبوعية"
         subtitle={
           isTeacher
-            ? 'دقيقتان فقط — اختر الأسبوع ثم اكتب مواضيع حصصك بالترتيب'
+            ? 'إنشاء خطة جديدة — خططك السابقة في «خططي»'
             : isSupervisor
               ? 'عرض خطط جميع المعلمين — بدون تعديل'
               : 'عرض خطط المعلمين مجمّعة حسب الفصل'
@@ -176,9 +213,14 @@ export function AcademicWeeklyPlansPage() {
         backTo={isSupervisor ? '/dashboard' : '/academic'}
         action={
           isTeacher ? (
-            <button type="button" className={academicBtnPrimary} onClick={openCreate}>
-              <Plus className="w-4 h-4" /> خطة جديدة
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/academic/my-weekly-plans" className={academicBtnSecondary}>
+                <BookOpen className="w-4 h-4" /> خططي
+              </Link>
+              <button type="button" className={academicBtnPrimary} onClick={openCreate}>
+                <Plus className="w-4 h-4" /> خطة جديدة
+              </button>
+            </div>
           ) : canExportAcademicTemplates(role) ? (
             <Link to="/academic/export" className={academicBtnSecondary}>
               <FileDown className="w-4 h-4" /> تصدير القوالب
@@ -198,80 +240,159 @@ export function AcademicWeeklyPlansPage() {
           editingPlan={editingPlan}
           isTeacher={isTeacher}
           weekCal={weekCal}
-          onDone={() => {
+          onDone={async () => {
             closeForm();
-            qc.invalidateQueries({ queryKey: ['academic-plans'] });
+            await qc.invalidateQueries({ queryKey: ['academic-plans'] });
             qc.invalidateQueries({ queryKey: ['academic-class-plan'] });
+            if (isTeacher) {
+              navigate('/academic/my-weekly-plans');
+            }
           }}
           onCancel={closeForm}
         />
       )}
 
-      {isLoading ? (
-        <TapHandLoader label="جاري التحميل..." />
-      ) : plans.length === 0 && !showForm ? (
+      {isTeacher && !showForm && (
         <div className="horizon-card rounded-[20px] bg-[#111c44] p-8 text-center border border-white/[0.04]">
           <CalendarDays className="w-14 h-14 text-gold-400 mx-auto mb-4 opacity-80" />
-          <h3 className="text-white text-lg font-bold mb-2">ابدأ خطة هذا الأسبوع</h3>
+          <h3 className="text-white text-lg font-bold mb-2">خطة أسبوعية جديدة</h3>
           <p className="text-[#A3AED0] text-sm mb-6 max-w-md mx-auto">
-            لا حاجة لملء جدول كامل — فقط حصصك تظهر في قائمة بسيطة. اضغط Enter للانتقال للحصة التالية.
+            أدخل حصص هذا الأسبوع — خططك المحفوظة سابقاً تجدها في «خططي» مع فلاتر البحث.
           </p>
-          {isTeacher && (
-            <button type="button" className={academicBtnPrimary} onClick={openCreate}>
-              <Plus className="w-4 h-4" /> إنشاء أول خطة
-            </button>
-          )}
-        </div>
-      ) : plans.length === 0 ? null : (
-        <div className="space-y-3">
-          <p className="text-[#A3AED0] text-sm mb-1">
-            {sortedPlans.length} خطة مشتركة — الأحدث أولاً
-          </p>
-          {isTeacher && weekCal.hasCalendar(weekCal.current.semester) && (
-            <p className="text-xs text-[#01B574] mb-2 flex items-center gap-1">
+          {weekCal.hasCalendar(weekCal.current.semester) && (
+            <p className="text-xs text-[#01B574] mb-4">
               الأسبوع النشط: {formatSemesterWeek(weekCal.current.semester, weekCal.current.week)}
               {weekCal.getRange(weekCal.current.semester, weekCal.current.week) && (
-                <span className="text-[#A3AED0]">
+                <span className="text-[#A3AED0] mr-1">
                   ({weekCal.formatRange(weekCal.getRange(weekCal.current.semester, weekCal.current.week)!)})
                 </span>
               )}
             </p>
           )}
-          {sortedPlans.map((plan) => (
-            <WeeklyPlanHistoryCard
-              key={plan.id}
-              plan={plan}
-              isTeacher={isTeacher}
-              teacherId={isTeacher ? user?.id : undefined}
-              showTeacher={!isTeacher}
-              scheduleSlots={scheduleSlotsByClass.get(
-                classScheduleKey(plan.education_level, plan.grade, plan.section),
-              )}
-              onEdit={isTeacher ? () => openEdit(plan) : undefined}
-              onDelete={
-                isTeacher && user
-                  ? () => {
-                      if (confirm('حذف حصصك من هذه الخطة المشتركة؟ (لن تُحذف حصص المعلمين الآخرين)')) {
-                        academicWeeklyPlanService
-                          .clearTeacherSlots(
-                            {
-                              education_level: plan.education_level,
-                              grade: plan.grade,
-                              section: plan.section,
-                              semester: (plan.semester ?? 1) as AcademicSemester,
-                              week_number: plan.week_number,
-                            },
-                            user.full_name,
-                          )
-                          .then(() => qc.invalidateQueries({ queryKey: ['academic-plans'] }));
-                      }
-                    }
-                  : undefined
-              }
-            />
-          ))}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button type="button" className={academicBtnPrimary} onClick={openCreate}>
+              <Plus className="w-4 h-4" /> بدء خطة جديدة
+            </button>
+            <Link to="/academic/my-weekly-plans" className={academicBtnSecondary}>
+              <BookOpen className="w-4 h-4" /> خططي
+            </Link>
+          </div>
         </div>
       )}
+
+      {!isTeacher && (isLoading ? (
+        <TapHandLoader label="جاري التحميل..." />
+      ) : plans.length === 0 ? (
+        <div className="horizon-card rounded-[20px] bg-[#111c44] p-8 text-center border border-white/[0.04]">
+          <CalendarDays className="w-14 h-14 text-gold-400 mx-auto mb-4 opacity-80" />
+          <h3 className="text-white text-lg font-bold mb-2">لا توجد خطط بعد</h3>
+          <p className="text-[#A3AED0] text-sm">لم يرفع المعلمون أي خطة أسبوعية حتى الآن.</p>
+        </div>
+      ) : (
+        <>
+          {/* شريط الفلترة والبحث لغير المعلم (المشرف / الوكيل / المدير) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white/50">المرحلة:</span>
+                <div className="flex rounded-xl bg-white/5 p-1 border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setLevelFilter('all')}
+                    className={clsx(
+                      'px-3 py-1 rounded-lg text-xs font-semibold transition-all',
+                      levelFilter === 'all'
+                        ? 'bg-gold-500 text-navy-950 shadow-sm'
+                        : 'text-white/60 hover:text-white',
+                    )}
+                  >
+                    الكل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLevelFilter('middle')}
+                    className={clsx(
+                      'px-3 py-1 rounded-lg text-xs font-semibold transition-all',
+                      levelFilter === 'middle'
+                        ? 'bg-gold-500 text-navy-950 shadow-sm'
+                        : 'text-white/60 hover:text-white',
+                    )}
+                  >
+                    المتوسطة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLevelFilter('high')}
+                    className={clsx(
+                      'px-3 py-1 rounded-lg text-xs font-semibold transition-all',
+                      levelFilter === 'high'
+                        ? 'bg-gold-500 text-navy-950 shadow-sm'
+                        : 'text-white/60 hover:text-white',
+                    )}
+                  >
+                    الثانوية
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white/50">الأسبوع:</span>
+                <select
+                  value={weekFilter}
+                  onChange={(e) => setWeekFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold-400/50"
+                >
+                  <option value="all" className="bg-navy-900">كل الأسابيع</option>
+                  {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w} className="bg-navy-900">
+                      الأسبوع {w}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-1 max-w-xs">
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="بحث بالمعلم أو الصف أو الفصل..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pr-9 pl-3 py-1.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-gold-400/50"
+                />
+              </div>
+            </div>
+
+            <span className="text-xs text-white/40">
+              عرض {filteredPlans.length} من أصل {sortedPlans.length} خطة
+            </span>
+          </div>
+
+          {filteredPlans.length === 0 ? (
+            <div className="horizon-card rounded-[20px] bg-[#111c44] p-8 text-center border border-white/[0.04]">
+              <CalendarDays className="w-10 h-10 text-gold-400 mx-auto mb-3 opacity-60" />
+              <h3 className="text-white text-base font-bold mb-1">لا توجد نتائج</h3>
+              <p className="text-[#A3AED0] text-xs">لا توجد خطط أسبوعية تطابق الفلتر المحدّد.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredPlans.map((plan) => (
+                <WeeklyPlanHistoryCard
+                  key={plan.id}
+                  plan={plan}
+                  isTeacher={false}
+                  showTeacher
+                  scheduleSlots={scheduleSlotsByClass.get(
+                    classScheduleKey(plan.education_level, plan.grade, plan.section),
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      ))}
     </AcademicLayout>
   );
 }
@@ -311,6 +432,24 @@ function PlanForm({
     [setup, schedules],
   );
 
+  const gradeGroups = useMemo(() => {
+    const out: { level: AcademicEducationLevel; grade: number; sections: string[] }[] = [];
+    const seen = new Set<string>();
+    for (const c of teacherClasses) {
+      const k = `${c.level}_${c.grade}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        level: c.level,
+        grade: c.grade,
+        sections: teacherClasses
+          .filter((x) => x.level === c.level && x.grade === c.grade)
+          .map((x) => x.section),
+      });
+    }
+    return out;
+  }, [teacherClasses]);
+
   const pickInitialClass = (): TeacherClassRef | null => {
     if (editingPlan) {
       return {
@@ -341,22 +480,16 @@ function PlanForm({
   const [week, setWeek] = useState(editingPlan?.week_number ?? saved.week ?? defaults.week);
   const [entriesMap, setEntriesMap] = useState<WeeklyPlanEntriesMap>({});
   const [saving, setSaving] = useState(false);
+  const [fillMode, setFillMode] = useState<WeeklyFillMode>(isEdit ? 'copy' : 'each');
+  const [targetSections, setTargetSections] = useState<string[]>(() =>
+    initialClass ? [initialClass.section] : [],
+  );
+  const [entriesBySection, setEntriesBySection] = useState<Record<string, WeeklyPlanEntriesMap>>({});
 
-  const calendarLocked =
-    isTeacher && weekCal.hasCalendar(weekCal.current.semester);
+  const initializedSectionsRef = useRef(new Set<string>());
+  const sectionContextKeyRef = useRef('');
 
-  useEffect(() => {
-    if (!isTeacher || isEdit) return;
-    if (weekCal.hasCalendar(weekCal.current.semester)) {
-      setSemester(weekCal.current.semester);
-      setWeek(weekCal.current.week);
-    }
-  }, [isTeacher, isEdit, weekCal.current.semester, weekCal.current.week, weekCal]);
-
-  const weekBlocked =
-    isTeacher
-    && weekCal.hasCalendar(semester)
-    && !weekCal.isWeekOpen(semester, week);
+  const weekBlocked = false;
 
   const classPlanKey = useMemo(
     () => ({
@@ -372,19 +505,38 @@ function PlanForm({
   const { data: sharedPlan } = useQuery({
     queryKey: ['academic-class-plan', classPlanKey],
     queryFn: () => academicWeeklyPlanService.getClassPlan(classPlanKey),
-    enabled: step === 2,
+    enabled: step === 2 && (isEdit || fillMode === 'copy'),
+  });
+
+  const { data: gradePlans } = useQuery({
+    queryKey: ['academic-class-plans-grade', level, grade, semester, week, targetSections.join(',')],
+    queryFn: async () =>
+      Promise.all(
+        targetSections.map(async (s) => ({
+          section: s,
+          plan: await academicWeeklyPlanService.getClassPlan({
+            education_level: level,
+            grade,
+            section: s,
+            semester,
+            week_number: week,
+          }),
+        })),
+      ),
+    enabled: step === 2 && !isEdit && fillMode === 'each' && targetSections.length > 0,
   });
 
   useEffect(() => {
     if (isEdit || teacherClasses.length === 0) return;
-    const valid = findClassRef(teacherClasses, level, grade, section);
-    if (!valid) {
-      const first = teacherClasses[0];
-      setLevel(first.level);
-      setGrade(first.grade);
-      setSection(first.section);
-    }
-  }, [teacherClasses, level, grade, section, isEdit]);
+    const secs = teacherClasses
+      .filter((c) => c.level === level && c.grade === grade)
+      .map((c) => c.section);
+    const withSched = secs.filter((s) =>
+      schedules.some((sc) => sc.education_level === level && sc.grade === grade && sc.section === s),
+    );
+    const chosen = withSched.length ? withSched : secs.slice(0, 1);
+    setTargetSections((prev) => (prev.length ? prev : chosen));
+  }, [isEdit, teacherClasses, level, grade, schedules]);
 
   const activeSchedule = useMemo(
     () => schedules.find((s) => s.education_level === level && s.grade === grade && s.section === section),
@@ -394,12 +546,52 @@ function PlanForm({
   const appliedPlanKeyRef = useRef('');
 
   useEffect(() => {
+    const ctxKey = `${level}|${grade}|${semester}|${week}|${targetSections.join(',')}`;
+    if (sectionContextKeyRef.current !== ctxKey) {
+      sectionContextKeyRef.current = ctxKey;
+      initializedSectionsRef.current = new Set();
+    }
+  }, [level, grade, semester, week, targetSections]);
+
+  useEffect(() => {
+    if (step !== 2 || fillMode !== 'each' || isEdit || !gradePlans) return;
+    const stamp = gradePlans.map((g) => `${g.section}:${g.plan?.updated_at ?? 'empty'}`).join('|');
+    const applyKey = `each|${level}|${grade}|${semester}|${week}|${stamp}`;
+    if (appliedPlanKeyRef.current === applyKey) return;
+    appliedPlanKeyRef.current = applyKey;
+    const next: Record<string, WeeklyPlanEntriesMap> = { ...entriesBySection };
+    for (const s of targetSections) {
+      if (initializedSectionsRef.current.has(s)) continue;
+      const sched = scheduleForSection(s);
+      if (!sched) continue;
+      const base = entriesMapFromSchedule(sched.periods);
+      const row = gradePlans.find((g) => g.section === s);
+      const fromShared = mergeTeacherSlotsIntoMap(
+        Object.keys(base),
+        row?.plan?.entries ?? [],
+        teacherId,
+        row?.plan?.teacher_id,
+      );
+      const merged = { ...base };
+      for (const key of Object.keys(base)) {
+        if (fromShared[key]?.lesson_topic?.trim()) {
+          merged[key] = { ...merged[key], lesson_topic: fromShared[key].lesson_topic };
+        }
+      }
+      next[s] = merged;
+      initializedSectionsRef.current.add(s);
+    }
+    setEntriesBySection(next);
+  }, [step, fillMode, isEdit, gradePlans, targetSections, level, grade, semester, week, teacherId, schedules]);
+
+  useEffect(() => {
     if (step !== 2 || !activeSchedule) return;
+    if (!isEdit && fillMode === 'each') return;
     const planStamp =
       sharedPlan?.updated_at
       ?? editingPlan?.updated_at
       ?? (sharedPlan === undefined && !editingPlan ? 'loading' : 'empty');
-    const applyKey = `${JSON.stringify(classPlanKey)}|${planStamp}`;
+    const applyKey = `copy|${JSON.stringify(classPlanKey)}|${planStamp}`;
     if (appliedPlanKeyRef.current === applyKey) return;
     if (planStamp === 'loading') return;
     appliedPlanKeyRef.current = applyKey;
@@ -423,11 +615,32 @@ function PlanForm({
     });
   }, [step, classPlanKey, activeSchedule, sharedPlan, editingPlan, teacherId]);
 
-  const selectClass = (ref: TeacherClassRef) => {
-    setLevel(ref.level);
-    setGrade(ref.grade);
-    setSection(ref.section);
+  const pickGrade = (lv: AcademicEducationLevel, g: number) => {
+    setLevel(lv);
+    setGrade(g);
+    const secs = teacherClasses
+      .filter((c) => c.level === lv && c.grade === g)
+      .map((c) => c.section);
+    const withSched = secs.filter((s) =>
+      schedules.some((sc) => sc.education_level === lv && sc.grade === g && sc.section === s),
+    );
+    const chosen = withSched.length ? withSched : secs.slice(0, 1);
+    setTargetSections(chosen);
+    setSection(chosen[0] ?? secs[0] ?? 'أ');
+    setFillMode(chosen.length > 1 ? 'each' : 'copy');
   };
+
+  const toggleTargetSection = (s: string) => {
+    setTargetSections((prev) => {
+      const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
+      if (next.length === 0) return prev;
+      if (!next.includes(section)) setSection(next[0]);
+      return next;
+    });
+  };
+
+  const scheduleForSection = (s: string) =>
+    schedules.find((sc) => sc.education_level === level && sc.grade === grade && sc.section === s);
 
   useEffect(() => {
     if (isEdit || step !== 1) return;
@@ -443,22 +656,29 @@ function PlanForm({
     [entriesMap],
   );
 
-  const slotCount = useMemo(() => scheduleSlotCount(activeSchedule), [activeSchedule]);
-
   const goToTopics = () => {
     if (weekBlocked) {
       alert(weekEntryBlockedMessage(weekCal.config, semester, week));
       return;
     }
-    if (!findClassRef(teacherClasses, level, grade, section)) {
-      alert('اختر أحد فصولك المسجّلة');
+    const secs = isEdit ? [section] : targetSections;
+    if (!secs.length) {
+      alert('اختر فصلاً واحداً على الأقل');
       return;
     }
-    if (!activeSchedule) {
-      alert('أضف جدولك الدراسي لهذا الفصل أولاً من صفحة الجدول');
-      return;
+    for (const s of secs) {
+      if (!findClassRef(teacherClasses, level, grade, s)) {
+        alert('اختر فصولك المسجّلة فقط');
+        return;
+      }
+      if (!scheduleForSection(s)) {
+        alert(`أضف جدولك الدراسي لفصل ${s} أولاً من صفحة الجدول`);
+        return;
+      }
     }
-    saveLastContext({ level, grade, section, semester, week });
+    const primary = secs.includes(section) ? section : secs[0];
+    setSection(primary);
+    saveLastContext({ level, grade, section: primary, semester, week });
     setStep(2);
   };
 
@@ -492,36 +712,174 @@ function PlanForm({
       }
       return merged;
     });
+    if (!isEdit && fillMode === 'each') {
+      setEntriesBySection((maps) => {
+        const next = { ...maps };
+        for (const s of targetSections) {
+          const prevPlan =
+            existingPlans.find(
+              (p) =>
+                p.education_level === level &&
+                p.grade === grade &&
+                p.section === s &&
+                (p.semester ?? 1) === semester &&
+                p.week_number === prevWeek,
+            ) ?? null;
+          if (!prevPlan) continue;
+          const mine = filterEntriesForTeacher(prevPlan.entries, teacherId, prevPlan.teacher_id);
+          const merged = { ...(next[s] ?? {}) };
+          for (const e of mine) {
+            const key = weeklyPlanEntryKey(e.day, e.period);
+            if (merged[key]) merged[key] = { ...merged[key], lesson_topic: e.lesson_topic };
+          }
+          next[s] = merged;
+        }
+        return next;
+      });
+    }
   };
+
+  const filledBySection = useMemo(() => {
+    const out: Record<string, ReturnType<typeof entriesListFromMap>> = {};
+    for (const s of targetSections) {
+      out[s] = entriesListFromMap(entriesBySection[s] ?? {}).filter((e) => e.lesson_topic.trim());
+    }
+    return out;
+  }, [targetSections, entriesBySection]);
+
+  const totalFilled =
+    !isEdit && fillMode === 'each'
+      ? Object.values(filledBySection).reduce((n, list) => n + list.length, 0)
+      : filledEntries.length;
+
+  const copyPreviewBySection = useMemo(() => {
+    if (isEdit || fillMode !== 'copy' || targetSections.length <= 1) return {};
+    const out: Record<string, number> = {};
+    for (const s of targetSections) {
+      if (s === section) {
+        out[s] = filledEntries.length;
+        continue;
+      }
+      const sched = scheduleForSection(s);
+      out[s] = sched
+        ? countCopyableLessonSlots(filledEntries, sched.periods)
+        : 0;
+    }
+    return out;
+  }, [isEdit, fillMode, targetSections, section, filledEntries, schedules, level, grade]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeSchedule) return;
     if (weekBlocked) {
       alert(weekEntryBlockedMessage(weekCal.config, semester, week));
       return;
     }
-    if (filledEntries.length === 0) {
-      alert('أدخل موضوعاً لحصة واحدة على الأقل');
-      return;
-    }
 
-    const existingEntries = sharedPlan?.entries ?? editingPlan?.entries ?? [];
-    const conflicts = findWeeklyPlanConflicts(
-      existingEntries,
-      filledEntries,
-      teacherId,
-      sharedPlan?.teacher_id ?? editingPlan?.teacher_id,
-    );
-    if (conflicts.length) {
-      alert(formatWeeklyPlanConflictMessage(conflicts));
-      return;
-    }
+    const saveOne = async (sec: string, slots: typeof filledEntries) => {
+      if (slots.length === 0) return null;
+      const sched = scheduleForSection(sec);
+      if (!sched) throw new Error(`لا جدول لفصل ${sec}`);
+      const existing = (
+        await academicWeeklyPlanService.getClassPlan({
+          education_level: level,
+          grade,
+          section: sec,
+          semester,
+          week_number: week,
+        })
+      );
+      const conflicts = findWeeklyPlanConflicts(
+        existing?.entries ?? [],
+        slots,
+        teacherId,
+        existing?.teacher_id,
+      );
+      if (conflicts.length) {
+        throw new Error(`فصل ${sec}: ${formatWeeklyPlanConflictMessage(conflicts)}`);
+      }
+      return academicWeeklyPlanService.saveTeacherSlots(
+        { education_level: level, grade, section: sec, semester, week_number: week },
+        slots,
+        teacherName,
+      );
+    };
 
     setSaving(true);
     try {
-      await academicWeeklyPlanService.saveTeacherSlots(classPlanKey, filledEntries, teacherName);
+      let savedCount = 0;
+      let savedSlots = 0;
+      const copyWarnings: string[] = [];
+      if (!isEdit && fillMode === 'each') {
+        if (totalFilled === 0) {
+          alert('أدخل موضوعاً لحصة واحدة على الأقل');
+          return;
+        }
+        for (const s of targetSections) {
+          const slots = filledBySection[s] ?? [];
+          const saved = await saveOne(s, slots);
+          if (saved) {
+            savedCount += 1;
+            savedSlots += slots.length;
+          }
+        }
+      } else {
+        if (!activeSchedule) {
+          alert('أضف جدولك الدراسي لهذا الفصل أولاً');
+          return;
+        }
+        if (filledEntries.length === 0) {
+          alert('أدخل موضوعاً لحصة واحدة على الأقل');
+          return;
+        }
+        const existingEntries = sharedPlan?.entries ?? editingPlan?.entries ?? [];
+        const conflicts = findWeeklyPlanConflicts(
+          existingEntries,
+          filledEntries,
+          teacherId,
+          sharedPlan?.teacher_id ?? editingPlan?.teacher_id,
+        );
+        if (conflicts.length) {
+          alert(formatWeeklyPlanConflictMessage(conflicts));
+          return;
+        }
+        await academicWeeklyPlanService.saveTeacherSlots(classPlanKey, filledEntries, teacherName);
+        savedCount = 1;
+        savedSlots += filledEntries.length;
+        if (!isEdit && fillMode === 'copy') {
+          for (const s of targetSections) {
+            if (s === section) continue;
+            const sched = scheduleForSection(s);
+            if (!sched) {
+              copyWarnings.push(`فصل ${s}: لا يوجد جدول`);
+              continue;
+            }
+            const copied = copyLessonTopicsToMatchingSlots(filledEntries, sched.periods);
+            if (copied.length === 0) {
+              copyWarnings.push(
+                `فصل ${s}: لا مادة مشتركة — أدخل موضوعاً لمادة موجودة في جدول فصل ${s}`,
+              );
+              continue;
+            }
+            const saved = await saveOne(s, copied);
+            if (saved) {
+              savedCount += 1;
+              savedSlots += copied.length;
+            }
+          }
+        }
+      }
+      if (savedCount === 0) {
+        throw new Error('لم يُحفظ أي موضوع — تحقق من إدخال المواضيع ثم أعد المحاولة');
+      }
       saveLastContext({ level, grade, section, semester, week });
+      if (copyWarnings.length) {
+        toast.error(copyWarnings.join(' · '), { duration: 6000 });
+      }
+      toast.success(
+        savedCount > 1
+          ? `تم الحفظ في ${savedCount} فصول (${savedSlots} حصة) — راجع «خططي»`
+          : `تم حفظ الخطة (${savedSlots} حصة) — راجع «خططي»`,
+      );
       onDone();
     } catch (err) {
       alert(err instanceof Error ? err.message : getSupabaseErrorMessage(err));
@@ -536,7 +894,7 @@ function PlanForm({
         {/* خطوات */}
         {!isEdit && (
           <div className="flex items-center gap-2 mb-4">
-            <StepBadge n={1} label="اختر الفصل والأسبوع" active={step === 1} done={step > 1} />
+            <StepBadge n={1} label="اختر الصف والأسبوع" active={step === 1} done={step > 1} />
             <div className="h-px flex-1 bg-white/10" />
             <StepBadge n={2} label="مواضيع الحصص" active={step === 2} done={false} />
           </div>
@@ -550,27 +908,22 @@ function PlanForm({
                 <p className="text-[#A3AED0] text-sm mb-4">
                   أكمل إعداد الملف التعليمي ليظهر لك فقط الصفوف والفصول التي تدرّسها
                 </p>
-                <Link to="/academic/setup" className={academicBtnPrimary}>
+                <Link to="/academic/teacher-setup" className={academicBtnPrimary}>
                   إعداد الملف التعليمي
                 </Link>
               </div>
             ) : (
               <>
                 <div>
-                  <span className="text-[#A3AED0] text-xs mb-2 block">فصولك — اختر الفصل</span>
+                  <span className="text-[#A3AED0] text-xs mb-2 block">اختر الصف</span>
                   <div className="grid sm:grid-cols-2 gap-2">
-                    {teacherClasses.map((c) => {
-                      const selected = level === c.level && grade === c.grade && section === c.section;
-                      const sched = schedules.find(
-                        (s) =>
-                          s.education_level === c.level && s.grade === c.grade && s.section === c.section,
-                      );
-                      const slots = scheduleSlotCount(sched);
+                    {gradeGroups.map((g) => {
+                      const selected = level === g.level && grade === g.grade;
                       return (
                         <button
-                          key={`${c.level}_${c.grade}_${c.section}`}
+                          key={`${g.level}_${g.grade}`}
                           type="button"
-                          onClick={() => selectClass(c)}
+                          onClick={() => pickGrade(g.level, g.grade)}
                           className={clsx(
                             'text-right p-4 rounded-xl border transition-colors',
                             selected
@@ -578,14 +931,9 @@ function PlanForm({
                               : 'bg-white/[0.03] border-white/[0.08] hover:border-gold-400/25',
                           )}
                         >
-                          <p className="text-white font-bold text-sm">{formatGradeSection(c.level, c.grade, c.section)}</p>
+                          <p className="text-white font-bold text-sm">{formatGradeLabel(g.level, g.grade)}</p>
                           <p className="text-[#A3AED0] text-xs mt-1">
-                            {ACADEMIC_LEVEL_LABELS[c.level]}
-                            {slots > 0 ? (
-                              <span className="text-[#01B574] mr-1">· {slots} حصة</span>
-                            ) : (
-                              <span className="text-amber-400 mr-1">· يحتاج جدول</span>
-                            )}
+                            {ACADEMIC_LEVEL_LABELS[g.level]} · {g.sections.map((s) => `فصل ${s}`).join('، ')}
                           </p>
                         </button>
                       );
@@ -593,13 +941,78 @@ function PlanForm({
                   </div>
                 </div>
 
+                {gradeGroups.some((g) => g.level === level && g.grade === grade) && (
+                  <div>
+                    <span className="text-[#A3AED0] text-xs mb-2 block">فصول هذا الصف (ذات الجدول)</span>
+                    <div className="flex flex-wrap gap-2">
+                      {(gradeGroups.find((g) => g.level === level && g.grade === grade)?.sections ?? []).map(
+                        (s) => {
+                          const hasSched = !!scheduleForSection(s);
+                          const on = targetSections.includes(s);
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              disabled={!hasSched}
+                              onClick={() => toggleTargetSection(s)}
+                              className={clsx(
+                                'px-3 py-2 rounded-xl border text-sm font-semibold',
+                                !hasSched && 'opacity-40 cursor-not-allowed',
+                                on
+                                  ? 'bg-[#01B574]/20 border-[#01B574]/40 text-white'
+                                  : 'bg-white/[0.03] border-white/10 text-[#A3AED0]',
+                              )}
+                            >
+                              فصل {s}
+                              {!hasSched ? ' · بلا جدول' : ''}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {targetSections.length > 1 && (
+                  <div>
+                    <span className="text-[#A3AED0] text-xs mb-2 block">طريقة الإدخال</span>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFillMode('each')}
+                        className={clsx(
+                          'text-right p-3 rounded-xl border text-sm',
+                          fillMode === 'each'
+                            ? 'bg-gold-500/15 border-gold-400/40 text-white'
+                            : 'bg-white/[0.03] border-white/10 text-[#A3AED0]',
+                        )}
+                      >
+                        <span className="font-bold block">إدخال كل فصل على حدة</span>
+                        <span className="text-xs opacity-80">كل حصص الأيام لكل الفصول في شاشة واحدة</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFillMode('copy')}
+                        className={clsx(
+                          'text-right p-3 rounded-xl border text-sm',
+                          fillMode === 'copy'
+                            ? 'bg-gold-500/15 border-gold-400/40 text-white'
+                            : 'bg-white/[0.03] border-white/10 text-[#A3AED0]',
+                        )}
+                      >
+                        <span className="font-bold block">المواضيع متشابهة — نسخ</span>
+                        <span className="text-xs opacity-80">تكتب موضوع كل مادة مرة وتُنسخ لكل حصص نفس المادة في باقي الفصول</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid sm:grid-cols-2 gap-4">
                   <label className="block">
                     <span className="text-[#A3AED0] text-xs mb-2 block">الفصل الدراسي</span>
                     <select
                       className={academicInputClass}
                       value={semester}
-                      disabled={calendarLocked}
                       onChange={(e) => {
                         const s = +e.target.value as AcademicSemester;
                         setSemester(s);
@@ -611,33 +1024,25 @@ function PlanForm({
                       ))}
                     </select>
                   </label>
-                  {calendarLocked ? (
-                    <div className="block">
-                      <span className="text-[#A3AED0] text-xs mb-2 block">الأسبوع (تلقائي)</span>
-                      <div className="rounded-xl bg-[#01B574]/10 border border-[#01B574]/25 px-3 py-2.5 text-sm text-white">
-                        {formatSemesterWeek(semester, week)}
-                        {weekCal.getRange(semester, week) && (
-                          <span className="block text-xs text-[#A3AED0] mt-1">
-                            {weekCal.formatRange(weekCal.getRange(semester, week)!)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
                     <label className="block">
                       <span className="text-[#A3AED0] text-xs mb-2 block">الأسبوع</span>
                       <select className={academicInputClass} value={week} onChange={(e) => setWeek(+e.target.value)}>
                         {weekOptionsForSemester(semester).map((w) => {
-                          const expired = isTeacher && weekCal.isWeekExpired(semester, w);
+                          const isCurrent =
+                            weekCal.current.semester === semester && weekCal.current.week === w;
                           return (
-                            <option key={w} value={w} disabled={expired}>
-                              الأسبوع {w}{expired ? ' (انتهى)' : ''}
+                            <option key={w} value={w}>
+                              الأسبوع {w}{isCurrent ? ' (الحالي)' : ''}
                             </option>
                           );
                         })}
                       </select>
+                      {weekCal.getRange(semester, week) && (
+                        <span className="block text-xs text-[#A3AED0] mt-1">
+                          {weekCal.formatRange(weekCal.getRange(semester, week)!)}
+                        </span>
+                      )}
                     </label>
-                  )}
                 </div>
 
                 {weekBlocked && (
@@ -647,19 +1052,17 @@ function PlanForm({
                 )}
 
                 <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 text-sm text-[#A3AED0]">
-                  {formatGradeSection(level, grade, section)} — {formatSemesterWeek(semester, week)}
-                  {activeSchedule ? (
-                    <span className="text-[#01B574] mr-2">· {slotCount} حصة لك</span>
-                  ) : (
-                    <span className="text-amber-400 mr-2">· أضف جدولك من صفحة الجدول الدراسي</span>
-                  )}
+                  {formatGradeLabel(level, grade)}
+                  {targetSections.length ? ` — فصول ${targetSections.join('، ')}` : ''}
+                  {' — '}
+                  {formatSemesterWeek(semester, week)}
                 </div>
 
                 <button
                   type="button"
                   className={academicBtnPrimary}
                   onClick={goToTopics}
-                  disabled={teacherClasses.length === 0 || weekBlocked}
+                  disabled={teacherClasses.length === 0 || weekBlocked || targetSections.length === 0}
                 >
                   التالي — إدخال المواضيع
                 </button>
@@ -671,7 +1074,9 @@ function PlanForm({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-gold-500/15 text-gold-300 border border-gold-400/25">
-                  {formatGradeSection(level, grade, section)}
+                  {!isEdit && fillMode === 'each'
+                    ? `${formatGradeLabel(level, grade)} · ${targetSections.map((s) => `فصل ${s}`).join(' · ')}`
+                    : formatGradeSection(level, grade, section)}
                 </span>
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-[#7551FF]/15 text-[#A3AED0] border border-[#7551FF]/25">
                   {formatSemesterWeek(semester, week)}
@@ -691,16 +1096,83 @@ function PlanForm({
               </div>
             </div>
 
-            <WeeklyPlanWeekGrid
-              schedulePeriods={activeSchedule?.periods ?? []}
-              entries={entriesMap}
-              onChange={weekBlocked ? () => {} : setEntriesMap}
-              noSchedule={!activeSchedule}
-            />
+            {!isEdit && fillMode === 'each' ? (
+              <div className="space-y-6">
+                {targetSections.map((s) => (
+                  <div key={s} className="rounded-2xl border border-white/[0.08] p-3">
+                    <p className="text-white font-bold text-sm mb-3">
+                      {formatGradeSection(level, grade, s)}
+                      <span className="text-[#A3AED0] font-normal text-xs mr-2">
+                        {(filledBySection[s] ?? []).length} موضوع
+                      </span>
+                    </p>
+                    <WeeklyPlanWeekGrid
+                      schedulePeriods={scheduleForSection(s)?.periods ?? []}
+                      entries={entriesBySection[s] ?? {}}
+                      onChange={
+                        weekBlocked
+                          ? () => {}
+                          : (map) => {
+                              initializedSectionsRef.current.add(s);
+                              setEntriesBySection((prev) => ({ ...prev, [s]: map }));
+                            }
+                      }
+                      noSchedule={!scheduleForSection(s)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <WeeklyPlanWeekGrid
+                schedulePeriods={activeSchedule?.periods ?? []}
+                entries={entriesMap}
+                onChange={weekBlocked ? () => {} : setEntriesMap}
+                noSchedule={!activeSchedule}
+              />
+            )}
+
+            {!isEdit && fillMode === 'copy' && targetSections.length > 1 && (
+              <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 space-y-2">
+                <p className="text-xs text-[#A3AED0]">
+                  تُنسخ المواضيع من فصل {section} إلى باقي الفصول حسب <strong className="text-white/90">المادة</strong> — كل حصص «رياضيات» مثلاً تحصل على نفس الموضوع بغض النظر عن اليوم أو رقم الحصة.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {targetSections.map((s) => {
+                    const n = copyPreviewBySection[s] ?? 0;
+                    const isSource = s === section;
+                    return (
+                      <span
+                        key={s}
+                        className={clsx(
+                          'text-xs px-2.5 py-1 rounded-full border',
+                          isSource
+                            ? 'bg-gold-500/15 border-gold-400/30 text-gold-300'
+                            : n > 0
+                              ? 'bg-[#01B574]/15 border-[#01B574]/30 text-[#01B574]'
+                              : 'bg-white/[0.04] border-white/10 text-[#A3AED0]',
+                        )}
+                      >
+                        فصل {s}: {isSource ? `${n} مُدخل` : n > 0 ? `${n} سيُنسخ` : 'لا مطابق'}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.06]">
-              <button type="submit" className={academicBtnPrimary} disabled={saving || !activeSchedule || weekBlocked}>
-                {saving ? 'جاري الحفظ...' : isEdit ? `حفظ التعديلات (${filledEntries.length})` : `حفظ وإرسال (${filledEntries.length})`}
+              <button
+                type="submit"
+                className={academicBtnPrimary}
+                disabled={
+                  saving
+                  || weekBlocked
+                  || (!isEdit && fillMode === 'each'
+                    ? targetSections.every((s) => !scheduleForSection(s))
+                    : !activeSchedule)
+                }
+              >
+                {saving ? 'جاري الحفظ...' : isEdit ? `حفظ التعديلات (${totalFilled})` : `حفظ وإرسال (${totalFilled})`}
               </button>
               <button type="button" className={academicBtnSecondary} onClick={onCancel}>إلغاء</button>
             </div>
@@ -718,7 +1190,7 @@ function StepBadge({ n, label, active, done }: { n: number; label: string; activ
         className={clsx(
           'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
           active && 'bg-gold-500 text-navy-950',
-          done && !active && 'bg-[#01B574] text-white',
+          done && !active && 'bg-[#01B574] text-on-contrast',
           !active && !done && 'bg-white/10',
         )}
       >

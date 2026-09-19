@@ -9,22 +9,25 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { session, role, loading, initialized } = useAuthStore();
+  const { session, user, role, loading, initialized } = useAuthStore();
 
-  if (!initialized || (loading && !session)) {
+  // 1. لم تكتمل التهيئة بعد أو لا زال التحميل جارياً
+  if (!initialized || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-navy-950">
-        <TapHandLoader label="جاري التحميل..." fullScreen />
+        <TapHandLoader label="جاري التحقق من الصلاحيات..." fullScreen />
       </div>
     );
   }
 
+  // 2. لا يوجد session → توجيه لصفحة الدخول
   if (!session) {
     const loginPath = role ? getLoginPathForRole(role) : getPreferredLoginPath();
     return <Navigate to={loginPath} replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  // 3. دور المستخدم غير مسموح له بهذا المسار
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     return <Navigate to="/unauthorized" replace />;
   }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
-import { signIn, signInWithGoogle, resolveLoginTarget } from '../lib/auth';
+import { signIn, signInWithGoogle, resolveLoginTarget, rememberPreferredLoginPath } from '../lib/auth';
 import { toArabicErrorMessage, toLoginErrorMessage } from '../lib/errors';
 import { resolveTeacherPostLoginPath } from '../lib/teacherSignup';
 import {
@@ -15,6 +15,7 @@ import { LoginIllustration } from '../components/auth/LoginIllustration';
 import { GoogleGlyph } from '../components/auth/GoogleGlyph';
 import { TapHandLoader } from '../components/ui/TapHandLoader';
 import { PLATFORM_ICON, PLATFORM_NAME, PLATFORM_TAGLINE } from '../lib/branding';
+import { ThemeAppearanceControl } from '../components/theme/ThemeAppearanceControl';
 import './LoginPage.css';
 
 type StaffTab = 'teacher' | 'admin' | 'forgot';
@@ -45,10 +46,29 @@ export function StaffLoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   useEffect(() => {
+    rememberPreferredLoginPath('/login/staff');
+  }, []);
+
+  const getRedirectTarget = () => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      return redirect;
+    }
+    return null;
+  };
+
+  useEffect(() => {
     if (!initialized || !session || redirectingRef.current) return;
     redirectingRef.current = true;
     void (async () => {
       const profile = await setAuthSession(session);
+      const redirectTarget = getRedirectTarget();
+      if (redirectTarget) {
+        navigate(redirectTarget, { replace: true });
+        return;
+      }
       const teacherTarget = await resolveTeacherPostLoginPath(profile);
       navigate(teacherTarget ?? resolveLoginTarget(session, profile), { replace: true });
     })();
@@ -70,12 +90,20 @@ export function StaffLoginPage() {
     if (!s) throw new Error('لم تُنشأ جلسة');
     redirectingRef.current = true;
     const profile = await setAuthSession(s);
+    const redirectTarget = getRedirectTarget();
+    if (redirectTarget) {
+      navigate(redirectTarget, { replace: true });
+      return;
+    }
     const teacherTarget = await resolveTeacherPostLoginPath(profile);
     navigate(teacherTarget ?? resolveLoginTarget(s, profile), { replace: true });
   };
 
-  const handleAdminSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEmailPasswordLogin = async () => {
+    if (!email.trim() || !password) {
+      setError('أدخل البريد الإلكتروني وكلمة المرور');
+      return;
+    }
     setError(null);
     setInfo(null);
     setLoading(true);
@@ -83,6 +111,11 @@ export function StaffLoginPage() {
       const { session: newSession } = await signIn(email, password);
       redirectingRef.current = true;
       const profile = await setAuthSession(newSession);
+      const redirectTarget = getRedirectTarget();
+      if (redirectTarget) {
+        navigate(redirectTarget, { replace: true });
+        return;
+      }
       const teacherTarget = await resolveTeacherPostLoginPath(profile);
       navigate(teacherTarget ?? resolveLoginTarget(newSession, profile), { replace: true });
     } catch (err: unknown) {
@@ -90,6 +123,11 @@ export function StaffLoginPage() {
       setLoading(false);
       redirectingRef.current = false;
     }
+  };
+
+  const handleAdminSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleEmailPasswordLogin();
   };
 
   const handleGoogle = async () => {
@@ -218,6 +256,9 @@ export function StaffLoginPage() {
 
   return (
     <div className="login-shell" dir="rtl">
+      <div className="login-theme-dock">
+        <ThemeAppearanceControl variant="icon" />
+      </div>
       <div className="login-container login-container--staff">
         <div className="login-form-side login-form-side--wide">
           <div className="login-form">
@@ -235,7 +276,7 @@ export function StaffLoginPage() {
                 className={tab === 'teacher' ? 'login-tab active' : 'login-tab'}
                 onClick={() => switchTab('teacher')}
               >
-                معلم (جوال)
+                معلم
               </button>
               <button
                 type="button"
@@ -268,30 +309,46 @@ export function StaffLoginPage() {
             {info && <div className="login-info">{info}</div>}
 
             {tab === 'teacher' && otpStep === 'phone' && (
-              <form onSubmit={handleRequestTeacherOtp} className="login-tab-panel">
-                <p className="login-hint">أدخل رقم جوالك المسجّل — يصلك رمز التحقق عبر واتساب.</p>
-                <div className="login-field">
-                  <label htmlFor="staff-phone" className="login-field-label">
-                    رقم الجوال
-                  </label>
-                  <input
-                    id="staff-phone"
-                    className="login-input"
-                    type="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    placeholder="05xxxxxxxx"
-                    dir="ltr"
-                    disabled={busy}
-                    autoComplete="tel"
-                  />
+              <div className="login-tab-panel">
+                <form onSubmit={handleRequestTeacherOtp}>
+                  <p className="login-hint">
+                    أدخل رقم جوالك المسجّل ليصلك رمز واتساب، أو ادخل مباشرة بحساب جيميل — دون بريد وكلمة مرور يدويين.
+                  </p>
+                  <div className="login-field">
+                    <label htmlFor="staff-phone" className="login-field-label">
+                      رقم الجوال
+                    </label>
+                    <input
+                      id="staff-phone"
+                      className="login-input"
+                      type="tel"
+                      inputMode="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      placeholder="05xxxxxxxx"
+                      dir="ltr"
+                      disabled={busy}
+                      autoComplete="tel"
+                    />
+                  </div>
+                  <button type="submit" className="login-submit" disabled={busy}>
+                    {loading ? 'جاري الإرسال...' : 'إرسال رمز واتساب'}
+                  </button>
+                </form>
+                <div className="login-divider" role="separator">
+                  <span>أو بحساب جيميل</span>
                 </div>
-                <button type="submit" className="login-submit" disabled={busy}>
-                  {loading ? 'جاري الإرسال...' : 'إرسال رمز واتساب'}
+                <button
+                  type="button"
+                  className="login-google"
+                  onClick={handleGoogle}
+                  disabled={busy}
+                >
+                  <GoogleGlyph />
+                  <span>{googleLoading ? 'جاري التحويل...' : 'الدخول عبر Google / جيميل'}</span>
                 </button>
-              </form>
+              </div>
             )}
 
             {tab === 'teacher' && otpStep === 'code' && (
@@ -526,9 +583,6 @@ export function StaffLoginPage() {
                   <strong>تسجيل معلم جديد</strong>
                   <small>ليس لديك حساب؟ أنشئه بكود التفعيل من المدرسة</small>
                 </span>
-              </Link>
-              <Link to="/login" className="login-link">
-                دخول الطالب / ولي الأمر
               </Link>
             </div>
           </div>

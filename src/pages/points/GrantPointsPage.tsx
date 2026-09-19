@@ -39,11 +39,17 @@ import {
   MANUAL_TEACHER_ACTIVITY_ID,
   buildManualActivityNote,
   uploadPointsEvidenceFiles,
+  ensureManualTeacherActivity,
 } from '../../lib/pointsEvidence';
+import {
+  filterOlympiadMiddleGrades,
+  filterOlympiadMiddleStudents,
+} from '../../lib/olympiadMiddleScope';
 
 type GrantPointsPageProps = { embedded?: boolean; mode?: 'grant' | 'deduct' };
 
 const STAFF_ROLES = new Set(['admin', 'supervisor', 'principal', 'activity_leader']);
+const OLYMPIAD_MIDDLE_ROLES = new Set(['admin', 'activity_leader']);
 
 export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPointsPageProps) {
   const isDeduct = mode === 'deduct';
@@ -52,6 +58,8 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
   const [searchParams, setSearchParams] = useSearchParams();
   const isTeacher = role === 'teacher';
   const isStaff = !!role && STAFF_ROLES.has(role);
+  /** رائد النشاط: أولمبياد المرحلة المتوسطة فقط */
+  const olympiadMiddleOnly = !!role && OLYMPIAD_MIDDLE_ROLES.has(role);
 
   const [search, setSearch] = useState('');
   const [filterGrade, setFilterGrade] = useState('');
@@ -120,7 +128,7 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
   const { data: catalog } = useGradeClassCatalog(!!user && !isTeacher);
 
   const { data: students = [], isLoading: studentsLoading } = useQuery({
-    queryKey: ['students', isTeacher ? user?.id : 'all', teacherAssignments],
+    queryKey: ['students', isTeacher ? user?.id : olympiadMiddleOnly ? 'olympiad-middle' : 'all', teacherAssignments],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
@@ -130,6 +138,7 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
       if (error) throw error;
       const all = data as DbStudent[];
       if (isTeacher) return filterStudentsByAssignments(all, teacherAssignments);
+      if (olympiadMiddleOnly) return filterOlympiadMiddleStudents(all);
       return all;
     },
     enabled: !!user && (!isTeacher || assignmentsFetched),
@@ -152,8 +161,9 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
 
   const availableGrades = useMemo(() => {
     if (isTeacher) return gradesFromAssignments(teacherAssignments);
-    return catalog?.grades ?? [];
-  }, [isTeacher, teacherAssignments, catalog?.grades]);
+    const grades = catalog?.grades ?? [];
+    return olympiadMiddleOnly ? filterOlympiadMiddleGrades(grades) : grades;
+  }, [isTeacher, teacherAssignments, catalog?.grades, olympiadMiddleOnly]);
 
   const availableClasses = useMemo(() => {
     if (!filterGrade) return [];
@@ -265,7 +275,7 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
         if (customPoints === '' || Number(customPoints) <= 0) {
           throw new Error('حدد عدد النقاط للنشاط اليدوي');
         }
-        activityId = MANUAL_TEACHER_ACTIVITY_ID;
+        activityId = await ensureManualTeacherActivity();
         ledgerNote = buildManualActivityNote(name, note);
       } else if (!activityId) {
         throw new Error('اختر نشاطاً أولاً');
@@ -274,21 +284,27 @@ export function GrantPointsPage({ embedded = false, mode = 'grant' }: GrantPoint
       const evidenceUrls = await uploadPointsEvidenceFiles(user.id, evidenceFiles);
 
       const now = new Date().toISOString();
-      const inserts = selectedStudents.map((studentId) => ({
-        student_id: studentId,
-        granted_by: user.id,
-        activity_id: activityId,
-        points: signedPoints,
-        note: ledgerNote,
-        evidence_urls: evidenceUrls.length > 0 ? evidenceUrls : null,
-        status: (canDirectApprove ? 'approved' : 'pending') as 'approved' | 'pending',
-        approved_by: canDirectApprove ? user.id : null,
-        approved_at: canDirectApprove ? now : null,
-        first_approved_by: canDirectApprove ? user.id : null,
-        first_approved_at: canDirectApprove ? now : null,
-        rejection_reason: null,
-        academic_year: new Date().getFullYear().toString(),
-      }));
+      const inserts = selectedStudents.map((studentId) => {
+        const row: Record<string, unknown> = {
+          student_id: studentId,
+          granted_by: user.id,
+          activity_id: activityId,
+          points: signedPoints,
+          note: ledgerNote,
+          status: (canDirectApprove ? 'approved' : 'pending') as 'approved' | 'pending',
+          approved_by: canDirectApprove ? user.id : null,
+          approved_at: canDirectApprove ? now : null,
+          first_approved_by: canDirectApprove ? user.id : null,
+          first_approved_at: canDirectApprove ? now : null,
+          rejection_reason: null,
+          academic_year: new Date().getFullYear().toString(),
+        };
+        // لا نرسل evidence_urls فارغاً حتى لا يفشل الإدراج إن لم يُزامَن العمود بعد
+        if (evidenceUrls.length > 0) {
+          row.evidence_urls = evidenceUrls;
+        }
+        return row;
+      });
 
       const { error } = await supabase.from('points_ledger').insert(inserts);
       if (error) throw new Error(parsePointsGrantError(error.message));

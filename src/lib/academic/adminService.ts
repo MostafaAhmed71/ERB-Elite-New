@@ -813,7 +813,12 @@ export const academicObservationService = {
       if (!match) continue;
       const teacher_name = nameById.get(setup.teacher_id);
       if (!teacher_name) continue;
-      mergeCandidate(setup.teacher_id, teacher_name, setup.subjects ?? [], 'setup');
+      mergeCandidate(
+        setup.teacher_id,
+        teacher_name,
+        (setup.subjects_by_grade?.[`${level}_${grade}`] ?? setup.subjects) ?? [],
+        'setup',
+      );
     }
 
     return [...map.values()].sort((a, b) => a.teacher_name.localeCompare(b.teacher_name, 'ar'));

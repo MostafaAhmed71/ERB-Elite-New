@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { QRQuickGrant } from '../teacher/QRQuickGrant';
 import { showSuccess, showError } from '../../lib/toast';
+import { filterOlympiadMiddleStudents } from '../../lib/olympiadMiddleScope';
 import type { DbActivity, DbStudent } from '../../types';
 import clsx from 'clsx';
 
@@ -30,14 +31,14 @@ export function EventCheckInPanel() {
   });
 
   const { data: students = [] } = useQuery({
-    queryKey: ['students', 'active-all'],
+    queryKey: ['students', 'olympiad-middle-active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
         .select('*')
         .eq('is_active', true);
       if (error) throw error;
-      return data as DbStudent[];
+      return filterOlympiadMiddleStudents(data as DbStudent[]);
     },
   });
 

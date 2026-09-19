@@ -153,6 +153,60 @@ function currentRoute(): string {
   return `${window.location.pathname}${window.location.search}`.slice(0, 500);
 }
 
+/** ضجيج المتصفح/إضافات/أخطاء مستخدم متوقعة — لا تُسجَّل في شاشة المطوّر */
+export function isIgnorablePlatformNoise(
+  message: string,
+  context?: Record<string, unknown>,
+): boolean {
+  const m = (message || '').trim();
+  const lower = m.toLowerCase();
+  const body = String(context?.response_body ?? '').toLowerCase();
+  const endpoint = String(context?.endpoint ?? '').toLowerCase();
+  const url = String(context?.url ?? '').toLowerCase();
+
+  if (!m) return true;
+  if (lower === 'script error.' || lower === 'script error') return true;
+  if (
+    lower.includes('__firefox__')
+    || lower.includes('darkreader')
+    || lower.includes('window.ethereum')
+    || lower.includes("can't find variable: __firefox__")
+  ) {
+    return true;
+  }
+  if (lower.includes('clarity.ms') || lower.includes('www.clarity.ms')) return true;
+  if (endpoint.includes('/auth/v1/token') && (body.includes('refresh_token') || lower.includes('refresh_token'))) {
+    return true;
+  }
+  if (endpoint.includes('auth-phone-otp')) {
+    if (
+      body.includes('غير مسجّل')
+      || body.includes('not_registered')
+      || body.includes('رمز التحقق غير صحيح')
+      || body.includes('مسجّل مسبقاً')
+    ) {
+      return true;
+    }
+    const status = Number(context?.status);
+    if (status === 400 || status === 409) return true;
+  }
+  if (endpoint.includes('save_class_weekly_plan_slots') && Number(context?.status) === 404) {
+    return true;
+  }
+  if (
+    lower.includes('رصيد النقاط غير كاف')
+    || lower.includes('انتهى رصيد')
+    || lower.includes('غير مسجّل كمعلم')
+  ) {
+    return true;
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (lower.includes('failed to fetch') || lower.includes('load failed')) return true;
+  }
+  if (url.includes('localhost') || url.includes('127.0.0.1')) return true;
+  return false;
+}
+
 function parseReportRpcResult(data: unknown): ReportPlatformErrorResult {
   if (data == null) {
     return { id: null, is_new: false, occurrence_count: 0, should_alert: false };
@@ -190,6 +244,9 @@ export async function reportPlatformError(input: {
   errorName?: string;
 }): Promise<string | null> {
   try {
+    if (isIgnorablePlatformNoise(input.message, { ...input.context, url: input.url })) {
+      return null;
+    }
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
     const parsed = ua ? parseUserAgent(ua) : { browser: '', os: '', device: '' };
     const route = input.route ?? currentRoute();
@@ -432,6 +489,12 @@ export async function updatePlatformErrorStatus(
   return !!data;
 }
 
+export async function purgeAllPlatformErrors(): Promise<number> {
+  const { data, error } = await supabase.rpc('purge_all_platform_errors');
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
 export async function resolvePlatformError(id: string): Promise<boolean> {
   return updatePlatformErrorStatus(id, 'fixed');
 }
@@ -490,6 +553,7 @@ export function reportMildIssue(input: {
   const fromErr = input.error != null ? normalizeUnknownError(input.error) : null;
   const message = normalizeUnknownError(input.message || fromErr?.message || '').message;
   if (!message) return;
+  if (isIgnorablePlatformNoise(message, input.context)) return;
   const kind = String(input.context?.type ?? 'mild');
   const fp = input.fingerprint ?? `mild:${kind}:${message.slice(0, 120)}`;
   if (shouldThrottleMild(fp)) return;
@@ -630,12 +694,11 @@ export function installPlatformErrorListeners() {
       if (url && !shouldSkipMonitorUrl(url)) {
         const normalized = normalizeUnknownError(err, 'فشل شبكة');
         const metaFallback = extractApiMeta(url, method);
-        void reportPlatformError({
+        reportMildIssue({
           source: 'api',
-          severity: 'error',
+          severity: 'warning',
           message: `${normalized.message} — ${method} ${metaFallback.endpoint || url.slice(0, 160)}`,
-          stack: normalized.stack ?? undefined,
-          requestId,
+          error: err,
           context: {
             type: 'fetch_network',
             endpoint: metaFallback.endpoint,
@@ -645,11 +708,88 @@ export function installPlatformErrorListeners() {
             error_name: normalized.name,
             stack_short: normalized.stackShort,
           },
-          errorName: normalized.name,
           fingerprint: `net:${method}:${metaFallback.endpoint.slice(0, 160)}:${normalized.message.slice(0, 80)}`,
         });
       }
       throw err;
     }
   };
+}
+
+const CLIP_STACK_MAX = 2500;
+const CLIP_CONTEXT_MAX = 2500;
+
+function clipText(value: string | null | undefined, max: number): string {
+  if (!value) return '';
+  return value.length > max ? `${value.slice(0, max)}\n…(مقطوع)` : value;
+}
+
+/** نص خطأ واحد جاهز للصق في محادثة المطور */
+export function formatPlatformErrorForClipboard(err: PlatformError, index?: number): string {
+  const status = (err.status ?? (err.resolved_at ? 'fixed' : 'new')) as PlatformErrorStatus;
+  const titleNum = typeof index === 'number' ? `${index}) ` : '';
+  const occ = err.occurrence_count ?? 1;
+  const possibleCause =
+    typeof err.context?.possible_cause === 'string' ? err.context.possible_cause : '';
+  const stack =
+    (typeof err.context?.stack_short === 'string' && err.context.stack_short)
+      ? err.context.stack_short
+      : err.stack;
+  const correlation =
+    err.correlation_id
+    || (typeof err.context?.correlation_id === 'string' ? err.context.correlation_id : null)
+    || err.session_id
+    || '';
+  const method = err.context?.method != null ? String(err.context.method) : '';
+  const endpoint = err.context?.endpoint != null ? String(err.context.endpoint) : '';
+  const httpStatus = err.context?.status != null ? String(err.context.status) : '';
+  const ctxJson = clipText(
+    Object.keys(err.context ?? {}).length > 0 ? JSON.stringify(err.context, null, 2) : '',
+    CLIP_CONTEXT_MAX,
+  );
+
+  const lines = [
+    `## ${titleNum}[${ERROR_SEVERITY_LABELS[err.severity] ?? err.severity}] ${ERROR_SOURCE_LABELS[err.source] ?? err.source} — ${ERROR_STATUS_LABELS[status] ?? status}${occ > 1 ? ` — ×${occ}` : ''}`,
+    `id: ${err.id}`,
+    `الرسالة: ${err.message}`,
+    `المستخدم: ${err.user_name ?? '—'} | الدور: ${err.user_role ?? '—'} | الجوال: ${err.user_phone || 'غير مسجّل'}`,
+    `المسار: ${err.route_path ?? '—'}`,
+    `URL: ${err.url ?? '—'}`,
+    `الجهاز: ${[err.browser, err.os_name, err.device_type].filter(Boolean).join(' · ') || '—'}`,
+    `آخر ظهور: ${err.last_seen_at ?? err.created_at}`,
+    `أول تسجيل: ${err.created_at}`,
+    `Correlation: ${correlation || '—'}`,
+    `Request ID: ${err.request_id ?? '—'}`,
+  ];
+  if (possibleCause) lines.push(`Possible Cause: ${possibleCause}`);
+  if (method || endpoint || httpStatus) {
+    lines.push(`HTTP: ${method || 'GET'} ${endpoint || '—'} ${httpStatus ? `→ ${httpStatus}` : ''}`.trim());
+  }
+  if (stack) {
+    lines.push('Stack:', clipText(stack, CLIP_STACK_MAX));
+  }
+  if (ctxJson) {
+    lines.push('Context:', ctxJson);
+  }
+  return lines.join('\n');
+}
+
+export function formatPlatformErrorsDump(
+  errors: PlatformError[],
+  meta?: { filterLabel?: string; generatedAt?: string },
+): string {
+  const when = meta?.generatedAt ?? new Date().toISOString();
+  const header = [
+    '# تقرير أخطاء المنصة — ERB Elite',
+    'الصق هذا التقرير في محادثة المطور لتشخيص الأخطاء وحلها.',
+    `التاريخ: ${when}`,
+    `التصفية: ${meta?.filterLabel ?? '—'}`,
+    `عدد الأخطاء: ${errors.length}`,
+    '',
+  ];
+  if (errors.length === 0) {
+    return [...header, 'لا توجد أخطاء في هذه التصفية.'].join('\n');
+  }
+  const body = errors.map((err, i) => formatPlatformErrorForClipboard(err, i + 1)).join('\n\n---\n\n');
+  return `${header.join('\n')}${body}\n`;
 }

@@ -469,7 +469,12 @@ export function PrincipalAiSettingsPage() {
                     placeholder="مثال: qwen/qwen-2.5-7b-instruct"
                     onBlur={(e) => {
                       const v = e.target.value.trim();
-                      if (v) setSettingsDraft((s) => ({ ...s, openrouter_model: v }));
+                      if (!v) return;
+                      if (/^(sk-|sk-or-)/i.test(v) || (v.length > 48 && !v.includes('/'))) {
+                        e.target.value = '';
+                        return;
+                      }
+                      setSettingsDraft((s) => ({ ...s, openrouter_model: v }));
                     }}
                   />
                 </label>

@@ -83,6 +83,8 @@ export interface AcademicTeacherSetup {
   grades_by_level: Record<string, number[]>;
   sections_by_grade: Record<string, string[]>;
   subjects: string[];
+  /** مواد لكل صف: المفتاح مثل middle_1 — إن غاب يُستخدم subjects لكل الصفوف (توافق قديم) */
+  subjects_by_grade?: Record<string, string[]>;
   is_setup_complete: boolean;
 }
 

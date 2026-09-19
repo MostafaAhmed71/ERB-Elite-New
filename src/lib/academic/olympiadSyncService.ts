@@ -46,7 +46,7 @@ export async function buildOlympiadSyncPayload(userId: string): Promise<{
       .eq('teacher_id', userId),
     supabase
       .from('academic_teacher_setups')
-      .select('education_levels, grades_by_level, sections_by_grade, subjects, is_setup_complete')
+      .select('education_levels, grades_by_level, sections_by_grade, subjects, subjects_by_grade, is_setup_complete')
       .eq('teacher_id', userId)
       .maybeSingle(),
   ]);
@@ -80,9 +80,15 @@ export async function buildOlympiadSyncPayload(userId: string): Promise<{
   if (setupRow?.is_setup_complete) {
     for (const level of setupRow.education_levels ?? []) {
       for (const gradeNum of setupRow.grades_by_level?.[level] ?? []) {
-        const sections = setupRow.sections_by_grade?.[gradeSectionKey(level, gradeNum)] ?? [];
+        const gradeKey = gradeSectionKey(level, gradeNum);
+        const sections = setupRow.sections_by_grade?.[gradeKey] ?? [];
         for (const section of sections) addClass(level, gradeNum, section);
-        for (const subject of setupRow.subjects ?? []) addSubject(level, gradeNum, subject);
+        const gradeSubjects =
+          setupRow.subjects_by_grade?.[gradeKey]
+          ?? setupRow.subjects_by_grade?.[`${level}_${gradeNum}`]
+          ?? setupRow.subjects
+          ?? [];
+        for (const subject of gradeSubjects) addSubject(level, gradeNum, subject);
       }
     }
   }

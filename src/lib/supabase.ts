@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database.types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -9,7 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-/** Untyped client — hand-maintained Database types omit FK relationships used in embeds. */
+/** 
+ * Supabase client — untyped to support relational embeds (*, activities(...)) 
+ * and custom RPCs without SelectQueryError limitations.
+ * For strict table typing, use TypedSupabaseClient.
+ */
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -17,3 +22,5 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     detectSessionInUrl: true,
   },
 });
+
+export type TypedSupabaseClient = SupabaseClient<Database>;

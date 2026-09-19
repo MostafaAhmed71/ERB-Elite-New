@@ -5,7 +5,7 @@ import type { ClassRankEntry, LeaderboardPeriod, LeaderboardTab, StudentRankEntr
 import { LeaderboardTabs } from './LeaderboardTabs';
 import { StudentPodium, StudentRankList } from './StudentRankList';
 import { ClassPodium, ClassRankList } from './ClassRankList';
-import { LeaderboardPeriodTabs, applyPeriodPlaceholder } from './LeaderboardShared';
+import { LeaderboardPeriodTabs } from './LeaderboardShared';
 
 type DualLeaderboardPanelProps = {
   students: StudentRankEntry[];
@@ -14,6 +14,8 @@ type DualLeaderboardPanelProps = {
   displayMode?: boolean;
   showTabs?: boolean;
   className?: string;
+  period?: LeaderboardPeriod;
+  onPeriodChange?: (period: LeaderboardPeriod) => void;
 };
 
 export function DualLeaderboardPanel({
@@ -23,22 +25,23 @@ export function DualLeaderboardPanel({
   displayMode = false,
   showTabs = true,
   className,
+  period: controlledPeriod,
+  onPeriodChange,
 }: DualLeaderboardPanelProps) {
   const [tab, setTab] = useState<LeaderboardTab>(initialTab);
-  const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
+  const [internalPeriod, setInternalPeriod] = useState<LeaderboardPeriod>('weekly');
+  const period = controlledPeriod ?? internalPeriod;
+  const handlePeriodChange = onPeriodChange ?? setInternalPeriod;
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
 
-  // TODO: wire to backend date-range filter
-  applyPeriodPlaceholder(period, tab === 'students' ? students : classes);
-
   return (
     <div className={clsx('space-y-5', className)} dir="rtl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {showTabs && <LeaderboardTabs active={tab} onChange={setTab} large={displayMode} />}
-        <LeaderboardPeriodTabs value={period} onChange={setPeriod} />
+        <LeaderboardPeriodTabs value={period} onChange={handlePeriodChange} />
       </div>
 
       <AnimatePresence mode="wait">

@@ -1,14 +1,22 @@
 /// <reference lib="webworker" />
-import { clientsClaim } from 'workbox-core';
+import { clientsClaim, skipWaiting } from 'workbox-core';
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { NetworkOnly } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
 };
 
+skipWaiting();
+clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
-clientsClaim();
+
+registerRoute(
+  ({ url }) => url.pathname.endsWith('/version.json'),
+  new NetworkOnly(),
+);
 
 type PushPayload = {
   title?: string;

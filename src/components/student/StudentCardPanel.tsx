@@ -3,6 +3,7 @@ import { Printer, Download } from 'lucide-react';
 import { StudentCard, type StudentCardProps } from './StudentCard';
 import { Button } from '../ui/Button';
 import { downloadStudentCardImage } from '../../lib/exportStudentCardsZip';
+import { getStudentQRUrl } from '../../lib/qr';
 import { toast } from 'react-hot-toast';
 
 type StudentCardPanelProps = Omit<StudentCardProps, 'wrapperClassName' | 'printSize'> & {
@@ -19,7 +20,6 @@ export function StudentCardPanel({
   grade,
   studentClass,
   admissionNumber,
-  photoUrl,
   studentId,
   qrToken,
 }: StudentCardPanelProps) {
@@ -43,7 +43,6 @@ export function StudentCardPanel({
         class_name: studentClass,
         admission_number: admissionNumber,
         qr_token: qrToken,
-        photoUrl: photoUrl ?? null,
       });
       toast.success('تم حفظ البطاقة كصورة');
     } catch {
@@ -61,7 +60,7 @@ export function StudentCardPanel({
           grade={grade}
           studentClass={studentClass}
           admissionNumber={admissionNumber}
-          photoUrl={photoUrl}
+          qrValue={studentId ? getStudentQRUrl(studentId, qrToken) : undefined}
           wrapperClassName={wrapperClassName}
           printSize
         />

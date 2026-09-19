@@ -28,16 +28,16 @@
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.511.0",
-    "motion": "^12.4.0",
     "pptxgenjs": "^3.12.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-hot-toast": "^2.5.2",
     "react-qr-code": "^2.2.0",
     "react-router-dom": "^7.6.2",
+    "react-stately": "^3.47.0",
     "recharts": "^2.15.3",
     "simple-statistics": "^7.9.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

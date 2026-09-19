@@ -13,13 +13,13 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-gradient-to-r from-gold-500 to-gold-400 text-navy-950 hover:shadow-lg hover:shadow-gold-500/20 border border-transparent',
+    'bg-[var(--primary)] text-on-contrast hover:bg-[var(--primary-secondary)] border border-transparent shadow-[0_6px_18px_rgba(15,39,68,0.18)] dark:bg-gold-500 dark:text-navy-950 dark:hover:bg-gold-400 dark:shadow-none',
   secondary:
-    'bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white',
-  ghost: 'bg-transparent hover:bg-white/5 text-white/60 hover:text-white border border-transparent',
-  danger: 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400',
+    'bg-transparent hover:bg-[color-mix(in_srgb,var(--primary)_6%,transparent)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+  ghost:
+    'bg-transparent hover:bg-[color-mix(in_srgb,var(--primary)_5%,transparent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent',
+  danger: 'bg-[color-mix(in_srgb,var(--error)_12%,transparent)] hover:bg-[color-mix(in_srgb,var(--error)_20%,transparent)] border border-[color-mix(in_srgb,var(--error)_30%,transparent)] text-[var(--error)]',
 };
-
 const sizeClasses: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-xs rounded-lg gap-1.5',
   md: 'px-4 py-2.5 text-sm rounded-xl gap-2',

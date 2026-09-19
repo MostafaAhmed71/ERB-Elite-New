@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { academicTeacherService } from '../../lib/academic/teacherService';
 import { academicAdminService } from '../../lib/academic/adminService';
-import { teacherSubjectNamesForGrade } from '../../lib/academic/subjectHelpers';
+import { teacherSubjectNamesForGrade, subjectsFromTeacherSetup } from '../../lib/academic/subjectHelpers';
 import {
   DAYS_AR,
   DEFAULT_SECTIONS,
@@ -30,6 +30,7 @@ import {
 } from '../../components/academic/AcademicUi';
 import { AcademicSubjectSelect } from '../../components/academic/AcademicSubjectSelect';
 import { fetchTeacherClassAssignmentsByUserId } from '../../lib/teacherScope';
+import { scheduleSlotCount } from '../../lib/academic/teacherSetupHelpers';
 import {
   classesMatch,
   normalizeClassName,
@@ -123,8 +124,8 @@ export function AcademicSchedulePage() {
   });
 
   const subjectOptions = useMemo(
-    () => teacherSubjectNamesForGrade(allSubjects, level, grade, setup?.subjects),
-    [allSubjects, level, grade, setup?.subjects],
+    () => teacherSubjectNamesForGrade(allSubjects, level, grade, subjectsFromTeacherSetup(setup, level, grade)),
+    [allSubjects, level, grade, setup],
   );
 
   useEffect(() => {
@@ -144,6 +145,35 @@ export function AcademicSchedulePage() {
       setSection(availableSections[0]);
     }
   }, [availableSections, section]);
+
+  const existingForSelectedClass = useMemo(
+    () =>
+      schedules.find(
+        (s) =>
+          s.education_level === level &&
+          s.grade === grade &&
+          classesMatch(s.section, section),
+      ) ?? null,
+    [schedules, level, grade, section],
+  );
+
+  useEffect(() => {
+    if (!showForm) return;
+    if (existingForSelectedClass) {
+      if (editingId === existingForSelectedClass.id) return;
+      setEditingId(existingForSelectedClass.id);
+      setPeriods(
+        existingForSelectedClass.periods.length
+          ? existingForSelectedClass.periods
+          : emptyPeriods(),
+      );
+      return;
+    }
+    if (editingId) {
+      setEditingId(null);
+      setPeriods(emptyPeriods());
+    }
+  }, [showForm, existingForSelectedClass, editingId]);
 
   useEffect(() => {
     if (!showForm || subjectOptions.length === 0) return;
@@ -205,11 +235,22 @@ export function AcademicSchedulePage() {
       return p && !p.is_empty && p.subject.trim();
     }).length;
 
+  const classLoads = useMemo(
+    () =>
+      schedules.map((s) => ({
+        id: s.id,
+        label: formatGradeSection(s.education_level, s.grade, s.section),
+        count: scheduleSlotCount(s),
+      })),
+    [schedules],
+  );
+  const totalLoad = useMemo(() => classLoads.reduce((n, c) => n + c.count, 0), [classLoads]);
+
   return (
     <AcademicLayout size="6xl">
       <AcademicPageHeader
         title="الجدول الدراسي"
-        subtitle="حدّد حصصك حسب فصولك المسندة — يوم بيوم على الجوال"
+        subtitle="حصصك حسب الفصول — مع نصاب كل صف والنصاب الجماعي"
         backTo="/academic"
         action={
           <button
@@ -228,8 +269,39 @@ export function AcademicSchedulePage() {
         <p className="text-green-400 text-sm mb-4">تم الإعداد — أضف جدولك الدراسي</p>
       )}
 
+      {schedules.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-gold-400/25 bg-gold-500/10 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] text-[#A3AED0] mb-0.5">النصاب الجماعي</p>
+              <p className="text-white font-black text-2xl tabular-nums leading-none">
+                {totalLoad}
+                <span className="text-sm font-semibold text-gold-300 mr-1">حصة</span>
+              </p>
+            </div>
+            <p className="text-xs text-[#A3AED0]">{classLoads.length} فصل</p>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {classLoads.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between rounded-xl bg-navy-950/40 border border-white/[0.06] px-3 py-2"
+              >
+                <span className="text-white text-sm font-semibold truncate">{c.label}</span>
+                <span className="text-gold-300 text-sm font-bold tabular-nums shrink-0 mr-2">
+                  {c.count} حصة
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {showForm && (
-        <AcademicFormPanel title={editingId ? 'تعديل الجدول' : 'جدول جديد'} className="mb-4">
+        <AcademicFormPanel
+          title={existingForSelectedClass ? 'تعديل الجدول' : 'جدول جديد'}
+          className="mb-4"
+        >
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <select
               className={`${academicInputClass} min-h-[48px]`}
@@ -265,6 +337,12 @@ export function AcademicSchedulePage() {
               ))}
             </select>
           </div>
+
+          {existingForSelectedClass && (
+            <p className="text-amber-200 text-sm rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+              يوجد جدول لهذا الفصل مسبقاً — التعديل يحدّث نفس الجدول ولا يُنشئ جدولاً ثانياً.
+            </p>
+          )}
 
           {assignedCombos.length === 0 && (
             <p className="text-amber-300 text-sm rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
@@ -315,7 +393,7 @@ export function AcademicSchedulePage() {
                               grade={grade}
                               value={periods[idx]?.subject ?? ''}
                               onChange={(v) => updatePeriod(idx, v)}
-                              teacherSetupSubjects={setup?.subjects}
+                              teacherSetupSubjects={subjectsFromTeacherSetup(setup, level, grade)}
                               allowCustom={false}
                               placeholder="—"
                               className={`${academicInputClass} text-sm py-3 min-h-[48px]`}
@@ -356,7 +434,7 @@ export function AcademicSchedulePage() {
                             grade={grade}
                             value={periods[idx]?.subject ?? ''}
                             onChange={(v) => updatePeriod(idx, v)}
-                            teacherSetupSubjects={setup?.subjects}
+                            teacherSetupSubjects={subjectsFromTeacherSetup(setup, level, grade)}
                             allowCustom={false}
                             placeholder="—"
                             className={`${academicInputClass} text-xs py-2 min-w-[108px]`}
@@ -377,7 +455,7 @@ export function AcademicSchedulePage() {
               onClick={() => saveMut.mutate()}
               disabled={subjectOptions.length === 0}
             >
-              {editingId ? 'تحديث' : 'حفظ'}
+              {existingForSelectedClass ? 'تحديث' : 'حفظ'}
             </button>
             <button
               type="button"
@@ -398,6 +476,9 @@ export function AcademicSchedulePage() {
             <div className="flex justify-between items-start gap-2 mb-3">
               <h3 className="text-white font-semibold text-sm sm:text-base">
                 {formatGradeSection(s.education_level, s.grade, s.section)}
+                <span className="mr-2 text-gold-300 font-bold text-xs">
+                  · نصاب {scheduleSlotCount(s)} حصة
+                </span>
               </h3>
               <div className="flex gap-1 shrink-0">
                 <button

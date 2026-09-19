@@ -33,14 +33,14 @@ export function CompLeaderboardPage() {
 
   if (loading && rows.length === 0) {
     return (
-      <div className="min-h-dvh bg-[#0D1B2A] flex items-center justify-center" dir="rtl">
+      <div className="theme-force-dark min-h-dvh bg-[#0D1B2A] flex items-center justify-center" dir="rtl">
         <TapHandLoader label="جاري تحميل ترتيب المسابقة..." fullScreen />
       </div>
     );
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-[#0D1B2A] text-white overflow-hidden" dir="rtl">
+    <div className="theme-force-dark h-dvh flex flex-col bg-[#0D1B2A] text-white overflow-hidden" dir="rtl">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(244,196,48,0.12),transparent_50%)]" />
 
       <header className="relative z-10 shrink-0 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 lg:py-4 border-b border-white/10 bg-[#0D1B2A]/90 backdrop-blur-md">

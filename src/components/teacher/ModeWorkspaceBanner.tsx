@@ -63,7 +63,7 @@ export function ModeWorkspaceBanner({ mode, className, homeTo = '/dashboard' }: 
             'inline-flex items-center justify-center gap-1.5 shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors min-h-[40px]',
             mode === 'olympiad'
               ? 'bg-gold-500 text-navy-950 hover:bg-gold-400'
-              : 'bg-[#7551FF] text-white hover:bg-[#8666FF]',
+              : 'bg-[var(--primary)] text-on-contrast hover:bg-[var(--primary-secondary)]',
           )}
         >
           {copy.homeLabel}

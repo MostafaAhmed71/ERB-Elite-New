@@ -1,4 +1,4 @@
-import type { AcademicEducationLevel, AcademicSubject } from './types';
+import type { AcademicEducationLevel, AcademicSubject, AcademicTeacherSetup } from './types';
 import { formatGradeLabel } from './constants';
 
 /** مواد نشطة لمرحلة وصف محددين */
@@ -25,13 +25,36 @@ export function teacherSubjectNamesForGrade(
   allSubjects: AcademicSubject[],
   level: AcademicEducationLevel,
   grade: number,
-  teacherSetupSubjects?: string[],
+  teacherSetupSubjects?: string[] | null,
 ): string[] {
   const forGrade = subjectNamesForGrade(allSubjects, level, grade);
-  if (!teacherSetupSubjects?.length) return forGrade;
+  if (teacherSetupSubjects == null) return forGrade;
+  if (teacherSetupSubjects.length === 0) return forGrade;
   const allowed = new Set(teacherSetupSubjects);
-  const picked = forGrade.filter((n) => allowed.has(n));
-  return picked.length > 0 ? picked : forGrade;
+  const matched = forGrade.filter((n) => allowed.has(n));
+  // مواد الجدول قد لا تطابق دليل المواد حرفياً — اعرضها كما في الجدول
+  if (matched.length > 0) return matched;
+  return [...teacherSetupSubjects].sort((a, b) => a.localeCompare(b, 'ar'));
+}
+
+/** مواد هذا الصف من إعداد الملف — لا تُعمَّم على بقية الصفوف */
+export function subjectsFromTeacherSetup(
+  setup: Pick<AcademicTeacherSetup, 'subjects' | 'subjects_by_grade'> | null | undefined,
+  level: AcademicEducationLevel,
+  grade: number,
+): string[] | undefined {
+  if (!setup) return undefined;
+  const bag = setup.subjects_by_grade;
+  if (bag && Object.keys(bag).length > 0) {
+    const key = gradeSectionKey(level, grade);
+    const found = bag[key] ?? bag[`${level}_${grade}`];
+    return Array.isArray(found) ? found : [];
+  }
+  return setup.subjects;
+}
+
+export function flattenSubjectsByGrade(subjectsByGrade: Record<string, string[]>): string[] {
+  return [...new Set(Object.values(subjectsByGrade).flat().map((s) => s.trim()).filter(Boolean))];
 }
 
 export function formatSubjectGrades(level: AcademicEducationLevel, grades: number[]): string {

@@ -150,6 +150,12 @@ export async function retryPlatformJob(jobId: string): Promise<boolean> {
   return !!data;
 }
 
+export async function purgeAllPlatformJobs(): Promise<number> {
+  const { data, error } = await supabase.rpc('purge_all_platform_jobs');
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
 export async function invokeJobsWorker(limit?: number): Promise<{
   claimed?: number;
   results?: unknown[];

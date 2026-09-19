@@ -59,7 +59,7 @@ export function AdminUsersHub() {
             className={clsx(
               'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors',
               activeTab === id
-                ? 'bg-[#422AFB] text-white shadow-lg shadow-[#422AFB]/20'
+                ? 'bg-[var(--primary)] text-on-contrast shadow-lg shadow-[rgba(15,39,68,0.2)]'
                 : 'text-[#A3AED0] hover:bg-white/5 hover:text-white'
             )}
           >

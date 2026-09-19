@@ -85,21 +85,26 @@ function normalizeProvider(raw: unknown): Provider {
   return 'openrouter';
 }
 
+function looksLikeApiKey(value: string): boolean {
+  return /^(sk-|sk-or-|or-pat-|or-v1-)/i.test(value) || (value.length > 48 && !value.includes('/'));
+}
+
 function resolveModel(provider: Provider, configured: string | null | undefined): string {
   const raw = String(configured || '').trim();
+  const safe = looksLikeApiKey(raw) ? '' : raw;
   if (provider === 'deepseek') {
-    if (!raw || raw.includes('/')) return 'deepseek-chat';
-    return raw;
+    if (!safe || safe.includes('/')) return 'deepseek-chat';
+    return safe;
   }
   if (provider === 'google') {
-    if (!raw || raw.includes('/')) return 'gemini-2.0-flash-lite';
-    return raw.replace(/^models\//, '');
+    if (!safe || safe.includes('/')) return 'gemini-2.0-flash-lite';
+    return safe.replace(/^models\//, '');
   }
   if (provider === 'openai') {
-    if (!raw || raw.includes('/')) return 'gpt-4o-mini';
-    return raw;
+    if (!safe || safe.includes('/')) return 'gpt-4o-mini';
+    return safe;
   }
-  return raw || 'deepseek/deepseek-v4-flash';
+  return safe || 'deepseek/deepseek-v4-flash';
 }
 
 async function fetchWithTimeout(

@@ -33,6 +33,7 @@ import { usePendingPointsCount } from '../hooks/usePendingPointsCount';
 import { AppRealtimeSync } from '../components/realtime/AppRealtimeSync';
 import { StudentParentRealtime } from '../components/realtime/StudentParentRealtime';
 import { TeacherModeToggle } from '../components/teacher/TeacherModeToggle';
+import { ThemeAppearanceControl } from '../components/theme/ThemeAppearanceControl';
 import { useTeacherModeStore } from '../stores/teacherModeStore';
 import { filterTeacherNavByMode, pathMatchesTeacherMode, roleUsesAppMode, type TeacherAppMode } from '../lib/teacherMode';
 import { groupNavItems } from '../lib/navGroups';
@@ -370,7 +371,7 @@ function AppLayoutContent() {
                           />
                         )}
                         {badge != null && (
-                          <span className="absolute -top-1.5 -left-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                          <span className="absolute -top-1.5 -left-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-on-contrast text-[10px] font-bold leading-none">
                             {badge > 99 ? '99+' : badge}
                           </span>
                         )}
@@ -418,6 +419,9 @@ function AppLayoutContent() {
         </nav>
 
         <div className="p-2 sm:p-3 border-t border-white/5 relative shrink-0 pb-safe space-y-1.5 lg:space-y-2">
+          {sidebarExpanded && (
+            <ThemeAppearanceControl variant="compact" className="mb-1" />
+          )}
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-l from-white/5 to-transparent" />
           {/* ترتيب القائمة: سطح المكتب فقط — يضيق الشريط على الجوال */}
           {sidebarExpanded && canReorderNav && (
@@ -459,7 +463,7 @@ function AppLayoutContent() {
             </Link>
           )}
           <div className={clsx('flex items-center gap-2', !sidebarExpanded && 'justify-center')}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-xs font-bold flex-shrink-0">
               {user?.full_name?.charAt(0) ?? 'م'}
             </div>
             {sidebarExpanded && (
@@ -554,6 +558,7 @@ function AppLayoutContent() {
             <FeatureGate featureId="widget:global:notifications">
               <NotificationBell />
             </FeatureGate>
+            <ThemeAppearanceControl variant="icon" />
             <button
               type="button"
               onClick={handleLogout}
@@ -566,8 +571,7 @@ function AppLayoutContent() {
           </div>
         </header>
 
-        <main data-promo-scroll className="flex-1 p-2 sm:p-4 lg:p-6 overflow-y-auto overflow-x-hidden content-grid-bg relative pb-24 lg:pb-6">
-          <div className="absolute inset-0 bg-gradient-to-b from-gold-500/[0.02] via-transparent to-transparent pointer-events-none" />
+        <main data-promo-scroll className="flex-1 p-2 sm:p-4 lg:p-6 overflow-y-auto overflow-x-hidden relative pb-24 lg:pb-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

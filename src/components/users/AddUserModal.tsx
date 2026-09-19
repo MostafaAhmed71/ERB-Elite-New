@@ -39,7 +39,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
     role: 'student' as UserRole,
     phone: '',
   });
-  const [staffEducationLevel, setStaffEducationLevel] = useState<AcademicEducationLevel | ''>('');
+  const [staffEducationLevel, setStaffEducationLevel] = useState<AcademicEducationLevel | 'both' | ''>('');
   
   // Teacher specific states
   const [subject, setSubject] = useState('');
@@ -75,7 +75,9 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
       setStaffEducationLevel(
         editUser.staff_education_level === 'middle' || editUser.staff_education_level === 'high'
           ? editUser.staff_education_level
-          : '',
+          : editUser.role === 'supervisor'
+            ? 'both'  // المشرف بدون مرحلة محددة = يرى كلتا المرحلتين
+            : '',
       );
 
       // Fetch teacher details if role is teacher
@@ -151,7 +153,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
             phone: form.phone.trim() || null,
             staff_education_level:
               form.role === 'deputy' || form.role === 'supervisor'
-                ? staffEducationLevel || null
+                ? (staffEducationLevel === 'both' ? null : staffEducationLevel || null)
                 : null,
           })
           .eq('id', editUser!.id);
@@ -170,7 +172,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
           points_budget: form.role === 'teacher' ? pointsBudget : undefined,
           staff_education_level:
             form.role === 'deputy' || form.role === 'supervisor'
-              ? staffEducationLevel || null
+              ? (staffEducationLevel === 'both' ? null : staffEducationLevel || null)
               : null,
         });
       }
@@ -182,7 +184,8 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
         };
         if (form.phone.trim()) profilePatch.phone = form.phone.trim();
         if (form.role === 'deputy' || form.role === 'supervisor') {
-          profilePatch.staff_education_level = staffEducationLevel || null;
+          profilePatch.staff_education_level =
+            staffEducationLevel === 'both' ? null : staffEducationLevel || null;
         }
         await supabase.from('users').update(profilePatch).eq('id', targetUserId);
       }
@@ -348,6 +351,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
                 const role = e.target.value as UserRole;
                 setForm({ ...form, role });
                 if (role !== 'deputy' && role !== 'supervisor') setStaffEducationLevel('');
+                else if (role === 'supervisor') setStaffEducationLevel('both');
               }}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/20 transition-all text-sm appearance-none"
             >
@@ -374,7 +378,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
               <select
                 value={staffEducationLevel}
                 onChange={(e) =>
-                  setStaffEducationLevel(e.target.value as AcademicEducationLevel | '')
+                  setStaffEducationLevel(e.target.value as AcademicEducationLevel | 'both' | '')
                 }
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-gold-400/50 text-sm appearance-none"
                 required={form.role === 'deputy'}
@@ -388,9 +392,16 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
                 <option value="high" className="bg-navy-900">
                   {ACADEMIC_LEVEL_LABELS.high}
                 </option>
+                {form.role === 'supervisor' && (
+                  <option value="both" className="bg-navy-900">
+                    كلتا المرحلتين
+                  </option>
+                )}
               </select>
               <p className="text-white/40 text-xs leading-relaxed">
-                يحدد الفصول والغياب والشؤون الأكاديمية التي يراها هذا الحساب فقط.
+                {form.role === 'deputy'
+                  ? 'يحدد الفصول والغياب التي يراها الوكيل — مرحلة واحدة فقط.'
+                  : 'يحدد نطاق المشرف: مرحلة واحدة أو كلتا المرحلتين.'}
               </p>
             </div>
           )}

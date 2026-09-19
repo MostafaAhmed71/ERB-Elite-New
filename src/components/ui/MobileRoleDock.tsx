@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   LayoutDashboard, Users, Upload, BarChart3, ScrollText,
@@ -40,7 +40,6 @@ export function MobileRoleDock() {
     role === 'teacher' && !canAccessOlympiad ? 'academic' as const : mode;
   const { data: visibilityConfig = DEFAULT_FEATURE_VISIBILITY } = useFeatureVisibilityConfig();
   const location = useLocation();
-  const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -61,7 +60,7 @@ export function MobileRoleDock() {
   if (!role || shortcuts.length === 0) return null;
   if (location.pathname.startsWith('/dev')) return null;
 
-  const cols = shortcuts.length + 1; // + المزيد
+  const cols = shortcuts.length + 1;
   const gridClass =
     cols <= 4 ? 'grid-cols-4'
     : cols === 5 ? 'grid-cols-5'
@@ -70,7 +69,7 @@ export function MobileRoleDock() {
   return (
     <>
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-[#0b1526]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(10,15,26,0.08)]"
         dir="rtl"
         aria-label="تنقل سريع"
       >
@@ -84,8 +83,10 @@ export function MobileRoleDock() {
                   to={item.to}
                   onClick={() => setMoreOpen(false)}
                   className={clsx(
-                    'flex flex-col items-center gap-0.5 py-2 text-[10px] min-h-[52px] justify-center',
-                    active ? 'text-gold-400' : 'text-white/45',
+                    'flex flex-col items-center gap-0.5 py-2 text-[10px] min-h-[52px] justify-center transition-colors',
+                    active
+                      ? 'text-[var(--accent)] font-bold'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
                   )}
                 >
                   <Icon className="w-5 h-5" />
@@ -99,8 +100,10 @@ export function MobileRoleDock() {
               type="button"
               onClick={() => setMoreOpen((v) => !v)}
               className={clsx(
-                'flex flex-col items-center gap-0.5 py-2 text-[10px] min-h-[52px] justify-center w-full',
-                moreOpen ? 'text-gold-400' : 'text-white/45',
+                'flex flex-col items-center gap-0.5 py-2 text-[10px] min-h-[52px] justify-center w-full transition-colors',
+                moreOpen
+                  ? 'text-[var(--accent)] font-bold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
               )}
               aria-expanded={moreOpen}
               aria-label="المزيد من الصفحات"
@@ -116,17 +119,18 @@ export function MobileRoleDock() {
         <div className="lg:hidden fixed inset-0 z-50" dir="rtl">
           <button
             type="button"
-            className="absolute inset-0 bg-black/55"
+            className="absolute inset-0 bg-black/40"
             aria-label="إغلاق"
             onClick={() => setMoreOpen(false)}
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[70vh] rounded-t-2xl border border-white/10 bg-[#0d1b2e] shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)]">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-              <p className="text-sm font-semibold text-white">كل الصفحات</p>
+          <div className="absolute inset-x-0 bottom-0 max-h-[70vh] rounded-t-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)]">
+            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border)] opacity-40" />
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">كل الصفحات</p>
               <button
                 type="button"
                 onClick={() => setMoreOpen(false)}
-                className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--primary)_5%,transparent)] min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="إغلاق القائمة"
               >
                 <X className="w-5 h-5" />
@@ -142,10 +146,10 @@ export function MobileRoleDock() {
                       to={item.path}
                       onClick={() => setMoreOpen(false)}
                       className={clsx(
-                        'flex items-center gap-3 px-3 py-3 rounded-xl text-sm min-h-[48px]',
+                        'flex items-center gap-3 px-3 py-3 rounded-xl text-sm min-h-[48px] transition-colors',
                         active
-                          ? 'bg-gold-500/15 text-gold-300'
-                          : 'text-white/80 hover:bg-white/5',
+                          ? 'bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)] font-semibold'
+                          : 'text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--primary)_4%,transparent)]',
                       )}
                     >
                       <Icon className="w-5 h-5 shrink-0" />
@@ -155,14 +159,14 @@ export function MobileRoleDock() {
                 );
               })}
               {moreItems.length === 0 && (
-                <li className="px-3 py-6 text-center text-sm text-white/40">لا عناصر إضافية</li>
+                <li className="px-3 py-6 text-center text-sm text-[var(--text-secondary)]">لا عناصر إضافية</li>
               )}
             </ul>
-            <div className="shrink-0 p-3 border-t border-white/10">
+            <div className="shrink-0 p-3 border-t border-[var(--border)]">
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-sm font-semibold text-red-300 bg-red-500/10 border border-red-500/25 hover:bg-red-500/15"
+                className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-sm font-semibold text-[var(--error)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] border border-[color-mix(in_srgb,var(--error)_30%,transparent)] hover:bg-[color-mix(in_srgb,var(--error)_16%,transparent)]"
               >
                 <LogOut className="w-4 h-4" />
                 تسجيل الخروج

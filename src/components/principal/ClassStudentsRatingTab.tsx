@@ -203,7 +203,7 @@ export function ClassStudentsRatingTab() {
                   onClick={() => openStudent(student.id)}
                   className="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-white/3 transition-colors text-right group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/80 to-purple-600/80 flex items-center justify-center text-white font-bold shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast font-bold shrink-0">
                     {student.full_name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">

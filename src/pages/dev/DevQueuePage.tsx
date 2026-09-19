@@ -1,14 +1,17 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Layers } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Layers, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RolePageShell } from '../../components/ui/RolePageShell';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { HorizonCard } from '../../components/dashboard/horizon/HorizonDashboard';
+import { Button } from '../../components/ui/Button';
 import { TapHandLoader } from '../../components/ui/TapHandLoader';
-import { getPlatformJobStats, listPlatformJobs } from '../../lib/platformJobs';
+import { getPlatformJobStats, listPlatformJobs, purgeAllPlatformJobs } from '../../lib/platformJobs';
+import { showError, showSuccess } from '../../lib/toast';
 
 export function DevQueuePage() {
+  const qc = useQueryClient();
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['dev', 'queue', 'stats'],
     queryFn: getPlatformJobStats,
@@ -36,12 +39,36 @@ export function DevQueuePage() {
     [stats],
   );
 
+  const purgeMut = useMutation({
+    mutationFn: purgeAllPlatformJobs,
+    onSuccess: (n) => {
+      showSuccess(n > 0 ? `حُذفت ${n} مهمة — الطابور فارغ` : 'الطابور فارغ مسبقاً');
+      qc.invalidateQueries({ queryKey: ['dev', 'queue'] });
+      qc.invalidateQueries({ queryKey: ['dev', 'jobs'] });
+    },
+    onError: (e: Error) => showError(e),
+  });
+
   return (
     <RolePageShell>
       <PageHeader
         title="Queue Monitor"
         subtitle="عمق الطابور والمهام المنتظرة — مرتبط بـ Background Jobs"
         icon={Layers}
+        actions={
+          <Button
+            variant="danger"
+            icon={<Trash2 className="w-4 h-4" />}
+            onClick={() => {
+              if (confirm('حذف جميع مهام طابور المنصة؟ لا يمكن التراجع.')) {
+                purgeMut.mutate();
+              }
+            }}
+            disabled={purgeMut.isPending || !!statsError}
+          >
+            {purgeMut.isPending ? 'جاري الحذف…' : 'حذف كل المهام'}
+          </Button>
+        }
       />
 
       {statsError ? (

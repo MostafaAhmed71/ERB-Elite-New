@@ -35,24 +35,26 @@ export function PageHeader({
       variants={itemVariants}
       className={clsx(
         isHero
-          ? 'relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-2xl p-4 sm:p-7 md:p-8 overflow-hidden bg-gradient-to-r from-slate-900 to-indigo-900 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
+          ? 'relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-2xl p-4 sm:p-7 md:p-8 overflow-hidden bg-[var(--primary)] border border-[var(--border)] shadow-[0_12px_32px_rgba(15,39,68,0.2)]'
           : 'page-header',
         className
       )}
     >
-      <div
-        className={clsx(
-          'absolute inset-0 pointer-events-none rounded-2xl',
-          isHero
-            ? 'bg-gradient-to-l from-indigo-500/10 via-transparent to-gold-500/5'
-            : 'bg-gradient-to-l from-gold-500/[0.03] to-transparent'
-        )}
-      />
+      {isHero && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 80% at 100% 0%, rgba(201,154,46,0.35), transparent 55%)',
+          }}
+        />
+      )}
       <div className="relative flex items-center gap-4 md:gap-5 flex-1 min-w-0">
         {avatar ? (
           <div
             className={clsx(
-              'rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-navy-950 font-bold shadow-lg shadow-gold-500/25 shrink-0 avatar-ring',
+              'rounded-2xl bg-[var(--accent)] flex items-center justify-center font-bold shrink-0 border border-[var(--border)] text-on-contrast',
               isHero ? 'w-16 h-16 md:w-[4.5rem] md:h-[4.5rem] text-3xl' : 'w-14 h-14 text-2xl'
             )}
           >
@@ -61,36 +63,50 @@ export function PageHeader({
         ) : Icon ? (
           <div
             className={clsx(
-              'rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center shrink-0',
+              'rounded-xl bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] flex items-center justify-center shrink-0',
               isHero ? 'w-14 h-14' : 'w-12 h-12'
             )}
           >
-            <Icon className={clsx('text-gold-400', isHero ? 'w-7 h-7' : 'w-6 h-6')} />
+            <Icon className={clsx('text-[var(--accent)]', isHero ? 'w-7 h-7' : 'w-6 h-6')} />
           </div>
         ) : null}
         <div className="min-w-0">
           {subtitle && (
-            <p className={clsx('text-white/50 font-medium mb-1', isHero ? 'text-sm md:text-base' : 'text-sm')}>
+            <p
+              className={clsx(
+                'font-medium mb-1',
+                isHero
+                  ? 'text-sm md:text-base text-on-contrast opacity-80'
+                  : 'text-sm text-[var(--text-secondary)]'
+              )}
+            >
               {subtitle}
             </p>
           )}
           <h1
             className={clsx(
-              'font-bold text-white truncate',
-              isHero ? 'text-2xl sm:text-3xl md:text-4xl tracking-tight' : 'text-xl md:text-2xl'
+              'font-bold truncate tracking-tight',
+              isHero
+                ? 'text-2xl sm:text-3xl md:text-4xl text-on-contrast'
+                : 'text-xl md:text-2xl text-[var(--text-primary)]'
             )}
           >
             {title}
           </h1>
           {role && (
-            <p className={clsx('text-gold-400 font-semibold mt-1', isHero ? 'text-sm md:text-base' : 'text-sm')}>
+            <p
+              className={clsx(
+                'font-semibold mt-1 text-[var(--accent)]',
+                isHero ? 'text-sm md:text-base' : 'text-sm'
+              )}
+            >
               {role}
             </p>
           )}
         </div>
       </div>
       {badge && (
-        <span className="relative text-xs px-3 py-1.5 rounded-full border border-gold-500/20 bg-gold-500/5 text-gold-400 font-mono shrink-0">
+        <span className="relative text-xs px-3 py-1.5 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)] font-mono shrink-0">
           {badge}
         </span>
       )}

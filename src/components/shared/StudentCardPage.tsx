@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -7,6 +7,7 @@ import {
   Award,
   LogIn,
   User,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,12 +16,14 @@ import { TapHandLoader } from '../ui/TapHandLoader';
 import { Button } from '../ui/Button';
 import { showSuccess, showError } from '../../lib/toast';
 import { parsePointsGrantError } from '../../lib/teacherScope';
-import { logAction } from '../../lib/auth';
+import { logAction, parseRoleFromMetadata } from '../../lib/auth';
 import { AXES_KEYS } from '../../lib/pointsReference';
+import { ensureManualTeacherActivity, buildManualActivityNote } from '../../lib/pointsEvidence';
 import type { DbActivity } from '../../types';
 import clsx from 'clsx';
 import { PLATFORM_NAME, PLATFORM_NAME_SHORT } from '../../lib/branding';
 import { getStudentQRUrl } from '../../lib/qr';
+import { ACADEMIC_LEVEL_LABELS } from '../../lib/academic/constants';
 
 type LedgerRow = {
   id: string;
@@ -57,17 +60,45 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export function StudentCardPage() {
   const { studentId, qrToken } = useParams<{ studentId?: string; qrToken?: string }>();
-  const { user, role } = useAuthStore();
+  const { user, role, session, initialized } = useAuthStore();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    if (session && !user) {
+      void useAuthStore.getState().refreshUser();
+    }
+  }, [session, user]);
+
+  const [activitySource, setActivitySource] = useState<'catalog' | 'manual'>('catalog');
+  const [manualActivityName, setManualActivityName] = useState('');
   const [selectedActivity, setSelectedActivity] = useState('');
   const [customPoints, setCustomPoints] = useState<number | ''>('');
   const [note, setNote] = useState('');
 
+  // نستخدم المستخدم الحالي أو بيانات الجلسة كاحتياط في حال لم يُجلب البروفايل بعد
+  const authUser =
+    user ??
+    (session?.user
+      ? {
+          id: session.user.id,
+          full_name:
+            (session.user.user_metadata?.full_name as string) ||
+            session.user.email ||
+            'المستخدم',
+          role: role ?? parseRoleFromMetadata(session.user.user_metadata?.role) ?? 'teacher',
+        }
+      : null);
+
+  const effectiveRole =
+    user?.role ?? role ?? parseRoleFromMetadata(session?.user?.user_metadata?.role);
+
   const canGrant =
-    !!user &&
-    (role === 'teacher' || role === 'admin' || role === 'activity_leader');
-  const canDirectApprove = role === 'admin' || role === 'activity_leader';
+    !!authUser &&
+    ['teacher', 'admin', 'activity_leader', 'principal', 'deputy'].includes(
+      effectiveRole ?? '',
+    );
+  const canDirectApprove =
+    ['admin', 'activity_leader', 'principal', 'deputy'].includes(effectiveRole ?? '');
 
   const {
     data: student,
@@ -114,26 +145,43 @@ export function StudentCardPage() {
   });
 
   const selectedActivityData = activities.find((a) => a.id === selectedActivity);
-  const pointsToApply =
-    customPoints !== '' ? Number(customPoints) : (selectedActivityData?.default_points ?? 0);
+  const isManual = activitySource === 'manual';
+  const pointsToApply = isManual
+    ? (customPoints !== '' ? Number(customPoints) : 0)
+    : (customPoints !== '' ? Number(customPoints) : (selectedActivityData?.default_points ?? 0));
 
   const grantMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !student) throw new Error('غير مصرح');
-      if (!selectedActivity) throw new Error('اختر نشاطاً');
+      if (!authUser || !student) throw new Error('غير مصرح');
       if (pointsToApply <= 0) throw new Error('النقاط يجب أن تكون أكبر من صفر');
+
+      let activityId = selectedActivity;
+      let ledgerNote = note.trim() || null;
+
+      if (isManual) {
+        const name = manualActivityName.trim();
+        if (!name) throw new Error('أدخل اسم النشاط أو الإنجاز اليدوي');
+        if (customPoints === '' || Number(customPoints) <= 0) {
+          throw new Error('حدد عدد النقاط للنشاط اليدوي');
+        }
+        activityId = await ensureManualTeacherActivity();
+        ledgerNote = buildManualActivityNote(name, note);
+      } else {
+        if (!activityId) throw new Error('اختر نشاطاً');
+      }
 
       const now = new Date().toISOString();
       const row = {
         student_id: student.id,
-        granted_by: user.id,
-        activity_id: selectedActivity,
+        granted_by: authUser.id,
+        activity_id: activityId,
         points: pointsToApply,
-        note: note.trim() || null,
+        note: ledgerNote,
+        source: 'qr' as const,
         status: (canDirectApprove ? 'approved' : 'pending') as 'approved' | 'pending',
-        approved_by: canDirectApprove ? user.id : null,
+        approved_by: canDirectApprove ? authUser.id : null,
         approved_at: canDirectApprove ? now : null,
-        first_approved_by: canDirectApprove ? user.id : null,
+        first_approved_by: canDirectApprove ? authUser.id : null,
         first_approved_at: canDirectApprove ? now : null,
         rejection_reason: null,
         academic_year: new Date().getFullYear().toString(),
@@ -144,9 +192,10 @@ export function StudentCardPage() {
 
       await logAction('POINTS_GRANTED', 'points_ledger', undefined, {
         students: 1,
-        activity: selectedActivity,
+        activity: activityId,
         points: pointsToApply,
         source: 'qr_card',
+        manual: isManual,
       });
     },
     onSuccess: () => {
@@ -157,6 +206,7 @@ export function StudentCardPage() {
       );
       setNote('');
       setCustomPoints('');
+      setManualActivityName('');
       queryClient.invalidateQueries({ queryKey: ['public', 'student', 'card', studentId, qrToken] });
       queryClient.invalidateQueries({ queryKey: ['teacher', 'budget'] });
     },
@@ -172,7 +222,7 @@ export function StudentCardPage() {
     })).filter((r) => r.value > 0 || ['activity', 'behavior', 'achievement', 'initiative'].includes(r.key));
   }, [student]);
 
-  if (isLoading) {
+  if (isLoading || !initialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-navy-950 text-white" dir="rtl">
         <TapHandLoader label="جاري تحميل بطاقة الطالب..." fullScreen />
@@ -265,57 +315,132 @@ export function StudentCardPage() {
       <div>
         <h3 className="text-sm font-bold text-gold-300 flex items-center gap-2">
           <Award className="w-4 h-4" />
-          منح نقاط
+          منح نقاط للطالب
         </h3>
         <p className="text-white/40 text-[11px] mt-1">
-          {canDirectApprove
-            ? 'كرائد نشاط — تُعتمد النقاط فوراً'
+          {effectiveRole === 'principal'
+            ? 'كمدير المدرسة — تُعتمد النقاط فوراً'
+            : effectiveRole === 'deputy'
+            ? (() => {
+                const lvl = user?.staff_education_level;
+                const lvlLabel = lvl ? ` (${ACADEMIC_LEVEL_LABELS[lvl as keyof typeof ACADEMIC_LEVEL_LABELS] ?? lvl})` : '';
+                return `كوكيل المدرسة${lvlLabel} — تُعتمد النقاط فوراً لطلاب مرحلتك`;
+              })()
+            : canDirectApprove
+            ? 'كرائد نشاط / إدارة — تُعتمد النقاط فوراً'
             : 'كمعلم — يُرسل الطلب للاعتماد'}
         </p>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-white/55 text-xs">النشاط</label>
-        <select
-          value={selectedActivity}
-          onChange={(e) => setSelectedActivity(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm appearance-none"
+      {/* التبديل بين أنشطة الكتالوج والنشاط اليدوي */}
+      <div className="grid grid-cols-2 gap-1.5 p-1 bg-white/[0.04] border border-white/10 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => setActivitySource('catalog')}
+          className={clsx(
+            'py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5',
+            activitySource === 'catalog'
+              ? 'bg-gold-500/20 text-gold-300 border border-gold-500/30 shadow-sm'
+              : 'text-white/60 hover:text-white/90',
+          )}
         >
-          <option value="" className="bg-navy-900">
-            اختر نشاطاً
-          </option>
-          {activities.map((a) => (
-            <option key={a.id} value={a.id} className="bg-navy-900">
-              {a.name} ({a.default_points})
-            </option>
-          ))}
-        </select>
+          <Award className="w-3.5 h-3.5" />
+          <span>من الأنشطة</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActivitySource('manual')}
+          className={clsx(
+            'py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5',
+            activitySource === 'manual'
+              ? 'bg-gold-500/20 text-gold-300 border border-gold-500/30 shadow-sm'
+              : 'text-white/60 hover:text-white/90',
+          )}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+          <span>نشاط يدوي مخصص</span>
+        </button>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-white/55 text-xs">النقاط</label>
-        <input
-          type="number"
-          min={1}
-          value={customPoints}
-          onChange={(e) =>
-            setCustomPoints(e.target.value === '' ? '' : Number(e.target.value))
-          }
-          placeholder={
-            selectedActivityData ? String(selectedActivityData.default_points) : '0'
-          }
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"
-        />
-      </div>
+      {activitySource === 'catalog' ? (
+        <>
+          <div className="space-y-1.5">
+            <label className="text-white/55 text-xs">النشاط المسجل</label>
+            <select
+              value={selectedActivity}
+              onChange={(e) => setSelectedActivity(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm appearance-none focus:border-gold-500/50 focus:outline-none"
+            >
+              <option value="" className="bg-navy-900">
+                اختر نشاطاً...
+              </option>
+              {activities.map((a) => (
+                <option key={a.id} value={a.id} className="bg-navy-900">
+                  {a.name} ({a.default_points} نقطة)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-white/55 text-xs">
+              النقاط {selectedActivityData && <span className="text-white/35">(الافتراضي: {selectedActivityData.default_points})</span>}
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={customPoints}
+              onChange={(e) =>
+                setCustomPoints(e.target.value === '' ? '' : Number(e.target.value))
+              }
+              placeholder={
+                selectedActivityData ? String(selectedActivityData.default_points) : '0'
+              }
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:border-gold-500/50 focus:outline-none font-mono"
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <label className="text-white/70 text-xs font-medium">
+              اسم النشاط أو الإنجاز اليدوي <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={manualActivityName}
+              onChange={(e) => setManualActivityName(e.target.value)}
+              placeholder="مثال: تميز في الإذاعة، مساعدة زميل، مبادرة صفية..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:border-gold-500/50 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-white/70 text-xs font-medium">
+              عدد النقاط <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={customPoints}
+              onChange={(e) =>
+                setCustomPoints(e.target.value === '' ? '' : Number(e.target.value))
+              }
+              placeholder="مثال: 10"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:border-gold-500/50 focus:outline-none font-mono"
+            />
+          </div>
+        </>
+      )}
 
       <div className="space-y-1.5">
-        <label className="text-white/55 text-xs">ملاحظة (اختياري)</label>
+        <label className="text-white/55 text-xs">ملاحظة أو سبب المنح (اختياري)</label>
         <input
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="سبب المنح..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm"
+          placeholder="تفاصيل إضافية عن المنح..."
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:border-gold-500/50 focus:outline-none"
         />
       </div>
 
@@ -323,10 +448,14 @@ export function StudentCardPage() {
         className="w-full"
         size="lg"
         loading={grantMutation.isPending}
-        disabled={!selectedActivity || pointsToApply <= 0}
+        disabled={
+          isManual
+            ? (!manualActivityName.trim() || pointsToApply <= 0)
+            : (!selectedActivity || pointsToApply <= 0)
+        }
         onClick={() => grantMutation.mutate()}
       >
-        منح {pointsToApply > 0 ? pointsToApply : ''} نقطة
+        منح {pointsToApply > 0 ? `${pointsToApply} نقطة` : 'النقاط'}
       </Button>
 
       <Link
@@ -492,9 +621,13 @@ export function StudentCardPage() {
 
         <div className="bg-navy-900 border border-white/10 rounded-3xl p-5 text-center space-y-3">
           <p className="text-white/55 text-xs leading-relaxed">
-            لمنح نقاط لهذا الطالب سجّل دخولك كمعلم أو رائد نشاط ثم امسح البطاقة مرة أخرى.
+            لمنح نقاط لهذا الطالب سجّل دخولك (كمعلم، رائد نشاط، وكيل أو مدير) للمتابعة.
           </p>
-          <Link to="/login">
+          <Link
+            to={`/login/staff?redirect=${encodeURIComponent(
+              window.location.pathname + window.location.search,
+            )}`}
+          >
             <Button variant="secondary" size="md" icon={<LogIn className="w-4 h-4" />}>
               تسجيل الدخول للمنح
             </Button>

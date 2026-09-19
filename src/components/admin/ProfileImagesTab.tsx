@@ -11,6 +11,10 @@ import {
 } from '../../lib/mediaUpload';
 import { mergeGradeLists } from '../../lib/schoolClasses';
 import { useGradeClassCatalog } from '../../hooks/useGradeClassCatalog';
+import {
+  filterOlympiadMiddleGrades,
+  filterOlympiadMiddleStudents,
+} from '../../lib/olympiadMiddleScope';
 import type { DbStudent } from '../../types';
 import { BarsLoader } from '../ui/BarsLoader';
 import { SearchInput } from '../ui/SearchInput';
@@ -32,7 +36,9 @@ export function ProfileImagesTab() {
         .eq('is_active', true)
         .order('full_name');
       if (error) throw error;
-      return (data ?? []) as (DbStudent & { photo_url?: string | null })[];
+      return filterOlympiadMiddleStudents(
+        (data ?? []) as (DbStudent & { photo_url?: string | null })[],
+      );
     },
   });
 
@@ -50,7 +56,10 @@ export function ProfileImagesTab() {
   }, [classProfiles]);
 
   const grades = useMemo(
-    () => mergeGradeLists(catalog?.grades, students.map((s) => s.grade)),
+    () =>
+      filterOlympiadMiddleGrades(
+        mergeGradeLists(catalog?.grades, students.map((s) => s.grade)),
+      ),
     [catalog?.grades, students]
   );
 

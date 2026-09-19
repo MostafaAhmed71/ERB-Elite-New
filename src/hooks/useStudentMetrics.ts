@@ -145,13 +145,13 @@ export function useStudentMetrics(studentId: string | undefined | null) {
 
   const pointEntries = points as PointEntry[];
   const totalPoints = getApprovedPointsTotal(pointEntries);
-  /** @deprecated use totalPoints — kept for gradual migration */
-  const finalScore = totalPoints;
   const level = getLevelInfo(totalPoints);
   const breakdown = getRawAxisBreakdown(pointEntries);
   const achievements = computeAchievements(pointEntries, classRanking?.rank, hasApprovedSuggestion);
 
-  const pendingEntries = pointEntries.filter((p) => p.status === 'pending');
+  const pendingEntries = pointEntries.filter(
+    (p) => p.status === 'pending' || p.status === 'pending_principal'
+  );
   const pendingCount = pendingEntries.length;
   const pendingSum = pendingEntries.reduce((s, p) => s + p.points, 0);
 
@@ -169,7 +169,6 @@ export function useStudentMetrics(studentId: string | undefined | null) {
     points,
     attendanceRecords,
     totalPoints,
-    finalScore,
     level,
     breakdown,
     achievements,

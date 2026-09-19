@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { ShieldAlert, CheckCircle2, Search, FlaskConical } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Search, FlaskConical, Copy, Trash2, Download } from 'lucide-react';
 import { RolePageShell } from '../../components/ui/RolePageShell';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { HorizonCard } from '../../components/dashboard/horizon/HorizonDashboard';
@@ -18,9 +18,12 @@ import {
   fetchPlatformErrorAnalytics,
   getPlatformErrorById,
   getPlatformErrorStats,
+  formatPlatformErrorForClipboard,
+  formatPlatformErrorsDump,
   listPlatformErrors,
   reportPlatformError,
   updatePlatformErrorStatus,
+  purgeAllPlatformErrors,
   type PlatformError,
   type PlatformErrorSeverity,
   type PlatformErrorSource,
@@ -77,6 +80,38 @@ function statusClass(st: string) {
   return 'text-amber-200 bg-amber-500/10 border-amber-500/25';
 }
 
+async function copyTextToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (!ok) throw new Error('تعذّر النسخ إلى الحافظة');
+  }
+}
+
+function listFilterOpts(filter: ListFilter, search: string, limit: number) {
+  const source =
+    filter === 'active' || filter === 'all' || filter === 'critical' || filter === 'quality'
+      ? 'all' as const
+      : filter;
+  return {
+    source,
+    status: (filter === 'active' || filter === 'critical' || filter === 'quality' ? 'active' : 'all') as 'active' | 'all',
+    severity: (filter === 'critical' ? 'critical' : 'all') as PlatformErrorSeverity | 'all',
+    severities: filter === 'quality' ? (['warning', 'info'] as PlatformErrorSeverity[]) : undefined,
+    search: search || undefined,
+    limit,
+  };
+}
+
 export function DevErrorsPage() {
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,20 +161,7 @@ export function DevErrorsPage() {
 
   const listQuery = useQuery({
     queryKey: ['dev', 'errors', 'list', filter, search],
-    queryFn: () => {
-      const source =
-        filter === 'active' || filter === 'all' || filter === 'critical' || filter === 'quality'
-          ? 'all'
-          : filter;
-      return listPlatformErrors({
-        source,
-        status: filter === 'active' || filter === 'critical' || filter === 'quality' ? 'active' : 'all',
-        severity: filter === 'critical' ? 'critical' : 'all',
-        severities: filter === 'quality' ? ['warning', 'info'] : undefined,
-        search: search || undefined,
-        limit: 120,
-      });
-    },
+    queryFn: () => listPlatformErrors(listFilterOpts(filter, search, 120)),
     refetchInterval: 12_000,
     retry: false,
   });
@@ -236,6 +258,56 @@ export function DevErrorsPage() {
     onError: (e: Error) => showError(e),
   });
 
+  const copyAllMut = useMutation({
+    mutationFn: async () => {
+      const errors = await listPlatformErrors(listFilterOpts(filter, search, 500));
+      if (errors.length === 0) throw new Error('لا توجد أخطاء لنسخها في هذا التصفية');
+      const filterLabel = FILTERS.find((f) => f.id === filter)?.label ?? String(filter);
+      await copyTextToClipboard(formatPlatformErrorsDump(errors, { filterLabel }));
+      return errors.length;
+    },
+    onSuccess: (n) => showSuccess(`نُسخ ${n} خطأ — الصقها في المحادثة لحلها`),
+    onError: (e: Error) => showError(e),
+  });
+
+  const downloadReportMut = useMutation({
+    mutationFn: async () => {
+      const errors = await listPlatformErrors(listFilterOpts(filter, search, 500));
+      if (errors.length === 0) throw new Error('لا توجد أخطاء لتصديرها في هذا التصفية');
+      const filterLabel = FILTERS.find((f) => f.id === filter)?.label ?? String(filter);
+      const content = formatPlatformErrorsDump(errors, { filterLabel });
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'proplem.md';
+      a.click();
+      URL.revokeObjectURL(url);
+      return errors.length;
+    },
+    onSuccess: (n) => showSuccess(`تم تنزيل ملف proplem.md بنجاح (${n} خطأ)`),
+    onError: (e: Error) => showError(e),
+  });
+
+  const purgeMut = useMutation({
+    mutationFn: purgeAllPlatformErrors,
+    onSuccess: (n) => {
+      showSuccess(n > 0 ? `حُذف ${n} خطأ — السجل فارغ الآن` : 'السجل فارغ مسبقاً');
+      setSelectedId(null);
+      invalidate();
+    },
+    onError: (e: Error) => showError(e),
+  });
+
+  const copyOne = async (err: PlatformError) => {
+    try {
+      await copyTextToClipboard(formatPlatformErrorForClipboard(err));
+      showSuccess('نُسخ الخطأ — الصقه في المحادثة');
+    } catch (e) {
+      showError(e instanceof Error ? e : new Error('تعذّر النسخ'));
+    }
+  };
+
   const analytics = analyticsQuery.data;
   const bySource = analytics?.by_source ? Object.entries(analytics.by_source) : [];
   const alertMissing =
@@ -250,6 +322,38 @@ export function DevErrorsPage() {
         icon={ShieldAlert}
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              icon={<Download className="w-3.5 h-3.5" />}
+              onClick={() => downloadReportMut.mutate()}
+              disabled={downloadReportMut.isPending || !!missing}
+            >
+              {downloadReportMut.isPending ? 'جاري التنزيل…' : 'تنزيل proplem.md'}
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<Copy className="w-3.5 h-3.5" />}
+              onClick={() => copyAllMut.mutate()}
+              disabled={copyAllMut.isPending || !!missing}
+            >
+              {copyAllMut.isPending ? 'جاري النسخ…' : 'نسخ جميع الأخطاء'}
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Trash2 className="w-3.5 h-3.5" />}
+              onClick={() => {
+                if (
+                  confirm(
+                    'حذف كل الأخطاء الحالية من شاشة المطوّر والبدء من سجل فارغ؟ لا يمكن التراجع.',
+                  )
+                ) {
+                  purgeMut.mutate();
+                }
+              }}
+              disabled={purgeMut.isPending || !!missing}
+            >
+              {purgeMut.isPending ? 'جاري المسح…' : 'مسح السجل'}
+            </Button>
             <Button
               variant="secondary"
               icon={<FlaskConical className="w-3.5 h-3.5" />}
@@ -506,6 +610,15 @@ export function DevErrorsPage() {
             className="w-full rounded-xl border border-white/10 bg-white/5 pr-9 pl-3 py-2 text-sm text-white placeholder:text-white/30"
           />
         </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<Copy className="w-3.5 h-3.5" />}
+          onClick={() => copyAllMut.mutate()}
+          disabled={copyAllMut.isPending || !!missing || (listQuery.data?.length ?? 0) === 0}
+        >
+          {copyAllMut.isPending ? 'جاري النسخ…' : 'نسخ القائمة'}
+        </Button>
       </div>
 
       {listQuery.isLoading ? (
@@ -547,6 +660,7 @@ export function DevErrorsPage() {
                   notes={notes}
                   setNotes={setNotes}
                   statusMut={statusMut}
+                  onCopy={() => { void copyOne(selected); }}
                   onWhatsApp={() => {
                     void enqueueCriticalErrorWhatsAppAlert(selected.id, selected.message).then(() => {
                       showSuccess('أُرسل تنبيه واتساب لرقم المطور');
@@ -567,6 +681,7 @@ function ErrorDetail({
   notes,
   setNotes,
   statusMut,
+  onCopy,
   onWhatsApp,
 }: {
   selected: PlatformError;
@@ -576,6 +691,7 @@ function ErrorDetail({
     mutate: (v: { id: string; status: PlatformErrorStatus; note?: string }) => void;
     isPending: boolean;
   };
+  onCopy: () => void;
   onWhatsApp: () => void;
 }) {
   const status = (selected.status ?? (selected.resolved_at ? 'fixed' : 'new')) as PlatformErrorStatus;
@@ -683,6 +799,9 @@ function ErrorDetail({
       </label>
 
       <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" icon={<Copy className="w-3.5 h-3.5" />} onClick={onCopy}>
+          نسخ هذا الخطأ
+        </Button>
         {(['new', 'investigating', 'fixed', 'ignored'] as PlatformErrorStatus[]).map((st) => (
           <Button
             key={st}

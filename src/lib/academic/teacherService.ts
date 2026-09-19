@@ -5,6 +5,7 @@ import type {
   AcademicTeacherSetup,
 } from './types';
 import { syncTeacherOlympiadFromAcademic } from './olympiadSyncService';
+import { classesMatch } from './gradeBridge';
 
 export type AcademicScheduleWithTeacher = AcademicTeacherSchedule & {
   teacher: { full_name: string } | null;
@@ -23,15 +24,25 @@ export const academicTeacherService = {
 
   async saveSetup(setup: Omit<AcademicTeacherSetup, 'id'> & { id?: string }) {
     const { id, ...rest } = setup;
+    const persist = async (payload: typeof rest) => {
+      if (id) {
+        const { data, error } = await supabase.from('academic_teacher_setups').update(payload).eq('id', id).select().single();
+        if (error) throw error;
+        return data as AcademicTeacherSetup;
+      }
+      const { data, error } = await supabase.from('academic_teacher_setups').upsert(payload, { onConflict: 'teacher_id' }).select().single();
+      if (error) throw error;
+      return data as AcademicTeacherSetup;
+    };
+
     let saved: AcademicTeacherSetup;
-    if (id) {
-      const { data, error } = await supabase.from('academic_teacher_setups').update(rest).eq('id', id).select().single();
-      if (error) throw error;
-      saved = data as AcademicTeacherSetup;
-    } else {
-      const { data, error } = await supabase.from('academic_teacher_setups').upsert(rest, { onConflict: 'teacher_id' }).select().single();
-      if (error) throw error;
-      saved = data as AcademicTeacherSetup;
+    try {
+      saved = await persist(rest);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('subjects_by_grade')) throw err;
+      const { subjects_by_grade: _ignored, ...legacy } = rest;
+      saved = await persist(legacy);
     }
 
     if (saved.is_setup_complete) {
@@ -65,11 +76,29 @@ export const academicTeacherService = {
 
   async saveSchedule(schedule: Omit<AcademicTeacherSchedule, 'id'> & { id?: string }) {
     const { id, ...rest } = schedule;
-    if (id) {
-      const { data, error } = await supabase.from('academic_teacher_schedules').update(rest).eq('id', id).select().single();
+
+    const { data: classRows, error: lookupError } = await supabase
+      .from('academic_teacher_schedules')
+      .select('id, section')
+      .eq('teacher_id', rest.teacher_id)
+      .eq('education_level', rest.education_level)
+      .eq('grade', rest.grade);
+    if (lookupError) throw lookupError;
+
+    const existingId = (classRows ?? []).find((row) => classesMatch(row.section, rest.section))?.id;
+    const targetId = existingId ?? id ?? null;
+
+    if (targetId) {
+      const { data, error } = await supabase
+        .from('academic_teacher_schedules')
+        .update(rest)
+        .eq('id', targetId)
+        .select()
+        .single();
       if (error) throw error;
       return data as AcademicTeacherSchedule;
     }
+
     const { data, error } = await supabase.from('academic_teacher_schedules').insert(rest).select().single();
     if (error) throw error;
     return data as AcademicTeacherSchedule;

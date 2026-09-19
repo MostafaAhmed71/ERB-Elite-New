@@ -2,12 +2,39 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { PLATFORM_NAME, PLATFORM_NAME_SHORT, PLATFORM_TAGLINE } from './src/lib/branding';
+
+function readPlatformVersion(): string {
+  try {
+    const md = readFileSync(resolve(fileURLToPath(new URL('./VERSION.md', import.meta.url))), 'utf8');
+    const m = md.match(/Version:\s*(v[\d.]+)/);
+    return m?.[1] ?? 'v0';
+  } catch {
+    return 'v0';
+  }
+}
+
+function erbVersionJsonPlugin() {
+  return {
+    name: 'erb-version-json',
+    closeBundle() {
+      const dir = resolve(fileURLToPath(new URL('./dist', import.meta.url)));
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        resolve(dir, 'version.json'),
+        `${JSON.stringify({ version: readPlatformVersion(), builtAt: new Date().toISOString() })}\n`,
+      );
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    erbVersionJsonPlugin(),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',
@@ -23,7 +50,7 @@ export default defineConfig({
         name: PLATFORM_NAME,
         short_name: PLATFORM_NAME_SHORT,
         description: `${PLATFORM_TAGLINE} — نقاط، أنشطة، اختبارات، وحضور`,
-        start_url: '/',
+        start_url: '/login/staff',
         scope: '/',
         id: '/',
         display: 'standalone',
@@ -47,10 +74,18 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
+        shortcuts: [
+          {
+            name: 'دخول الطاقم',
+            short_name: 'طاقم',
+            url: '/login/staff',
+            icons: [{ src: '/icon.jpeg', sizes: '512x512', type: 'image/jpeg' }],
+          },
+        ],
       },
       workbox: {
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /version\.json$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -90,15 +125,58 @@ export default defineConfig({
   ],
   // لا تستخدم alias باسم "@" وحده — يتعارض مع حزم npm ذات النطاق مثل @microsoft/clarity
   resolve: {
+    // @headlessui/react → react-aria يستورد مساراً داخلياً غير مُصدَّر في react-stately
     alias: [
+      {
+        find: 'react-stately/private/flags/flags',
+        replacement: fileURLToPath(
+          new URL('./node_modules/react-stately/dist/exports/private/flags/flags.mjs', import.meta.url),
+        ),
+      },
       {
         find: /^@\//,
         replacement: `${fileURLToPath(new URL('./src/', import.meta.url))}`,
       },
     ],
+    dedupe: ['react-stately', 'react-aria', '@react-aria/interactions', '@react-aria/focus'],
   },
   optimizeDeps: {
-    include: ['@microsoft/clarity'],
+    include: [
+      '@microsoft/clarity',
+      '@headlessui/react',
+      'react-stately',
+      '@react-aria/interactions',
+      '@react-aria/focus',
+    ],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (
+              id.includes('docx') ||
+              id.includes('pptxgenjs') ||
+              id.includes('jspdf') ||
+              id.includes('xlsx') ||
+              id.includes('jszip')
+            ) {
+              return 'vendor-docs';
+            }
+            if (id.includes('recharts') || id.includes('@nivo')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('framer-motion') || id.includes('lucide-react')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('@supabase') || id.includes('@tanstack')) {
+              return 'vendor-data';
+            }
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1200,
   },
   server: {
     port: 5173,
@@ -114,7 +192,8 @@ export default defineConfig({
     },
     watch: {
       // ملف QA الثابت يسبب إعادة تحميل متكررة بدون فائدة للتطبيق
-      ignored: ['**/public/manual-qa.html'],
+      // Versions/ يحتوي ZIPs كبيرة — مراقبتها تسبب EBUSY أثناء الإنشاء
+      ignored: ['**/public/manual-qa.html', '**/Versions/**', '**/*.zip'],
     },
   },
 });

@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   BookOpen,
+  BookMarked,
   ClipboardList,
   HelpCircle,
   TrendingUp,
@@ -14,6 +15,7 @@ import {
   Search,
   School,
   ScrollText,
+  ChevronLeft,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +33,10 @@ import { PageHeader, Panel, QuickLink, SectionTitle, TapHandLoader } from '../..
 import clsx from 'clsx';
 import { fetchAcademicSnapshot } from '../../lib/unifiedDashboard';
 import { DailyOpsInbox, type DailyOpsItem } from '../../components/shared/DailyOpsInbox';
+import { academicHomeworkService } from '../../lib/academic/homeworkService';
+import { academicWeeklyPlanService } from '../../lib/academic/weeklyPlanService';
+import { ACADEMIC_LEVEL_LABELS, formatGradeLabel, formatSemesterWeek } from '../../lib/academic/constants';
+import { formatHomeworkPageNumbers, normalizeHomeworkPageNumbers } from '../../lib/academic/homeworkHelpers';
 
 function AlertList<T>({
   title,
@@ -110,6 +116,30 @@ export function SupervisorDashboard() {
     staleTime: 120_000,
   });
 
+  const [academicTab, setAcademicTab] = useState<'homework' | 'plans'>('homework');
+
+  const { data: recentHomeworks = [], isLoading: hwLoading } = useQuery({
+    queryKey: ['supervisor', 'recent-homeworks', user?.staff_education_level],
+    queryFn: () => {
+      if (user?.staff_education_level === 'middle' || user?.staff_education_level === 'high') {
+        return academicHomeworkService.listByLevel(user.staff_education_level);
+      }
+      return academicHomeworkService.listAll();
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: recentPlans = [], isLoading: plansLoading } = useQuery({
+    queryKey: ['supervisor', 'recent-plans', user?.staff_education_level],
+    queryFn: () => {
+      if (user?.staff_education_level === 'middle' || user?.staff_education_level === 'high') {
+        return academicWeeklyPlanService.listByLevel(user.staff_education_level);
+      }
+      return academicWeeklyPlanService.listAll();
+    },
+    staleTime: 60_000,
+  });
+
   const weeklyGrouped = useMemo(() => {
     if (!data) return { active: 0, ended: 0 };
     return {
@@ -134,6 +164,15 @@ export function SupervisorDashboard() {
         id: 'parent-req',
         title: `${academic.pendingParentRequests} طلب ولي أمر`,
         to: '/academic/observation-inbox',
+        tone: 'warn',
+      });
+    }
+    if (academic?.teachersMissingHomeworkToday && academic.teachersMissingHomeworkToday > 0) {
+      items.push({
+        id: 'missing-hw',
+        title: `${academic.teachersMissingHomeworkToday} معلم بدون واجب اليوم`,
+        detail: 'متابعة الواجبات اليومية للمراحل',
+        to: '/academic/homework',
         tone: 'warn',
       });
     }
@@ -223,9 +262,140 @@ export function SupervisorDashboard() {
                     <p className="text-2xl font-bold text-emerald-400 mt-1">{academic?.pendingParentRequests ?? 0}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-4">
-                  <QuickLink icon={BookOpen} label="الشؤون الأكاديمية" to="/academic" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-4">
+                  <QuickLink icon={BookMarked} label="الواجبات المنزلية" to="/academic/homework" />
+                  <QuickLink icon={Calendar} label="الخطط الأسبوعية" to="/academic/weekly-plans" />
                   <QuickLink icon={ClipboardList} label="صندوق الملاحظات" to="/academic/observation-inbox" />
+                  <QuickLink icon={BookOpen} label="الشؤون الأكاديمية" to="/academic" />
+                </div>
+
+                {/* استعراض تفاعلي للواجبات والخطط الأسبوعية */}
+                <div className="mt-6 border-t border-white/10 pt-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setAcademicTab('homework')}
+                        className={clsx(
+                          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                          academicTab === 'homework'
+                            ? 'bg-gold-500 text-navy-950 shadow-sm'
+                            : 'text-white/60 hover:text-white',
+                        )}
+                      >
+                        <BookMarked className="w-3.5 h-3.5" />
+                        الواجبات ({recentHomeworks.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAcademicTab('plans')}
+                        className={clsx(
+                          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                          academicTab === 'plans'
+                            ? 'bg-gold-500 text-navy-950 shadow-sm'
+                            : 'text-white/60 hover:text-white',
+                        )}
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        الخطط الأسبوعية ({recentPlans.length})
+                      </button>
+                    </div>
+
+                    <Link
+                      to={academicTab === 'homework' ? '/academic/homework' : '/academic/weekly-plans'}
+                      className="inline-flex items-center gap-1 text-xs text-gold-400 hover:text-gold-300 font-medium"
+                    >
+                      <span>عرض الكل في صفحة {academicTab === 'homework' ? 'الواجبات' : 'الخطط'}</span>
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  {academicTab === 'homework' ? (
+                    hwLoading ? (
+                      <TapHandLoader label="جاري تحميل الواجبات..." />
+                    ) : recentHomeworks.length === 0 ? (
+                      <div className="text-center py-6 bg-white/[0.02] border border-white/5 rounded-xl">
+                        <BookMarked className="w-8 h-8 text-white/20 mx-auto mb-2" />
+                        <p className="text-white/40 text-xs">لا توجد واجبات مسجّلة بعد</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {recentHomeworks.slice(0, 6).map((hw) => {
+                          const pages = formatHomeworkPageNumbers(normalizeHomeworkPageNumbers(hw));
+                          return (
+                            <div
+                              key={hw.id}
+                              className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 hover:border-gold-400/30 transition-all flex flex-col justify-between"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <span className="text-xs font-bold text-gold-400 truncate">{hw.subject}</span>
+                                  <span className="text-[10px] text-white/40">
+                                    {new Date(hw.date).toLocaleDateString('ar-SA')}
+                                  </span>
+                                </div>
+                                <p className="text-white text-xs font-medium line-clamp-1 mb-2">{hw.lesson_topic}</p>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5 text-[11px] text-white/60">
+                                <div className="flex items-center gap-1 truncate">
+                                  <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">
+                                    {formatGradeLabel(hw.education_level, hw.grade)}
+                                  </span>
+                                  {hw.sections?.[0] && (
+                                    <span className="text-[10px] text-white/40">فصل {hw.sections.join('، ')}</span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-emerald-400 shrink-0">{pages}</span>
+                              </div>
+                              <div className="mt-2 text-[10px] text-white/40 truncate">
+                                المعلم: <span className="text-white/70">{hw.teacher_name}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : (
+                    plansLoading ? (
+                      <TapHandLoader label="جاري تحميل الخطط الأسبوعية..." />
+                    ) : recentPlans.length === 0 ? (
+                      <div className="text-center py-6 bg-white/[0.02] border border-white/5 rounded-xl">
+                        <Calendar className="w-8 h-8 text-white/20 mx-auto mb-2" />
+                        <p className="text-white/40 text-xs">لا توجد خطط أسبوعية مسجّلة بعد</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {recentPlans.slice(0, 6).map((plan) => (
+                          <div
+                            key={plan.id}
+                            className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 hover:border-gold-400/30 transition-all flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <span className="text-xs font-bold text-white">
+                                  {formatSemesterWeek(plan.semester ?? 1, plan.week_number)}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                                  {ACADEMIC_LEVEL_LABELS[plan.education_level]}
+                                </span>
+                              </div>
+                              <p className="text-gold-400 text-xs font-semibold mb-1">
+                                {formatGradeLabel(plan.education_level, plan.grade)} — فصل {plan.section}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5 text-[11px]">
+                              <span className="text-white/40 text-[10px]">
+                                المعلم: <span className="text-white/70">{plan.teacher_name}</span>
+                              </span>
+                              <span className="text-white/60 text-[10px]">
+                                {plan.entries?.length ?? 0} حصص
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
                 </div>
               </>
             )}

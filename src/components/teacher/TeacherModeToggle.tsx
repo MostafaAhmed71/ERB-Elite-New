@@ -69,12 +69,12 @@ export function TeacherModeToggle({
               active
                 ? id === 'olympiad'
                   ? 'bg-gold-500 text-navy-950 shadow-md shadow-gold-500/25'
-                  : 'bg-[#7551FF] text-white shadow-md shadow-[#7551FF]/25'
-                : 'text-[#A3AED0] hover:text-white hover:bg-white/[0.06]',
+                  : 'bg-[var(--primary)] text-on-contrast shadow-md shadow-[rgba(15,39,68,0.25)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]',
             )}
           >
-            <Icon className={clsx('shrink-0', compact ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
-            <span>{TEACHER_MODE_LABELS[id]}</span>
+            <Icon className={clsx('shrink-0', compact ? 'w-3.5 h-3.5' : 'w-4 h-4', active && id !== 'olympiad' && 'text-on-contrast')} />
+            <span className={clsx(active && id !== 'olympiad' && 'text-on-contrast')}>{TEACHER_MODE_LABELS[id]}</span>
           </button>
         );
       })}

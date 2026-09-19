@@ -335,7 +335,7 @@ export function BulkAccountGenerator({ embedded = false }: { embedded?: boolean 
             className={clsx(
               'px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-1.5',
               inputMode === 'class'
-                ? 'bg-[#422AFB] text-white'
+                ? 'bg-[var(--primary)] text-on-contrast'
                 : 'bg-white/5 text-[#A3AED0] hover:bg-white/10'
             )}
           >
@@ -348,7 +348,7 @@ export function BulkAccountGenerator({ embedded = false }: { embedded?: boolean 
             className={clsx(
               'px-4 py-2 rounded-xl text-sm font-semibold transition-colors',
               inputMode === 'manual'
-                ? 'bg-[#422AFB] text-white'
+                ? 'bg-[var(--primary)] text-on-contrast'
                 : 'bg-white/5 text-[#A3AED0] hover:bg-white/10'
             )}
           >
@@ -360,7 +360,7 @@ export function BulkAccountGenerator({ embedded = false }: { embedded?: boolean 
             className={clsx(
               'px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-1.5',
               inputMode === 'excel'
-                ? 'bg-[#422AFB] text-white'
+                ? 'bg-[var(--primary)] text-on-contrast'
                 : 'bg-white/5 text-[#A3AED0] hover:bg-white/10'
             )}
           >

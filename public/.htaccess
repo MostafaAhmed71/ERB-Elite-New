@@ -19,5 +19,15 @@ DirectoryIndex index.html index.php
 </IfModule>
 
 # عند تفعيل Error Pages الافتراضية في Hostinger يُفضَّل index.html ليبقى المسار في شريط العنوان
-ErrorDocument 404 /index.html
-ErrorDocument 403 /index.html
+# HTML وملف الخدمة والمانيفست — لا كاش (حتى يصل التحديث فوراً)
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|sw\.js|registerSW\.js|manifest\.webmanifest|version\.json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+  # ملفات البناء ذات الهاش يمكن كاشها طويلاً
+  <FilesMatch "\.(?:js|css|woff2|woff|ttf)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

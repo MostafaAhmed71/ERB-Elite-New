@@ -84,6 +84,7 @@ import { AcademicTeacherSetupPage } from '../pages/academic/AcademicTeacherSetup
 import { AcademicStaffHubPage } from '../pages/academic/AcademicStaffHubPage';
 import { AcademicHomeworkPage } from '../pages/academic/AcademicHomeworkPage';
 import { AcademicWeeklyPlansPage } from '../pages/academic/AcademicWeeklyPlansPage';
+import { AcademicMyWeeklyPlansPage } from '../pages/academic/AcademicMyWeeklyPlansPage';
 import { AcademicSchedulePage } from '../pages/academic/AcademicSchedulePage';
 import { AcademicLessonTopicsPage } from '../pages/academic/AcademicLessonTopicsPage';
 import { AcademicExamReviewsPage } from '../pages/academic/AcademicExamReviewsPage';
@@ -167,6 +168,10 @@ export const router = createBrowserRouter([
   {
     errorElement: <RouteErrorPage />,
     children: [
+  {
+    path: '/start',
+    element: <Navigate to="/login/staff" replace />,
+  },
   {
     path: '/login',
     element: <LoginPage />,
@@ -514,7 +519,7 @@ export const router = createBrowserRouter([
           // ─── Shared Points Granting Routes ───────────────────
           {
             element: (
-              <ProtectedRoute allowedRoles={['activity_leader', 'teacher', 'admin']} />
+              <ProtectedRoute allowedRoles={['activity_leader', 'teacher', 'admin', 'principal']} />
             ),
             children: [
               {
@@ -685,6 +690,7 @@ export const router = createBrowserRouter([
                   { path: '/academic/templates/editor', element: <AcademicTemplatesEditorPage /> },
                   { path: '/academic/homework', element: <AcademicHomeworkPage /> },
                   { path: '/academic/weekly-plans', element: <AcademicWeeklyPlansPage /> },
+                  { path: '/academic/my-weekly-plans', element: <AcademicMyWeeklyPlansPage /> },
                   { path: '/academic/search', element: <AcademicSearchPage /> },
                   { path: '/academic/observation-inbox', element: <AcademicObservationInboxPage /> },
                   { path: '/academic/reports', element: <AcademicReportsPage /> },

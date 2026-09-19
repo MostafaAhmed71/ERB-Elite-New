@@ -27,11 +27,15 @@ export type ClassBulkRankEntry = {
   initiative: number;
 };
 
-export async function fetchApprovedClassGrants(): Promise<ClassGrantLedgerRow[]> {
-  const { data, error } = await supabase
+export async function fetchApprovedClassGrants(fromDate?: string): Promise<ClassGrantLedgerRow[]> {
+  let query = supabase
     .from('class_points_ledger')
     .select(CLASS_GRANTS_SELECT)
     .eq('status', 'approved');
+  if (fromDate) {
+    query = query.gte('created_at', fromDate);
+  }
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as unknown as ClassGrantLedgerRow[];
 }

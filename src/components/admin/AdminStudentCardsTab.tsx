@@ -8,9 +8,14 @@ import { mergeGradeLists } from '../../lib/schoolClasses';
 import { useGradeClassCatalog } from '../../hooks/useGradeClassCatalog';
 import { extractErrorMessage } from '../../lib/errors';
 import { exportStudentCardsZip, downloadStudentCardImage, type StudentCardExportItem } from '../../lib/exportStudentCardsZip';
+import {
+  filterOlympiadMiddleGrades,
+  filterOlympiadMiddleStudents,
+} from '../../lib/olympiadMiddleScope';
 import type { DbStudent } from '../../types';
 import { BarsLoader } from '../ui/BarsLoader';
 import { Button } from '../ui/Button';
+import { getStudentQRUrl } from '../../lib/qr';
 import { StudentCard } from '../student/StudentCard';
 
 type StudentWithAvatar = DbStudent & { photoUrl: string | null };
@@ -62,17 +67,22 @@ export function AdminStudentCardsTab() {
         }
       }
 
-      return rows.map((student) => ({
-        ...student,
-        photoUrl:
-          (student as DbStudent & { photo_url?: string | null }).photo_url ??
-          (student.user_id ? avatarByUserId.get(student.user_id) ?? null : null),
-      })) satisfies StudentWithAvatar[];
+      return filterOlympiadMiddleStudents(
+        rows.map((student) => ({
+          ...student,
+          photoUrl:
+            (student as DbStudent & { photo_url?: string | null }).photo_url ??
+            (student.user_id ? avatarByUserId.get(student.user_id) ?? null : null),
+        })),
+      ) satisfies StudentWithAvatar[];
     },
   });
 
   const grades = useMemo(
-    () => mergeGradeLists(catalog?.grades, students.map((s) => s.grade)),
+    () =>
+      filterOlympiadMiddleGrades(
+        mergeGradeLists(catalog?.grades, students.map((s) => s.grade)),
+      ),
     [catalog?.grades, students]
   );
 
@@ -161,6 +171,9 @@ export function AdminStudentCardsTab() {
       `}</style>
 
       <div className="flex flex-wrap items-center gap-3 no-print">
+        <p className="w-full text-xs text-cyan-300/80">
+          بطاقات أولمبياد رائد النشاط — المرحلة المتوسطة فقط
+        </p>
         <div className="relative min-w-[200px] flex-1">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
           <input
@@ -281,7 +294,7 @@ export function AdminStudentCardsTab() {
                     e.stopPropagation();
                     void handleDownloadSingle(student);
                   }}
-                  className="absolute right-3 top-3 flex items-center gap-1 rounded-lg border border-white/15 bg-navy-900/90 px-2 py-1.5 text-[10px] font-semibold text-white/80 hover:border-gold-400/40 hover:text-gold-300 transition-colors pointer-events-auto disabled:opacity-50"
+                  className="absolute right-3 top-3 flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--primary)] px-2 py-1.5 text-[10px] font-semibold text-on-contrast hover:bg-[var(--primary-secondary)] transition-colors pointer-events-auto disabled:opacity-50"
                 >
                   <Download className="h-3.5 w-3.5" />
                   {isDownloading ? 'جاري...' : 'PNG'}
@@ -291,7 +304,7 @@ export function AdminStudentCardsTab() {
                   grade={student.grade}
                   studentClass={student.class_name}
                   admissionNumber={student.admission_number}
-                  photoUrl={student.photoUrl}
+                  qrValue={getStudentQRUrl(student.id, student.qr_token)}
                 />
               </div>
             );
@@ -307,7 +320,7 @@ export function AdminStudentCardsTab() {
             grade={student.grade}
             studentClass={student.class_name}
             admissionNumber={student.admission_number}
-            photoUrl={student.photoUrl}
+            qrValue={getStudentQRUrl(student.id, student.qr_token)}
             printSize
             wrapperClassName="shadow-none"
           />

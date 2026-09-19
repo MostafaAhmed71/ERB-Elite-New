@@ -125,10 +125,10 @@ type Accent = 'gold' | 'blue' | 'purple' | 'green' | 'rose';
 
 const ACCENT_STYLES: Record<Accent, string> = {
   gold: 'from-gold-500 to-gold-600 text-navy-950',
-  blue: 'from-[#4481EB] to-[#04BEFE] text-white',
-  purple: 'from-[#7551FF] to-[#422AFB] text-white',
-  green: 'from-[#01B574] to-[#008F5D] text-white',
-  rose: 'from-[#E31A1A] to-[#C0392B] text-white',
+  blue: 'from-[#4481EB] to-[#04BEFE] text-on-contrast',
+  purple: 'from-[#7551FF] to-[#422AFB] text-on-contrast',
+  green: 'from-[#01B574] to-[#008F5D] text-on-contrast',
+  rose: 'from-[#E31A1A] to-[#C0392B] text-on-contrast',
 };
 
 export function AcademicActionCard({

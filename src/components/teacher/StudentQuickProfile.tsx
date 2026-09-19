@@ -181,7 +181,7 @@ export function StudentQuickProfile({ student, open, onClose }: StudentQuickProf
       <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
         {/* Student header */}
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-xl font-bold shrink-0">
             {student.full_name.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">

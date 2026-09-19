@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { withTimeout } from '../lib/utils/asyncUtils';
 import { getCurrentUserProfile,
   parseRoleFromMetadata,
   resolveAuthRole,
@@ -24,15 +25,6 @@ interface AuthStore {
   redirectAfterLogin: (session: Session) => void;
   setAuthSession: (session: Session) => Promise<DbUser | null>;
   logout: () => Promise<void>;
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-    }),
-  ]);
 }
 
 const PROFILE_TIMEOUT_MS = 15_000;
@@ -72,6 +64,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   setAuthSession: async (session: Session) => {
     get().applySession(session);
+    set({ loading: true });
     try {
       const profile = await withTimeout(
         getCurrentUserProfile(),
@@ -85,10 +78,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         loading: false,
         initialized: true,
       });
+      rememberPreferredLoginPath(getLoginPathForRole(resolveAuthRole(session, profile)));
       void touchUserLastSeen();
       return profile;
     } catch (err) {
       console.warn('Profile sync after auth:', err);
+      set({ loading: false });
       return null;
     }
   },
@@ -114,7 +109,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         set({
           session,
           role: metaRole,
-          loading: false,
+          loading: true,
           initialized: true,
         });
 
@@ -127,14 +122,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           set({
             user: profile,
             role: resolveAuthRole(session, profile) ?? metaRole,
+            loading: false,
           });
+          rememberPreferredLoginPath(getLoginPathForRole(resolveAuthRole(session, profile) ?? metaRole));
           void touchUserLastSeen();
         } catch (profileErr) {
           // الشبكة البطيئة أو RLS — الجلسة تبقى صالحة بالدور من metadata
           console.warn('Profile load skipped (session kept):', profileErr);
+          set({ loading: false });
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
+        initPromise = null; // BUG-003: السماح بإعادة المحاولة عند الفشل
         try {
           await supabase.auth.signOut({ scope: 'local' });
         } catch {
@@ -148,20 +147,33 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   refreshUser: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      set({ session: null, user: null, role: null, loading: false });
-      return null;
-    }
+    try {
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        SESSION_TIMEOUT_MS,
+        'getSession'
+      );
+      if (!session) {
+        set({ session: null, user: null, role: null, loading: false });
+        return null;
+      }
 
-    const profile = await getCurrentUserProfile();
-    set({
-      session,
-      user: profile,
-      role: resolveAuthRole(session, profile),
-      loading: false,
-    });
-    return profile;
+      const profile = await withTimeout(
+        getCurrentUserProfile(),
+        PROFILE_TIMEOUT_MS,
+        'getCurrentUserProfile'
+      );
+      set({
+        session,
+        user: profile,
+        role: resolveAuthRole(session, profile),
+        loading: false,
+      });
+      return profile;
+    } catch (err) {
+      console.warn('refreshUser failed — keeping current state:', err);
+      return get().user;
+    }
   },
 
   logout: async () => {

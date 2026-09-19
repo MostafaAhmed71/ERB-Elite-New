@@ -209,6 +209,8 @@ export function StudentDashboard() {
         rank={metrics.classRank}
         top3={metrics.top3Classmates}
         currentStudentId={profile.id}
+        grade={profile.grade}
+        className={profile.class_name}
       />
       </FeatureGate>
 
@@ -421,7 +423,7 @@ export function StudentDashboard() {
                   </div>
                   <div className="text-left shrink-0">
                     <p className="font-bold text-sm text-gold-400 tabular-nums">{p.points > 0 ? `+${p.points}` : p.points} ن</p>
-                    <span className={clsx('text-[8px] px-1 py-0.2 rounded border mt-1 inline-block',
+                    <span className={clsx('text-[8px] px-1 py-px rounded border mt-1 inline-block',
                       p.status === 'approved' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                       p.status === 'rejected' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                       'bg-amber-500/10 border-amber-500/20 text-amber-400'

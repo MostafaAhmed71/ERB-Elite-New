@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
-import { signIn, resolveLoginTarget } from '../lib/auth';
+import { signIn, resolveLoginTarget, rememberPreferredLoginPath } from '../lib/auth';
 import { toLoginErrorMessage } from '../lib/errors';
 import { resolveTeacherPostLoginPath } from '../lib/teacherSignup';
 import { useAuthStore } from '../stores/authStore';
 import { LoginIllustration } from '../components/auth/LoginIllustration';
 import { TapHandLoader } from '../components/ui/TapHandLoader';
 import { PLATFORM_ICON, PLATFORM_NAME, PLATFORM_TAGLINE } from '../lib/branding';
+import { ThemeAppearanceControl } from '../components/theme/ThemeAppearanceControl';
 import './LoginPage.css';
 
 function hasOAuthReturnParams(): boolean {
@@ -31,6 +32,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const redirectingRef = useRef(false);
   const oauthReturn = hasOAuthReturnParams();
+
+  useEffect(() => {
+    rememberPreferredLoginPath('/login');
+  }, []);
 
   useEffect(() => {
     if (!initialized || !session || redirectingRef.current) return;
@@ -92,6 +97,9 @@ export function LoginPage() {
 
   return (
     <div className="login-shell" dir="rtl">
+      <div className="login-theme-dock">
+        <ThemeAppearanceControl variant="icon" />
+      </div>
       <div className="login-container">
         <div className="login-form-side">
           <form className="login-form" onSubmit={handleSubmit}>

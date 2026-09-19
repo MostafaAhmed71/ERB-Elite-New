@@ -88,7 +88,7 @@ async function fetchAcademicSubjectAssignments(userId: string): Promise<TeacherS
   if (pairs.size === 0) {
     const { data: setup, error: sErr } = await supabase
       .from('academic_teacher_setups')
-      .select('education_levels, grades_by_level, subjects, is_setup_complete')
+      .select('education_levels, grades_by_level, subjects, subjects_by_grade, is_setup_complete')
       .eq('teacher_id', userId)
       .maybeSingle();
     if (sErr && sErr.code !== '42P01') throw sErr;
@@ -98,10 +98,14 @@ async function fetchAcademicSubjectAssignments(userId: string): Promise<TeacherS
         education_levels: AcademicEducationLevel[] | null;
         grades_by_level: Record<string, number[]> | null;
         subjects: string[] | null;
+        subjects_by_grade?: Record<string, string[]> | null;
       };
       for (const level of s.education_levels ?? []) {
         for (const gradeNum of s.grades_by_level?.[level] ?? []) {
-          for (const subj of s.subjects ?? []) add(level, gradeNum, subj);
+          const key = `${level}_${gradeNum}`;
+          const gradeSubjects =
+            s.subjects_by_grade?.[key] ?? s.subjects_by_grade?.[`${level}_${gradeNum}`] ?? s.subjects ?? [];
+          for (const subj of gradeSubjects) add(level, gradeNum, subj);
         }
       }
     }

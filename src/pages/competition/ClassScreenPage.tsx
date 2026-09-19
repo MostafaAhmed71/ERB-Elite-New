@@ -170,7 +170,7 @@ export function ClassScreenPage() {
 
   if (loadError) {
     return (
-      <div className="h-dvh bg-[#0D1B2A] text-red-300 flex items-center justify-center" dir="rtl">
+      <div className="theme-force-dark h-dvh bg-[#0D1B2A] text-red-300 flex items-center justify-center" dir="rtl">
         {loadError}
       </div>
     );
@@ -178,7 +178,7 @@ export function ClassScreenPage() {
 
   if (!klass || qLoading || !settingsReady) {
     return (
-      <div className="h-dvh bg-[#0D1B2A] flex items-center justify-center overflow-hidden" dir="rtl">
+      <div className="theme-force-dark h-dvh bg-[#0D1B2A] flex items-center justify-center overflow-hidden" dir="rtl">
         <TapHandLoader label="جاري مزامنة وقت العرض..." fullScreen />
       </div>
     );
@@ -190,7 +190,7 @@ export function ClassScreenPage() {
   const showIdleAfter = !isDemoMode() && status === 'after' && !showBoard;
 
   return (
-    <div className="h-dvh w-screen overflow-hidden bg-[#0D1B2A] text-white relative" dir="rtl">
+    <div className="theme-force-dark h-dvh w-screen overflow-hidden bg-[#0D1B2A] text-white relative" dir="rtl">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(244,196,48,0.15),transparent_50%)]" />
 
       <header className="relative z-10 flex items-center justify-between px-6 py-4">

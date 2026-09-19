@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ListOrdered, Play, RefreshCw, XCircle, RotateCcw } from 'lucide-react';
+import { ListOrdered, Play, RefreshCw, XCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { RolePageShell } from '../../components/ui/RolePageShell';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { HorizonCard } from '../../components/dashboard/horizon/HorizonDashboard';
@@ -16,6 +16,7 @@ import {
   listPlatformJobEvents,
   listPlatformJobs,
   platformJobStatusLabel,
+  purgeAllPlatformJobs,
   retryPlatformJob,
   type PlatformJob,
   type PlatformJobStatus,
@@ -72,6 +73,7 @@ export function DevJobsPage() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['dev', 'jobs'] });
+    qc.invalidateQueries({ queryKey: ['dev', 'queue'] });
     qc.invalidateQueries({ queryKey: ['dev', 'health', 'jobs'] });
   };
 
@@ -126,6 +128,16 @@ export function DevJobsPage() {
     onError: (e: Error) => showError(e),
   });
 
+  const purgeMut = useMutation({
+    mutationFn: purgeAllPlatformJobs,
+    onSuccess: (n) => {
+      showSuccess(n > 0 ? `حُذفت ${n} مهمة — الطابور فارغ` : 'الطابور فارغ مسبقاً');
+      setSelectedId(null);
+      invalidate();
+    },
+    onError: (e: Error) => showError(e),
+  });
+
   const selected = useMemo(
     () => (jobsQuery.data ?? []).find((j) => j.id === selectedId) ?? null,
     [jobsQuery.data, selectedId],
@@ -157,6 +169,22 @@ export function DevJobsPage() {
               onClick={() => invalidate()}
             >
               تحديث
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Trash2 className="w-4 h-4" />}
+              onClick={() => {
+                if (
+                  confirm(
+                    'حذف جميع مهام طابور المنصة (انتظار، تشغيل، نجاح، فشل)؟ لا يمكن التراجع.',
+                  )
+                ) {
+                  purgeMut.mutate();
+                }
+              }}
+              disabled={purgeMut.isPending || !!missingTable}
+            >
+              {purgeMut.isPending ? 'جاري الحذف…' : 'حذف كل المهام'}
             </Button>
           </div>
         }

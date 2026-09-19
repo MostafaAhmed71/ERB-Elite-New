@@ -5,7 +5,8 @@ import { embedOne, type Embed } from '../../lib/supabaseEmbeds';
 import { sumRawApprovedPoints, type PointEntry } from '../../lib/calculations';
 import { buildClassBulkRankings, fetchApprovedClassGrants } from '../../lib/classPoints';
 import { classProfileKey, fetchClassProfiles } from '../../lib/mediaUpload';
-import type { ClassRankEntry, StudentRankEntry } from './types';
+import type { ClassRankEntry, LeaderboardPeriod, StudentRankEntry } from './types';
+import { getPeriodStartDate } from './LeaderboardShared';
 import { MOCK_CLASS_RANKINGS, MOCK_STUDENT_RANKINGS } from './mockData';
 
 export type LeaderboardDataResult = {
@@ -18,19 +19,28 @@ export type LeaderboardDataResult = {
 
 export function useLeaderboardData(
   selectedGrade = '',
-  selectedClass = ''
+  selectedClass = '',
+  period: LeaderboardPeriod = 'weekly'
 ): LeaderboardDataResult {
+  const fromDate = useMemo(() => getPeriodStartDate(period), [period]);
+
   const studentsQuery = useQuery({
-    queryKey: ['leaderboard', 'students', selectedGrade, selectedClass],
+    queryKey: ['leaderboard', 'students', selectedGrade, selectedClass, period],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('points_ledger')
         .select(`
-          student_id, points, status, activity_id,
+          student_id, points, status, activity_id, created_at,
           activities ( name, category ),
           students:student_id ( full_name, grade, class_name, photo_url, user_id )
         `)
         .eq('status', 'approved');
+
+      if (fromDate) {
+        query = query.gte('created_at', fromDate);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       const userIds = [
@@ -98,10 +108,10 @@ export function useLeaderboardData(
   });
 
   const classesQuery = useQuery({
-    queryKey: ['leaderboard', 'classes', selectedGrade],
+    queryKey: ['leaderboard', 'classes', selectedGrade, period],
     queryFn: async () => {
       const [classGrants, studentsRes, classProfiles] = await Promise.all([
-        fetchApprovedClassGrants(),
+        fetchApprovedClassGrants(fromDate),
         supabase.from('students').select('grade, class_name').eq('is_active', true),
         fetchClassProfiles().catch(() => []),
       ]);

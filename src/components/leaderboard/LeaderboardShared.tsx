@@ -36,7 +36,7 @@ export function LeaderboardEmptyState({
         <Trophy className="w-7 h-7 text-gold-400/80" />
       </div>
       <div className="space-y-1.5">
-        <p className="text-white font-bold text-base">لسه محدش صعد للقمة</p>
+        <p className="text-white font-bold text-base">لم يصل أحد إلى القمة حتى الآن</p>
         <p className="text-white/45 text-sm leading-relaxed max-w-xs">
           {variant === 'classes'
             ? 'أول منحة جماعية تفتح سباق الفصول'
@@ -88,12 +88,16 @@ export function LeaderboardPeriodTabs({
 }
 
 /**
- * UI-only period filter. Data layer still returns all-time approved totals.
- * TODO: wire to backend date-range filter on points_ledger / class_points_ledger
+ * حساب تاريخ البداية للفترة الزمنية المحددة للوحة المتصدرين
  */
-export function applyPeriodPlaceholder(
-  period: LeaderboardPeriod,
-  _entries: unknown[],
-): void {
-  void period;
+export function getPeriodStartDate(period: LeaderboardPeriod): string {
+  const now = Date.now();
+  if (period === 'weekly') {
+    return new Date(now - 7 * 86_400_000).toISOString();
+  }
+  if (period === 'monthly') {
+    return new Date(now - 30 * 86_400_000).toISOString();
+  }
+  // semester: ~120 days (فصل دراسي)
+  return new Date(now - 120 * 86_400_000).toISOString();
 }

@@ -233,7 +233,7 @@ export function DeputyAttendancePage() {
                         key={s.id}
                         className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3"
                       >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast font-bold shrink-0">
                           {s.full_name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">

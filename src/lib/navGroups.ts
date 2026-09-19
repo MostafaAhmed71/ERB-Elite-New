@@ -21,6 +21,8 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
         '/principal/bulk-upload',
         '/principal/import-export',
         '/principal/bulk-accounts',
+        '/points/grant',
+        '/points/grant?bulk=1',
         '/principal/settings',
         '/competition/admin',
         '/qa/simulator',

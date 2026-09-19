@@ -29,6 +29,7 @@ export const REALTIME_SUBSCRIPTIONS: RealtimeSubscription[] = [
       ['principal', 'class-students'],
       ['principal', 'student-360'],
       ['principal', 'executive'],
+      ['display_leaderboard_rpc'], // BUG-006: تحديث لوحة المتصدرين عند تغيّر النقاط
     ],
   },
   {
@@ -55,6 +56,7 @@ export const REALTIME_SUBSCRIPTIONS: RealtimeSubscription[] = [
       ['principal', 'student-360'],
       ['my_student'],
       ['public', 'student'],
+      ['display_leaderboard_rpc'], // BUG-006: تحديث لوحة المتصدرين عند تغيّر بيانات الطلاب
     ],
   },
   {

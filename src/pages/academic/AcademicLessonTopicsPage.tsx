@@ -7,6 +7,7 @@ import { DEFAULT_SECTIONS, ACADEMIC_LEVEL_LABELS, gradesForLevel, formatGradeLab
 import type { AcademicEducationLevel, AcademicLessonTopics } from '../../lib/academic/types';
 import { AcademicLayout, AcademicPageHeader, AcademicEmpty, academicInputClass, academicBtnPrimary, academicBtnSecondary } from '../../components/academic/AcademicUi';
 import { AcademicSubjectSelect } from '../../components/academic/AcademicSubjectSelect';
+import { subjectsFromTeacherSetup } from '../../lib/academic/subjectHelpers';
 
 export function AcademicLessonTopicsPage() {
   const { user } = useAuthStore();
@@ -86,7 +87,7 @@ export function AcademicLessonTopicsPage() {
           grade={grade}
           value={subject}
           onChange={setSubject}
-          teacherSetupSubjects={setup?.subjects}
+          teacherSetupSubjects={subjectsFromTeacherSetup(setup, level, grade)}
           required
         />
         <div className="flex gap-2">

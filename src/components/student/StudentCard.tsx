@@ -1,190 +1,209 @@
 import clsx from 'clsx';
+import type { ReactNode } from 'react';
 import QRCode from 'react-qr-code';
-import { User } from 'lucide-react';
-import { PLATFORM_ICON, PLATFORM_NAME, PLATFORM_NAME_SHORT, PLATFORM_TAGLINE } from '../../lib/branding';
+
+const NAVY = '#0B3A6E';
+const GOLD = '#C9A227';
+const BLACK = '#111111';
+const WHITE = '#FFFFFF';
+const LINE = '#1A1A1A';
+
+export const ID_CARD_SCHOOL_NAME = 'متوسطة وثانوية نخبة الشمال الأهلية';
+export const ID_CARD_TITLE = 'بطاقة الطالب التعريفية';
+export const ID_CARD_PRINCIPAL_TITLE = 'مدير المدرسة';
+export const ID_CARD_PRINCIPAL_NAME = 'محمد نصر الدين';
+export const ID_CARD_LOGO_LEFT = '/id-card/logo-left.png';
+export const ID_CARD_LOGO_RIGHT = '/id-card/logo-right.png';
 
 export type StudentCardProps = {
   studentName: string;
   grade: string;
-  /** الفصل الدراسي */
   studentClass: string;
   admissionNumber: string;
+  /** @deprecated لا يُعرض — محفوظ للتوافق */
   photoUrl?: string | null;
-  /** شعار مضمّن كـ data URL عند التصدير */
+  logoLeftUrl?: string;
+  logoRightUrl?: string;
+  /** @deprecated */
   platformIconUrl?: string;
-  /** خط نظامي عند تصدير PNG (بدون Google Fonts) */
   useSystemFont?: boolean;
-  /** قيمة QR — الافتراضي رقم القيد */
   qrValue?: string;
-  /** كلاس Tailwind اختياري للحاوية */
   wrapperClassName?: string;
-  /** عرض بحجم الطباعة CR80 بدون تكبير */
   printSize?: boolean;
 };
 
-const ROYAL_BLUE = '#1B3B86';
-const GOLD = '#BFA054';
+function Pill({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={clsx('mx-auto rounded-full px-3 py-1 text-center font-bold tracking-wide', className)}
+      style={{ backgroundColor: NAVY, color: WHITE }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function FieldRow({
+  label,
+  value,
+  compact,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+  emphasize?: boolean;
+}) {
+  return (
+    <div className="w-full" style={{ color: BLACK }}>
+      <div
+        className={clsx(
+          'flex w-full items-baseline gap-2 pb-1',
+          emphasize
+            ? compact
+              ? 'text-[13px] font-black leading-snug'
+              : 'text-[15px] font-black leading-snug'
+            : compact
+              ? 'text-[11px] font-extrabold leading-snug'
+              : 'text-[13px] font-extrabold leading-snug'
+        )}
+      >
+        <span className="shrink-0 opacity-70" style={{ color: NAVY }}>
+          {label}
+        </span>
+        <span className="min-w-0 flex-1 text-right break-words">{value}</span>
+      </div>
+      <div
+        className="h-px w-full"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${LINE} 12%, ${LINE} 88%, transparent)`,
+          opacity: 0.35,
+        }}
+      />
+    </div>
+  );
+}
 
 export function StudentCard({
   studentName,
   grade,
   studentClass,
   admissionNumber,
-  photoUrl,
-  platformIconUrl,
+  logoLeftUrl,
+  logoRightUrl,
   qrValue,
   wrapperClassName,
   printSize = false,
   useSystemFont = false,
 }: StudentCardProps) {
   const qrPayload = qrValue ?? admissionNumber;
-  const initials = studentName.trim().charAt(0) || 'ط';
-  const qrSize = printSize ? 40 : 56;
+  const qrSize = printSize ? 72 : 102;
+  const logoH = printSize ? 26 : 38;
 
   return (
     <article
       dir="rtl"
       className={clsx(
-        'relative grid overflow-hidden rounded-2xl bg-white',
-        'shadow-[0_14px_44px_rgba(27,59,134,0.22)]',
-        'border border-[#BFA054]/25',
+        'student-id-card relative flex flex-col overflow-hidden',
         printSize
-          ? 'h-[86mm] w-[54mm] grid-rows-[auto_minmax(0,1fr)_auto_auto]'
-          : 'w-[214px] grid-rows-[auto_auto_auto_auto]',
+          ? 'h-[86mm] w-[54mm] rounded-[12px] border-[3px] p-0'
+          : 'w-[252px] rounded-2xl border-[4px] p-0 shadow-[0_16px_40px_rgba(11,58,110,0.2)]',
         wrapperClassName
       )}
-      style={{ fontFamily: useSystemFont ? 'Arial, Helvetica, sans-serif' : 'Cairo, sans-serif' }}
+      style={{
+        backgroundColor: WHITE,
+        borderColor: NAVY,
+        color: BLACK,
+        fontFamily: useSystemFont ? 'Arial, Helvetica, sans-serif' : 'Cairo, Tajawal, sans-serif',
+      }}
       aria-label={`بطاقة هوية ${studentName}`}
     >
-      {/* ترويسة */}
-      <header
-        className="relative shrink-0 px-2.5 pt-2 pb-1.5 text-center text-white"
-        style={{ background: `linear-gradient(165deg, ${ROYAL_BLUE} 0%, #152d6b 100%)` }}
-      >
-        <div
-          className="absolute inset-x-0 top-0 h-0.5"
-          style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }}
-        />
-        <div className="flex items-center justify-center gap-1.5">
+      {/* شريط علوي ذهبي */}
+      <div
+        className="shrink-0"
+        style={{
+          height: printSize ? 3 : 4,
+          background: `linear-gradient(90deg, ${NAVY}, ${GOLD}, ${NAVY})`,
+        }}
+      />
+
+      <div className={clsx('flex flex-1 flex-col', printSize ? 'px-2 py-1.5' : 'px-3 py-2.5')}>
+        {/* ترويسة */}
+        <header className={clsx('flex items-center gap-1.5', printSize ? 'mb-1' : 'mb-2')}>
           <img
-            src={platformIconUrl ?? PLATFORM_ICON}
+            src={logoRightUrl ?? ID_CARD_LOGO_RIGHT}
             alt=""
             crossOrigin="anonymous"
-            className="h-6 w-6 shrink-0 rounded-md object-cover ring-1 ring-white/25"
+            className="shrink-0 object-contain"
+            style={{ height: logoH, width: logoH }}
           />
-          <div className="min-w-0 text-right">
-            <p className="truncate text-[9px] font-bold leading-tight">
-              {printSize ? PLATFORM_NAME_SHORT : PLATFORM_NAME}
-            </p>
-            <p className="truncate text-[6px] text-white/70">{PLATFORM_TAGLINE}</p>
-          </div>
-        </div>
-        <p className="mt-1 text-[7px] font-semibold tracking-wide text-[#BFA054]">
-          بطاقة هوية طالب
-        </p>
-      </header>
-
-      {/* بيانات الطالب */}
-      <div
-        className={clsx(
-          'flex flex-col items-center bg-white px-2.5 pt-2',
-          printSize ? 'min-h-0 overflow-hidden pb-0.5' : 'pb-1'
-        )}
-      >
-        <div
-          className="relative mb-1.5 shrink-0 rounded-lg p-0.5"
-          style={{
-            background: `linear-gradient(135deg, ${GOLD}, #d4b76a, ${GOLD})`,
-            boxShadow: '0 3px 10px rgba(191,160,84,0.3)',
-          }}
-        >
-          <div
+          <p
             className={clsx(
-              'overflow-hidden rounded-[8px] bg-white',
-              printSize ? 'h-[12mm] w-[12mm]' : 'h-[58px] w-[58px]'
+              'min-w-0 flex-1 text-center font-extrabold leading-tight',
+              printSize ? 'text-[7.5px]' : 'text-[10px]'
             )}
+            style={{ color: NAVY }}
           >
-            {photoUrl ? (
-              <img
-                src={photoUrl}
-                alt={studentName}
-                crossOrigin="anonymous"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div
-                className="flex h-full w-full items-center justify-center"
-                style={{ background: `linear-gradient(145deg, ${ROYAL_BLUE}15, ${GOLD}20)` }}
-              >
-                {initials.length <= 2 ? (
-                  <span
-                    className={clsx('font-black', printSize ? 'text-base' : 'text-xl')}
-                    style={{ color: ROYAL_BLUE }}
-                  >
-                    {initials}
-                  </span>
-                ) : (
-                  <User
-                    className={clsx(printSize ? 'h-5 w-5' : 'h-7 w-7')}
-                    style={{ color: ROYAL_BLUE }}
-                    aria-hidden
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <h2
-          className="mb-1 max-w-full shrink-0 truncate text-center text-[11px] font-extrabold leading-tight"
-          style={{ color: ROYAL_BLUE }}
-        >
-          {studentName}
-        </h2>
-
-        <dl className="w-full shrink-0 space-y-0.5 text-[8px]">
-          <div className="flex items-center justify-between gap-1.5 rounded bg-[#1B3B86]/5 px-1.5 py-0.5">
-            <dt className="font-semibold text-[#1B3B86]/70">الصف</dt>
-            <dd className="truncate font-bold text-[#1B3B86]">{grade}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-1.5 rounded bg-[#1B3B86]/5 px-1.5 py-0.5">
-            <dt className="font-semibold text-[#1B3B86]/70">الفصل</dt>
-            <dd className="truncate font-bold text-[#1B3B86]">{studentClass}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-1.5 rounded border border-[#BFA054]/35 bg-[#BFA054]/10 px-1.5 py-0.5">
-            <dt className="shrink-0 font-semibold text-[#1B3B86]/80">رقم القيد</dt>
-            <dd className="truncate font-mono text-[9px] font-bold tracking-wide" style={{ color: ROYAL_BLUE }}>
-              {admissionNumber}
-            </dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* QR — صف مستقل لضمان ظهوره كاملاً */}
-      <div className="flex shrink-0 justify-center bg-white px-2 pb-1 pt-0.5">
-        <div
-          className="rounded-md border border-[#BFA054]/30 bg-white p-0.5 shadow-sm"
-          style={{ width: qrSize + 4, height: qrSize + 4 }}
-        >
-          <QRCode
-            value={qrPayload}
-            size={qrSize}
-            level="M"
-            fgColor={ROYAL_BLUE}
-            bgColor="#FFFFFF"
-            title={`QR ${admissionNumber}`}
-            style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
+            {ID_CARD_SCHOOL_NAME}
+          </p>
+          <img
+            src={logoLeftUrl ?? ID_CARD_LOGO_LEFT}
+            alt=""
+            crossOrigin="anonymous"
+            className="shrink-0 object-contain"
+            style={{ height: logoH, width: logoH }}
           />
+        </header>
+
+        <Pill className={printSize ? 'mb-2 text-[6.5px]' : 'mb-3 text-[9px]'}>{ID_CARD_TITLE}</Pill>
+
+        {/* بيانات الطالب — أسفل قليلاً وبخط أوضح */}
+        <div
+          className={clsx('w-full', printSize ? 'mt-1 mb-2 space-y-2' : 'mt-2 mb-3 space-y-2.5')}
+        >
+          <FieldRow label="الاسم" value={studentName} compact={printSize} emphasize />
+          <FieldRow label="الصف" value={grade} compact={printSize} />
+          <FieldRow label="الفصل" value={studentClass} compact={printSize} />
         </div>
+
+        {/* QR */}
+        <div className="flex flex-1 items-center justify-center">
+          <div
+            className="relative rounded-xl p-1.5"
+            style={{
+              border: `1.5px solid ${NAVY}`,
+              boxShadow: `inset 0 0 0 1px ${GOLD}55`,
+              backgroundColor: WHITE,
+            }}
+          >
+            <QRCode
+              value={qrPayload}
+              size={qrSize}
+              level="M"
+              fgColor={NAVY}
+              bgColor={WHITE}
+              title={`QR ${admissionNumber}`}
+              style={{ height: 'auto', maxWidth: '100%', width: '100%', display: 'block' }}
+            />
+          </div>
+        </div>
+
+        {/* تذييل */}
+        <footer className={clsx('mt-auto text-center', printSize ? 'pt-1.5' : 'pt-2.5')}>
+          <Pill className={printSize ? 'mb-0.5 text-[6.5px]' : 'mb-1 text-[9px]'}>
+            {ID_CARD_PRINCIPAL_TITLE}
+          </Pill>
+          <p
+            className={clsx('font-extrabold', printSize ? 'text-[9px]' : 'text-[11px]')}
+            style={{ color: NAVY }}
+          >
+            {ID_CARD_PRINCIPAL_NAME}
+          </p>
+        </footer>
       </div>
 
-      {/* شريط سفلي */}
-      <footer
-        className="shrink-0 truncate px-1 py-0.5 text-center text-[5px] font-medium leading-tight text-white/90"
-        style={{ backgroundColor: ROYAL_BLUE }}
-      >
-        امسح للرصد · {PLATFORM_NAME_SHORT}
-      </footer>
+      {/* شريط سفلي كحلي */}
+      <div className="shrink-0" style={{ height: printSize ? 3 : 4, backgroundColor: NAVY }} />
     </article>
   );
 }

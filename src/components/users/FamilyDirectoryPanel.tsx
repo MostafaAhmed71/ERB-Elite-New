@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, MessageCircle, RefreshCw, Search } from 'lucide-react';
+import { Copy, Download, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import {
   adminRegenerateStudentLinkCode,
   whatsappShareLink,
 } from '../../lib/familyOnboarding';
+import { exportStudentsRosterExcel } from '../../lib/olympiadMiddleScope';
 import type { DbStudent, DbUser } from '../../types';
 import clsx from 'clsx';
 
@@ -134,6 +135,20 @@ export function FamilyDirectoryPanel() {
     }
   };
 
+  const handleExportStudents = () => {
+    const source = search.trim() ? filteredStudents : students;
+    if (source.length === 0) {
+      toast.error('لا يوجد طلاب للتصدير');
+      return;
+    }
+    try {
+      const count = exportStudentsRosterExcel(source);
+      toast.success(`تم تصدير ${count} طالباً إلى Excel`);
+    } catch {
+      toast.error('فشل تصدير الملف');
+    }
+  };
+
   return (
     <div className="space-y-4" dir="rtl">
       <div className="flex flex-wrap items-center gap-3 justify-between">
@@ -160,14 +175,28 @@ export function FamilyDirectoryPanel() {
           </button>
         </div>
 
-        <div className="relative min-w-[220px] flex-1 max-w-md">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث بالاسم أو الكود أو الهوية..."
-            className="w-full bg-white/5 border border-white/10 rounded-xl pr-10 pl-3 py-2.5 text-sm text-white"
-          />
+        <div className="flex flex-wrap items-center gap-2 flex-1 justify-end min-w-[220px]">
+          {tab === 'students' && (
+            <button
+              type="button"
+              onClick={handleExportStudents}
+              disabled={students.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 disabled:opacity-40 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              تصدير Excel
+              {search.trim() ? ` (${filteredStudents.length})` : ''}
+            </button>
+          )}
+          <div className="relative flex-1 max-w-md min-w-[200px]">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="بحث بالاسم أو الكود أو الهوية..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl pr-10 pl-3 py-2.5 text-sm text-white"
+            />
+          </div>
         </div>
       </div>
 

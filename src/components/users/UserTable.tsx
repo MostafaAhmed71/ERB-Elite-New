@@ -83,7 +83,7 @@ export function UserTable({
                 )}
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-secondary)] flex items-center justify-center text-on-contrast text-sm font-bold flex-shrink-0">
                       {user.full_name.charAt(0)}
                     </div>
                     <span className="text-white font-medium">{user.full_name}</span>
@@ -98,11 +98,13 @@ export function UserTable({
                     <span className={clsx('px-2.5 py-1 rounded-full text-xs border font-medium', ROLE_COLORS[user.role])}>
                       {ROLE_LABELS[user.role]}
                     </span>
-                    {user.role === 'deputy' && (
+                    {(user.role === 'deputy' || user.role === 'supervisor') && (
                       <span className="text-[11px] text-white/45">
                         {user.staff_education_level === 'middle' || user.staff_education_level === 'high'
                           ? ACADEMIC_LEVEL_LABELS[user.staff_education_level]
-                          : 'بدون مرحلة — عدّل الحساب'}
+                          : user.role === 'supervisor'
+                            ? 'كلتا المرحلتين'
+                            : 'بدون مرحلة — عدّل الحساب'}
                       </span>
                     )}
                   </div>
