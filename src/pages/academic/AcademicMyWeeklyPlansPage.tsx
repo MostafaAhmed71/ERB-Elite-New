@@ -257,7 +257,7 @@ export function AcademicMyWeeklyPlansPage() {
         }
       />
 
-      <div className="horizon-card rounded-2xl bg-[#111c44] border border-white/[0.06] p-4 sm:p-5 mb-5 space-y-4">
+      <div className="horizon-card rounded-2xl bg-[#111c44] border border-white/[0.06] p-3.5 sm:p-5 mb-5 space-y-4">
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3AED0] pointer-events-none" />
           <input
@@ -268,8 +268,8 @@ export function AcademicMyWeeklyPlansPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <label className="block col-span-2 sm:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <label className="block">
             <span className="text-[#A3AED0] text-xs mb-1.5 block">المرحلة</span>
             <select
               className={academicInputClass}

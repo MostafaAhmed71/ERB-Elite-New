@@ -90,11 +90,11 @@ export function WeeklyPlanHistoryCard({
           : 'bg-[#111c44] border-white/[0.06]',
       )}
     >
-      <div className="p-4 sm:p-5">
-        <div className="flex items-start gap-3 sm:gap-4">
+      <div className="p-3.5 sm:p-5">
+        <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap sm:gap-4">
           <div
             className={clsx(
-              'w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 border',
+              'w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center shrink-0 border',
               complete
                 ? 'bg-gold-500/15 border-gold-400/30'
                 : 'bg-[#7551FF]/10 border-[#7551FF]/25',
@@ -105,11 +105,11 @@ export function WeeklyPlanHistoryCard({
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h3 className="text-white font-bold text-base sm:text-lg truncate">
+            <div className="flex flex-col items-start gap-1.5 mb-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+              <h3 className="w-full text-white font-bold text-base leading-snug break-words sm:w-auto sm:text-lg">
                 {formatGradeSection(plan.education_level, plan.grade, plan.section)}
               </h3>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.06] text-[#A3AED0] border border-white/[0.08]">
+              <span className="max-w-full whitespace-normal text-xs leading-5 font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.06] text-[#A3AED0] border border-white/[0.08]">
                 {formatSemesterWeek(plan.semester ?? 1, plan.week_number)}
               </span>
             </div>
@@ -136,7 +136,7 @@ export function WeeklyPlanHistoryCard({
               {updatedLabel && <span>آخر تحديث {updatedLabel}</span>}
             </div>
 
-            <div className="mt-3">
+            <div className="mt-3 hidden sm:block">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="text-xs text-[#A3AED0]">
                   {complete ? (
@@ -162,29 +162,55 @@ export function WeeklyPlanHistoryCard({
           </div>
 
           {isTeacher && (onEdit || onDelete) && (
-            <div className="flex gap-1 shrink-0">
+            <div className="order-3 flex w-full gap-2 border-t border-white/[0.06] pt-3 sm:order-none sm:w-auto sm:shrink-0 sm:border-0 sm:pt-0">
               {onEdit && (
                 <button
                   type="button"
-                  className="p-2.5 rounded-xl text-gold-400 hover:bg-gold-400/10 border border-transparent hover:border-gold-400/20 transition-colors"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 sm:min-h-0 sm:flex-none sm:border-transparent sm:bg-transparent sm:p-2.5"
                   onClick={onEdit}
                   title="تعديل"
                 >
                   <Pencil className="w-4 h-4" />
+                  <span className="sm:hidden">تعديل</span>
                 </button>
               )}
               {onDelete && (
                 <button
                   type="button"
-                  className="p-2.5 rounded-xl text-red-400 hover:bg-red-400/10 border border-transparent hover:border-red-400/20 transition-colors"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-400/10 sm:min-h-0 sm:flex-none sm:border-transparent sm:bg-transparent sm:p-2.5"
                   onClick={onDelete}
                   title="حذف"
                 >
                   <Trash2 className="w-4 h-4" />
+                  <span className="sm:hidden">حذف</span>
                 </button>
               )}
             </div>
           )}
+        </div>
+
+        <div className="mt-3 sm:hidden">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="text-xs text-[#A3AED0]">
+              {complete ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-[#01B574]">
+                  <Check className="h-3.5 w-3.5" /> مكتملة
+                </span>
+              ) : (
+                'التقدم'
+              )}
+            </span>
+            <span className="text-xs font-bold tabular-nums text-gold-400">{pct}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={clsx(
+                'h-full rounded-full transition-all',
+                complete ? 'bg-gold-500' : 'bg-gradient-to-l from-gold-500 to-[#7551FF]',
+              )}
+              style={{ width: `${Math.max(pct, filled > 0 ? 8 : 0)}%` }}
+            />
+          </div>
         </div>
 
         {useFullGrid ? (
