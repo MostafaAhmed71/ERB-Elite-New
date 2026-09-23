@@ -1,0 +1,18 @@
+name: iOS simulator build
+on:
+  pull_request:
+    paths:
+      - 'ios-native/**'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: cd ios-native && xcodegen generate
+      - name: Compile for iPhone simulator
+        run: xcodebuild -project ios-native/EliteOlympiad.xcodeproj -scheme EliteOlympiad -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

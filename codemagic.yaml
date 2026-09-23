@@ -1,0 +1,44 @@
+workflows:
+  ios-simulator-check:
+    name: iOS simulator build
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          cd ios-native && xcodegen generate
+      - name: Compile for iPhone simulator
+        script: |
+          xcodebuild -project ios-native/EliteOlympiad.xcodeproj -scheme EliteOlympiad -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+  ios-testflight:
+    name: iOS TestFlight build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: northelite
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: tech.northelite.olympiad
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          cd ios-native && xcodegen generate
+      - name: Apply Apple signing profiles
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa --project "$CM_BUILD_DIR/ios-native/EliteOlympiad.xcodeproj" --scheme EliteOlympiad
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
