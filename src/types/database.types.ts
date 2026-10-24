@@ -403,6 +403,14 @@ export type Database = {
         Args: { p_term: string };
         Returns: number;
       };
+      get_achievement_thresholds: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>;
+      };
+      get_excellence_levels: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
       upsert_school_setting: {
         Args: { p_key: string; p_value: Record<string, unknown> };
         Returns: void;

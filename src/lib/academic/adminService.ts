@@ -27,16 +27,23 @@ import type {
   AcademicObservationAssignment,
   AcademicClassTeacherCandidate,
   AcademicTeacherSetup,
+  AcademicTeacherSchedule,
   AcademicObservationRating,
   AcademicTeacherObservationEntry,
 } from './types';
 import { teacherClassRefsFromSetup } from './teacherSetupHelpers';
+import { subjectsMatch } from './subjectHelpers';
+import { classesMatch, olympiadGradeToAcademic } from './gradeBridge';
 import { summarizeObservationEntry } from './observationHelpers';
 import { DEFAULT_AUTO_REMINDER_SETTINGS, EMPTY_WEEK_CALENDARS, normalizeAutoReminderSettings } from './types';
 import { formatGradeSection } from './constants';
 import { normalizeWeekCalendars } from './semesterWeekCalendar';
 import { syncTeacherOlympiadFromAcademic } from './olympiadSyncService';
-import { uploadExamReviewToHostinger } from '../hostingerUpload';
+import {
+  deleteExamReviewFromHostinger,
+  uploadExamReviewToHostinger,
+  type HostingerUploadProgressFn,
+} from '../hostingerUpload';
 
 export const academicExamReviewService = {
   async listByTeacher(teacherId: string) {
@@ -199,8 +206,9 @@ export const academicExamReviewService = {
       type: AcademicExamReview['type'];
       exam_period?: AcademicExamReview['exam_period'];
     },
+    onProgress?: HostingerUploadProgressFn,
   ) {
-    const uploaded = await uploadExamReviewToHostinger(file, meta.teacher_id);
+    const uploaded = await uploadExamReviewToHostinger(file, meta.teacher_id, onProgress);
     const { data, error } = await supabase
       .from('academic_exam_reviews')
       .insert({
@@ -216,8 +224,53 @@ export const academicExamReviewService = {
     return data as AcademicExamReview;
   },
 
-  async replaceReviewFile(id: string, teacherId: string, file: File) {
-    const uploaded = await uploadExamReviewToHostinger(file, teacherId);
+  /** رفع المدير: يُنشر مباشرة لطلاب الصف المحدد وأولياء أمورهم */
+  async uploadByPrincipal(
+    file: File,
+    meta: {
+      principal_id: string;
+      principal_name: string;
+      subject: string;
+      education_level: AcademicEducationLevel;
+      grade: number;
+      type: AcademicExamReview['type'];
+      exam_period?: AcademicExamReview['exam_period'];
+    },
+    onProgress?: HostingerUploadProgressFn,
+  ) {
+    const now = new Date().toISOString();
+    const uploaded = await uploadExamReviewToHostinger(file, meta.principal_id, onProgress);
+    const { data, error } = await supabase
+      .from('academic_exam_reviews')
+      .insert({
+        teacher_id: meta.principal_id,
+        teacher_name: `إدارة المدرسة — ${meta.principal_name}`,
+        subject: meta.subject,
+        education_level: meta.education_level,
+        grade: meta.grade,
+        type: meta.type,
+        exam_period: meta.exam_period ?? null,
+        file_name: uploaded.file_name,
+        file_url: uploaded.url,
+        file_type: uploaded.mime || 'application/pdf',
+        status: 'sentToParent',
+        principal_notes: 'رفع مباشر من المدير حسب المرحلة والصف',
+        reviewed_at: now,
+        sent_to_parent_at: now,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as AcademicExamReview;
+  },
+
+  async replaceReviewFile(
+    id: string,
+    teacherId: string,
+    file: File,
+    onProgress?: HostingerUploadProgressFn,
+  ) {
+    const uploaded = await uploadExamReviewToHostinger(file, teacherId, onProgress);
     const { data, error } = await supabase
       .from('academic_exam_reviews')
       .update({
@@ -238,6 +291,18 @@ export const academicExamReviewService = {
       .single();
     if (error) throw error;
     return data as AcademicExamReview;
+  },
+
+  async deleteReview(id: string, fileUrl?: string | null) {
+    if (fileUrl?.trim()) {
+      try {
+        await deleteExamReviewFromHostinger(fileUrl);
+      } catch (e) {
+        console.warn('hostinger review delete failed', e);
+      }
+    }
+    const { error } = await supabase.from('academic_exam_reviews').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
@@ -653,20 +718,27 @@ export const academicObservationService = {
   },
 
   async listActiveStudentsForObservation() {
-    const { data, error } = await supabase
-      .from('students')
-      .select('id, full_name, grade, class_name, parent_id')
-      .eq('is_active', true)
-      .order('full_name')
-      .limit(800);
-    if (error) throw error;
-    return data as {
+    type Row = {
       id: string;
       full_name: string;
       grade: string;
       class_name: string;
       parent_id: string | null;
-    }[];
+    };
+    const pageSize = 1000;
+    const all: Row[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, full_name, grade, class_name, parent_id')
+        .eq('is_active', true)
+        .order('full_name')
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      all.push(...((data ?? []) as Row[]));
+      if (!data || data.length < pageSize) break;
+    }
+    return all;
   },
 
   mapRosterStudentToRequestStudent(child: {
@@ -676,15 +748,14 @@ export const academicObservationService = {
     class_name: string;
   }): AcademicParentRequest['students'][number] {
     const gradeText = child.grade ?? '';
-    const education_level: AcademicEducationLevel = /ثان/i.test(gradeText) ? 'high' : 'middle';
-    let gradeNum = 1;
-    if (gradeText.includes('ثالث')) gradeNum = 3;
-    else if (gradeText.includes('ثاني')) gradeNum = 2;
+    const scope = olympiadGradeToAcademic(gradeText);
+    const education_level: AcademicEducationLevel = scope?.level ?? (/ثان/i.test(gradeText) ? 'high' : 'middle');
+    const gradeNum = scope?.grade ?? (gradeText.includes('ثالث') ? 3 : gradeText.includes('ثاني') ? 2 : 1);
     return {
       student_id: child.id,
       name: child.full_name,
       grade: gradeNum,
-      section: child.class_name || 'أ',
+      section: child.class_name?.trim() || 'أ',
       education_level,
       grade_label: `${child.grade} — فصل ${child.class_name}`,
     };
@@ -754,74 +825,94 @@ export const academicObservationService = {
     return data as AcademicObservationAssignment[];
   },
 
-  /** معلمو الفصل لمادة/مواد محددة — يطابق الصف + الفصل (وليس الصف فقط) */
+  /**
+   * معلمو الفصل لمادة/مواد محددة — يطابق الصف + الفصل (وليس الصف فقط).
+   * المصادر: إسناد المدير + ملف المعلم + جداوله. أسماء المواد تُطابق رغم اختلاف الصياغة،
+   * وتُعاد بأسماء المواد المطلوبة (subjectsFilter).
+   */
   async findTeachersForClass(
     level: AcademicEducationLevel,
     grade: number,
     section: string,
     subjectsFilter: string[] = [],
   ): Promise<AcademicClassTeacherCandidate[]> {
-    const [{ data: assignments, error: aErr }, { data: setups, error: sErr }, { data: teachers, error: tErr }] =
-      await Promise.all([
-        supabase.from('academic_teacher_assignments').select('*'),
-        supabase.from('academic_teacher_setups').select('*').eq('is_setup_complete', true),
-        supabase.from('users').select('id, full_name').eq('role', 'teacher').eq('is_active', true),
-      ]);
+    const [
+      { data: assignments, error: aErr },
+      { data: setups, error: sErr },
+      { data: schedules, error: schErr },
+      { data: teachers, error: tErr },
+    ] = await Promise.all([
+      supabase.from('academic_teacher_assignments').select('*'),
+      supabase.from('academic_teacher_setups').select('*'),
+      supabase
+        .from('academic_teacher_schedules')
+        .select('teacher_id, education_level, grade, section, periods')
+        .eq('education_level', level)
+        .eq('grade', grade),
+      supabase.from('users').select('id, full_name').eq('role', 'teacher').eq('is_active', true),
+    ]);
     if (aErr) throw aErr;
     if (sErr) throw sErr;
+    if (schErr) throw schErr;
     if (tErr) throw tErr;
 
-    const wanted = new Set(subjectsFilter.map((s) => s.trim()).filter(Boolean));
+    const wanted = [...new Set(subjectsFilter.map((s) => s.trim()).filter(Boolean))];
     const nameById = new Map((teachers ?? []).map((t) => [t.id as string, t.full_name as string]));
-    const map = new Map<string, AcademicClassTeacherCandidate>();
+    const sameSection = (s: string) => classesMatch(String(s ?? ''), section);
 
-    const mergeCandidate = (
-      teacher_id: string,
-      teacher_name: string,
-      subjects: string[],
-      source: 'assignment' | 'setup',
-    ) => {
-      const matchedSubjects = wanted.size
-        ? subjects.filter((s) => wanted.has(s))
-        : subjects;
-      if (wanted.size && matchedSubjects.length === 0) return;
-
-      const prev = map.get(teacher_id);
-      map.set(teacher_id, {
-        teacher_id,
-        teacher_name,
-        subjects: [...new Set([...(prev?.subjects ?? []), ...matchedSubjects])],
-        source: prev?.source === 'assignment' ? 'assignment' : source,
-      });
+    /** مواد كل معلم في هذا الفصل تحديداً، مفصولة حسب المصدر */
+    type ClassSubjects = { schedule: string[]; assignment: string[]; setup: string[] };
+    const byTeacher = new Map<string, ClassSubjects>();
+    const add = (teacherId: string, source: keyof ClassSubjects, subjects: string[]) => {
+      if (!nameById.has(teacherId)) return;
+      const entry = byTeacher.get(teacherId) ?? { schedule: [], assignment: [], setup: [] };
+      entry[source].push(...subjects.map((s) => String(s ?? '').trim()).filter(Boolean));
+      byTeacher.set(teacherId, entry);
     };
+
+    for (const sch of (schedules ?? []) as Pick<AcademicTeacherSchedule, 'teacher_id' | 'section' | 'periods'>[]) {
+      if (!sameSection(sch.section)) continue;
+      add(sch.teacher_id, 'schedule', (sch.periods ?? []).filter((p) => !p.is_empty).map((p) => p.subject));
+    }
 
     for (const row of (assignments ?? []) as AcademicTeacherAssignment[]) {
       if (row.education_level !== level) continue;
       const sections = row.grades_with_sections?.[String(grade)];
-      if (sections === undefined) continue;
-      // يجب أن يشمل الإسناد الفصل صراحةً. المصفوفة الفارغة = إسناد قديم لكل الفصول.
-      if (sections.length > 0 && !sections.includes(section)) continue;
-
-      const teacher_name = nameById.get(row.teacher_id);
-      if (!teacher_name) continue;
-      mergeCandidate(row.teacher_id, teacher_name, row.subjects ?? [], 'assignment');
+      // المصفوفة الفارغة (إسناد قديم لكل الفصول) لا تثبت أن المعلم يدرّس هذا الفصل
+      if (!sections?.length || !sections.some(sameSection)) continue;
+      add(row.teacher_id, 'assignment', row.subjects ?? []);
     }
 
     for (const setup of (setups ?? []) as AcademicTeacherSetup[]) {
       const refs = teacherClassRefsFromSetup(setup);
-      const match = refs.some((r) => r.level === level && r.grade === grade && r.section === section);
+      const match = refs.some((r) => r.level === level && r.grade === grade && sameSection(r.section));
       if (!match) continue;
-      const teacher_name = nameById.get(setup.teacher_id);
-      if (!teacher_name) continue;
-      mergeCandidate(
+      add(
         setup.teacher_id,
-        teacher_name,
-        (setup.subjects_by_grade?.[`${level}_${grade}`] ?? setup.subjects) ?? [],
         'setup',
+        (setup.subjects_by_grade?.[`${level}_${grade}`] ?? setup.subjects) ?? [],
       );
     }
 
-    return [...map.values()].sort((a, b) => a.teacher_name.localeCompare(b.teacher_name, 'ar'));
+    const result: AcademicClassTeacherCandidate[] = [];
+    for (const [teacher_id, src] of byTeacher) {
+      // الجدول وإسناد المدير يحددان مادة المعلم في الفصل بدقة؛ ملف المعلم احتياطي فقط
+      const precise = [...src.schedule, ...src.assignment];
+      const subjects = [...new Set(precise.length ? precise : src.setup)];
+      if (!subjects.length) continue;
+
+      const matched = wanted.length ? wanted.filter((w) => subjects.some((s) => subjectsMatch(s, w))) : subjects;
+      if (!matched.length) continue;
+
+      result.push({
+        teacher_id,
+        teacher_name: nameById.get(teacher_id)!,
+        subjects: matched,
+        source: src.assignment.length ? 'assignment' : src.schedule.length ? 'schedule' : 'setup',
+      });
+    }
+
+    return result.sort((a, b) => a.teacher_name.localeCompare(b.teacher_name, 'ar'));
   },
 
   async dispatchToTeachers(params: {

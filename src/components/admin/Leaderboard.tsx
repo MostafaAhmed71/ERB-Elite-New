@@ -20,6 +20,7 @@ import { mergeGradeLists } from '../../lib/schoolClasses';
 import { useGradeClassCatalog } from '../../hooks/useGradeClassCatalog';
 import { sumRawApprovedPoints } from '../../lib/calculations';
 import { computeAttendanceScore, groupAttendanceByStudent } from '../../lib/attendanceScore';
+import { DASHBOARD_LOOKBACK_DAYS, fetchAttendanceSince } from '../../lib/attendanceQueries';
 import {
   buildClassBulkRankings,
   fetchApprovedClassGrants,
@@ -257,9 +258,12 @@ export function Leaderboard() {
   const { data: scoreContext } = useQuery({
     queryKey: ['admin', 'leaderboard', 'attendance-scores'],
     queryFn: async () => {
-      const { data: att } = await supabase.from('attendance').select('student_id, status');
+      const att = await fetchAttendanceSince<{ student_id: string; status: string }>(
+        DASHBOARD_LOOKBACK_DAYS,
+        'student_id, status',
+      );
       const grouped = groupAttendanceByStudent(
-        (att ?? []).map((r) => ({
+        att.map((r) => ({
           student_id: r.student_id,
           status: r.status as 'present' | 'absent' | 'late',
           date: '',

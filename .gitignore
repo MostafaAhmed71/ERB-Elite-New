@@ -66,6 +66,9 @@ Thumbs.db
 Versions/
 *.zip
 
+# Database exports contain accounts and student data
+db-backups/
+
 # Android release keystore
 android-apk/*.jks
 android-apk/*.keystore

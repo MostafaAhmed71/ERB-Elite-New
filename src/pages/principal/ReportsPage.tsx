@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { BarChart3, Users, CalendarCheck, ClipboardList } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { fetchAttendanceSince } from '../../lib/attendanceQueries';
 import { HorizonStatCard } from '../../components/dashboard/horizon/HorizonDashboard';
 import { StudentsGradeDistribution } from '../../components/dashboard/horizon/StudentsGradeDistribution';
 import { AttendanceTrendChart } from '../../components/dashboard/horizon/AttendanceTrendChart';
@@ -41,10 +42,7 @@ export function ReportsPage() {
   const { data: attendanceStats } = useQuery({
     queryKey: ['reports', 'attendance'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('status, date');
-      if (error) throw error;
+      const data = await fetchAttendanceSince<{ status: string; date: string }>(7, 'status, date');
 
       const total = data.length;
       if (total === 0) return { rate: '—', history: [] as { date: string; rate: number }[] };

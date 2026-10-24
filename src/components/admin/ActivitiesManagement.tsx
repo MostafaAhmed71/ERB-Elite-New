@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Star, Pencil, Trash2, Tag, ArrowLeft, MapPin, Calendar } from 'lucide-react';
+import { Plus, Star, Pencil, Trash2, Tag, ArrowLeft, MapPin, Calendar, Heart, Check, X, PenLine } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { logAction } from '../../lib/auth';
 import type { DbActivity } from '../../types';
@@ -21,6 +21,8 @@ import { ActivitySuggestionsReview } from './ActivitySuggestionsReview';
 import { SeasonalTemplatesPanel } from './SeasonalTemplatesPanel';
 import { PLATFORM_NAME_SHORT } from '../../lib/branding';
 import { ScreenGuideButton } from './ScreenGuideButton';
+import { BEHAVIOR_ACTIVITY_PRESETS, type BehaviorActivityPreset } from '../../lib/behaviorCatalog';
+import { isManualActivityId } from '../../lib/pointsEvidence';
 
 const CATEGORIES = [
   { key: 'activity', label: 'النشاط (40%)', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -32,6 +34,8 @@ const CATEGORIES = [
 export function ActivitiesManagement() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
+  const [showBehaviorPanel, setShowBehaviorPanel] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [editActivity, setEditActivity] = useState<DbActivity | null>(null);
 
   // Form state
@@ -124,6 +128,42 @@ export function ActivitiesManagement() {
     onError: () => toast.error('فشل الحذف. ربما النشاط مرتبط بنقاط طلاب مرصودة مسبقاً.'),
   });
 
+  const addPresetMutation = useMutation({
+    mutationFn: async (preset: BehaviorActivityPreset) => {
+      const payload = {
+        name: preset.name,
+        category: 'behavior',
+        default_points: preset.points,
+        is_active: true,
+        icon: preset.icon,
+        color: preset.color,
+        is_seasonal: false,
+        season_label: null,
+        academic_term: 'all',
+        lifecycle_stage: 'active',
+      };
+      const { error } = await supabase.from('activities').insert([payload]);
+      if (error) throw error;
+      await logAction('ACTIVITY_CREATED_ADMIN', 'activities', undefined, { ...payload, preset: true });
+      return preset;
+    },
+    onSuccess: (preset) => {
+      toast.success(`تمت إضافة «${preset.name}» لمحور السلوك`);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'activities'] });
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const openManualBehavior = () => {
+    resetForm();
+    setCategory('behavior');
+    setIcon('heart');
+    setColor('emerald');
+    setShowBehaviorPanel(false);
+    setShowModal(true);
+  };
+
   const openEdit = (act: DbActivity) => {
     setEditActivity(act);
     setName(act.name);
@@ -167,9 +207,15 @@ export function ActivitiesManagement() {
   };
 
   const filteredActivities = activities.filter((act) => {
+    if (isManualActivityId(act.id)) return false;
+    if (categoryFilter !== 'all' && act.category !== categoryFilter) return false;
     if (termFilter === 'all') return true;
     return act.academic_term === 'all' || act.academic_term === termFilter;
   });
+
+  const existingBehaviorNames = new Set(
+    activities.filter((a) => a.category === 'behavior').map((a) => a.name.trim()),
+  );
 
   return (
     <div className="space-y-6 text-white" dir="rtl">
@@ -184,6 +230,19 @@ export function ActivitiesManagement() {
         <div className="flex items-center gap-2 flex-wrap">
           <ScreenGuideButton path="/admin/activities" />
         <button
+          type="button"
+          onClick={() => setShowBehaviorPanel((v) => !v)}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all',
+            showBehaviorPanel
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20',
+          )}
+        >
+          <Heart className="w-4 h-4" />
+          إضافة نشاط سلوكي
+        </button>
+        <button
           onClick={() => { resetForm(); setShowModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gold-500 to-gold-400 text-navy-950 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-gold-500/20 transition-all"
         >
@@ -193,9 +252,93 @@ export function ActivitiesManagement() {
         </div>
       </div>
 
+      {showBehaviorPanel && (
+        <div className="glass-card p-5 space-y-4 border border-emerald-500/25">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-white font-bold text-base flex items-center gap-2">
+                <Heart className="w-5 h-5 text-emerald-400" />
+                إضافة نشاط سلوكي
+              </h2>
+              <p className="text-white/45 text-xs mt-1">
+                اختر من القائمة الجاهزة بنقرة، أو أدخل نشاطاً سلوكياً يدوياً بالاسم والنقاط التي تريدها.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openManualBehavior}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 text-on-contrast text-xs font-bold hover:bg-emerald-500 transition-colors"
+              >
+                <PenLine className="w-4 h-4" />
+                إدخال يدوي
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBehaviorPanel(false)}
+                className="p-2 rounded-lg text-white/40 hover:text-white/80"
+                aria-label="إغلاق"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {BEHAVIOR_ACTIVITY_PRESETS.map((preset) => {
+              const exists = existingBehaviorNames.has(preset.name);
+              const pending =
+                addPresetMutation.isPending && addPresetMutation.variables?.name === preset.name;
+              return (
+                <button
+                  key={preset.name}
+                  type="button"
+                  disabled={exists || addPresetMutation.isPending}
+                  onClick={() => addPresetMutation.mutate(preset)}
+                  className={clsx(
+                    'flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-right transition-colors',
+                    exists
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 cursor-default'
+                      : 'border-white/10 bg-white/5 text-white/80 hover:border-emerald-500/40 hover:bg-emerald-500/10 disabled:opacity-60',
+                  )}
+                >
+                  <span className="text-sm font-medium leading-snug">{preset.name}</span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-gold-400 text-xs font-bold font-mono">{preset.points} ن</span>
+                    {exists ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Plus className={clsx('w-4 h-4 text-emerald-400', pending && 'animate-spin')} />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <ActivitySuggestionsReview />
 
       <SeasonalTemplatesPanel />
+
+      <div className="flex gap-2 flex-wrap">
+        {[{ key: 'all', label: 'كل المحاور' }, ...CATEGORIES].map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setCategoryFilter(c.key)}
+            className={clsx(
+              'px-3 py-1.5 rounded-lg text-xs border transition-all',
+              categoryFilter === c.key
+                ? 'bg-gold-500/15 border-gold-400/40 text-gold-400'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+            )}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex gap-2 flex-wrap">
         {ACADEMIC_TERMS.map((t) => (
@@ -291,7 +434,11 @@ export function ActivitiesManagement() {
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <h2 className="text-white font-bold text-base flex items-center gap-2">
                 <Star className="w-5 h-5 text-gold-400" />
-                {editActivity ? 'تعديل نشاط' : 'إضافة نشاط جديد'}
+                {editActivity
+                  ? 'تعديل نشاط'
+                  : category === 'behavior'
+                    ? 'إضافة نشاط سلوكي'
+                    : 'إضافة نشاط جديد'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}

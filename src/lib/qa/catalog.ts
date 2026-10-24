@@ -37,6 +37,7 @@ export const QA_ROUTE_CATALOG: QaRouteEntry[] = [
   { id: 'support', path: '/support', label: 'الدعم الفني', category: 'shared', allowedRoles: 'authenticated' },
 
   { id: 'dashboard', path: '/dashboard', label: 'لوحة التحكم', category: 'shared', allowedRoles: ['principal', 'supervisor', 'teacher', 'parent', 'deputy', 'reviewer'] },
+  { id: 'public-secondary-reviews', path: '/reviews/secondary', label: 'مراجعات الثانوي (عام — بدون دخول)', category: 'public', allowedRoles: 'public' },
   { id: 'display-leaderboard', path: '/display/leaderboard', label: 'لوحة المتصدرين (شاشة كبيرة — عام)', category: 'display', allowedRoles: 'public' },
   { id: 'board-leaderboard', path: '/board/leaderboard', label: 'لوحة المتصدرين G2 (شاشة كاملة)', category: 'display', allowedRoles: 'authenticated' },
 

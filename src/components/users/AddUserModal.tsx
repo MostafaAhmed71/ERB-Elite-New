@@ -4,6 +4,7 @@ import { X, User, Mail, Lock, Shield, AlertCircle, BookOpen, Coins, Phone, Schoo
 import { supabase } from '../../lib/supabase';
 import { logAction, createUser, toArabicErrorMessage } from '../../lib/auth';
 import { upsertStudentRosterRecord } from '../../lib/studentRoster';
+import { adminUpdateUserCredentials } from '../../lib/managedAccounts';
 import { StudentClassFields } from './StudentClassFields';
 import { TeacherClassFields } from './TeacherClassFields';
 import {
@@ -144,6 +145,9 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
       }
 
       if (isEdit) {
+        if (form.role === 'teacher' && form.password) {
+          await adminUpdateUserCredentials({ user_id: editUser!.id, password: form.password });
+        }
         // Update existing user profile
         const { error } = await supabase
           .from('users')
@@ -255,6 +259,10 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
     }
     if (form.role === 'deputy' && !staffEducationLevel) {
       setError('اختر مرحلة الوكيل: متوسط أو ثانوي — ليظهر له فصول مرحلته فقط');
+      return;
+    }
+    if (isEdit && form.role === 'teacher' && form.password && form.password.length < 8) {
+      setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
       return;
     }
     mutation.mutate();
@@ -407,7 +415,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
           )}
 
           {/* Email (create only — ليس للطالب) */}
-          {!isEdit && form.role !== 'student' && (
+          {(!isEdit && form.role !== 'student' || isEdit && form.role === 'teacher') && (
             <div className="space-y-1.5">
               <label className="text-white/60 text-sm">البريد الإلكتروني</label>
               <div className="relative">
@@ -427,7 +435,7 @@ export function AddUserModal({ editUser, onClose, onSuccess }: AddUserModalProps
           {/* Password (create only — ليس للطالب) */}
           {!isEdit && form.role !== 'student' && (
             <div className="space-y-1.5">
-              <label className="text-white/60 text-sm">كلمة المرور</label>
+              <label className="text-white/60 text-sm">{isEdit ? 'إعادة تعيين كلمة المرور (اختياري)' : 'كلمة المرور'}</label>
               <div className="relative">
                 <Lock className="absolute top-1/2 -translate-y-1/2 right-3.5 w-4 h-4 text-white/30" />
                 <input

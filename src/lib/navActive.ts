@@ -21,5 +21,13 @@ export function isNavItemActive(
   const querySiblingOwnsCurrent = allItemPaths.some(
     (p) => p !== itemPath && p.startsWith(`${itemPath}?`) && current === p,
   );
-  return !querySiblingOwnsCurrent;
+  if (querySiblingOwnsCurrent) return false;
+
+  // المسار الأطول يملك التمييز (مثل /parent/academic/reviews مقابل /parent/academic)
+  const moreSpecificOwnsCurrent = allItemPaths.some((p) => {
+    if (p === itemPath || p.includes('?')) return false;
+    const pMatches = pathname === p || pathname.startsWith(`${p}/`);
+    return pMatches && p.length > itemPath.length;
+  });
+  return !moreSpecificOwnsCurrent;
 }

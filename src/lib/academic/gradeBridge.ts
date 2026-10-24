@@ -88,6 +88,8 @@ export function olympiadGradeToAcademic(
   olympiadGrade: string,
 ): { level: AcademicEducationLevel; grade: number } | null {
   const n = normalizeGradeLabel(olympiadGrade);
+  if (!n) return null;
+
   for (const level of ['middle', 'high'] as AcademicEducationLevel[]) {
     for (const [gradeStr, label] of Object.entries(OLYMPIAD_GRADE_BY_ACADEMIC[level])) {
       if (normalizeGradeLabel(label) === n) {
@@ -95,5 +97,23 @@ export function olympiadGradeToAcademic(
       }
     }
   }
+
+  const level: AcademicEducationLevel | null = n.includes('ثانوي')
+    ? 'high'
+    : n.includes('متوسط')
+      ? 'middle'
+      : null;
+  const grade = n.includes('ثالث')
+    ? 3
+    : n.includes('ثاني')
+      ? 2
+      : n.includes('اول')
+        ? 1
+        : (() => {
+            const m = n.match(/[123]/);
+            return m ? Number(m[0]) : null;
+          })();
+
+  if (level && grade) return { level, grade };
   return null;
 }

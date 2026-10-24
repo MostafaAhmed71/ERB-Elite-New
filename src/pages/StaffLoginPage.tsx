@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
 import { signIn, signInWithGoogle, resolveLoginTarget, rememberPreferredLoginPath, parseRoleFromMetadata } from '../lib/auth';
-import { toArabicErrorMessage, toLoginErrorMessage } from '../lib/errors';
+import { toLoginErrorMessage } from '../lib/errors';
 import { resolveTeacherPostLoginPath } from '../lib/teacherSignup';
 
 const STAFF_ROLES = new Set<string>([
@@ -14,11 +14,10 @@ const STAFF_ROLES = new Set<string>([
   'platform_developer',
 ]);
 import {
-  requestTeacherLoginOtp,
-  verifyTeacherLoginOtp,
   requestPasswordResetOtp,
   verifyPasswordResetOtp,
 } from '../lib/authPhoneOtp';
+import { TeacherPasswordLogin } from '../components/auth/TeacherPasswordLogin';
 import { useAuthStore } from '../stores/authStore';
 import { LoginIllustration } from '../components/auth/LoginIllustration';
 import { GoogleGlyph } from '../components/auth/GoogleGlyph';
@@ -170,39 +169,6 @@ export function StaffLoginPage() {
     }
   };
 
-  const handleRequestTeacherOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setInfo(null);
-    setLoading(true);
-    try {
-      const msg = await requestTeacherLoginOtp(phone);
-      setInfo(msg);
-      setOtpStep('code');
-    } catch (err: unknown) {
-      // رقم غير مسجّل أو فشل الإرسال — ابقَ على شاشة إدخال الجوال
-      setError(toArabicErrorMessage(err));
-      setOtpStep('phone');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyTeacherOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setInfo(null);
-    setLoading(true);
-    try {
-      await verifyTeacherLoginOtp(phone, otpCode);
-      await finishSession();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'رمز غير صحيح');
-      setLoading(false);
-      redirectingRef.current = false;
-    }
-  };
-
   const handleRequestResetOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -340,34 +306,9 @@ export function StaffLoginPage() {
             )}
             {info && <div className="login-info">{info}</div>}
 
-            {tab === 'teacher' && otpStep === 'phone' && (
+            {tab === 'teacher' && (
               <div className="login-tab-panel">
-                <form onSubmit={handleRequestTeacherOtp}>
-                  <p className="login-hint">
-                    أدخل رقم جوالك المسجّل ليصلك رمز واتساب، أو ادخل مباشرة بحساب جيميل — دون بريد وكلمة مرور يدويين.
-                  </p>
-                  <div className="login-field">
-                    <label htmlFor="staff-phone" className="login-field-label">
-                      رقم الجوال
-                    </label>
-                    <input
-                      id="staff-phone"
-                      className="login-input"
-                      type="tel"
-                      inputMode="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                      placeholder="05xxxxxxxx"
-                      dir="ltr"
-                      disabled={busy}
-                      autoComplete="tel"
-                    />
-                  </div>
-                  <button type="submit" className="login-submit" disabled={busy}>
-                    {loading ? 'جاري الإرسال...' : 'إرسال رمز واتساب'}
-                  </button>
-                </form>
+                <TeacherPasswordLogin disabled={busy} onBusyChange={setLoading} onSignedIn={finishSession} />
                 <div className="login-divider" role="separator">
                   <span>أو بحساب جيميل</span>
                 </div>
@@ -381,47 +322,6 @@ export function StaffLoginPage() {
                   <span>{googleLoading ? 'جاري التحويل...' : 'الدخول عبر Google / جيميل'}</span>
                 </button>
               </div>
-            )}
-
-            {tab === 'teacher' && otpStep === 'code' && (
-              <form onSubmit={handleVerifyTeacherOtp} className="login-tab-panel">
-                <p className="login-hint">أدخل الرمز المكوّن من 6 أرقام الذي وصلك على واتساب.</p>
-                <div className="login-field">
-                  <label htmlFor="staff-otp" className="login-field-label">
-                    رمز التحقق
-                  </label>
-                  <input
-                    id="staff-otp"
-                    className="login-input"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    required
-                    placeholder="••••••"
-                    dir="ltr"
-                    disabled={busy}
-                    autoComplete="one-time-code"
-                  />
-                </div>
-                <button type="submit" className="login-submit" disabled={busy || otpCode.length !== 6}>
-                  {loading ? 'جاري التحقق...' : 'دخول'}
-                </button>
-                <button
-                  type="button"
-                  className="login-link-btn"
-                  disabled={busy}
-                  onClick={() => {
-                    setOtpStep('phone');
-                    setOtpCode('');
-                    setInfo(null);
-                  }}
-                >
-                  تغيير الرقم / إعادة الإرسال
-                </button>
-              </form>
             )}
 
             {tab === 'admin' && (

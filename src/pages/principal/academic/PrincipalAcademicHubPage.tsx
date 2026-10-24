@@ -1,4 +1,4 @@
-import { BookMarked, Layers, Settings, Users, UserCheck, BarChart3, LayoutTemplate, MessageCircle, Sparkles, CalendarCheck } from 'lucide-react';
+import { BookMarked, Layers, Settings, Users, UserCheck, BarChart3, LayoutTemplate, MessageCircle, Sparkles, CalendarCheck, Upload } from 'lucide-react';
 import {
   AcademicLayout, AcademicPageHeader, AcademicActionCard, AcademicHeroBanner,
 } from '../../../components/academic/AcademicUi';
@@ -17,6 +17,7 @@ export function PrincipalAcademicHubPage() {
     { to: '/principal/academic/sections', label: 'الفصول', description: 'إدارة الفصول أ، ب، ج، د', icon: Layers },
     { to: '/principal/academic/assignments', label: 'إسناد المواد', description: 'ربط المعلمين بالمواد', icon: UserCheck },
     { to: '/principal/academic/monitoring', label: 'مراقبة النشاط', description: 'متابعة الواجبات والخطط', icon: BarChart3 },
+    { to: '/academic/reviews', label: 'رفع المراجعات', description: 'رفع ملف PDF حسب المرحلة والصف ونشره فوراً', icon: Upload },
     { to: '/principal/academic/whatsapp-reminders', label: 'تذكيرات واتساب', description: 'إرسال أي نوع تذكير للمعلمين', icon: MessageCircle },
     { to: '/principal/ai-settings', label: 'مساعد الذكاء', description: 'قوالب المدرسة ورصيد AI للمعلمين', icon: Sparkles },
     { to: '/principal/academic/export-templates', label: 'قوالب التصدير', description: 'موقع البطاقات والجدول على القالب', icon: LayoutTemplate },

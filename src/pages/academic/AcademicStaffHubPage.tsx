@@ -53,7 +53,7 @@ export function AcademicStaffHubPage() {
     { to: '/academic/observation-inbox', label: 'تقارير ملاحظات الطلاب', description: 'تفاصيل الطلبات، إرسال للمعلمين، وتذكير واتساب', icon: Send },
     { to: '/principal/academic', label: 'إدارة أكاديمية', description: 'مواد، فصول، إعدادات', icon: Settings },
     { to: '/principal/academic/monitoring', label: 'مراقبة النشاط', description: 'متابعة واجبات المعلمين', icon: ClipboardList },
-    { to: '/academic/reviews', label: 'اعتماد المراجعات', description: 'اعتماد ملفات المراجع ونشرها للطالب وولي الأمر', icon: Upload },
+    { to: '/academic/reviews', label: 'رفع واعتماد المراجعات', description: 'رفع ملف حسب المرحلة والصف، أو اعتماد ملفات المعلمين', icon: Upload },
     { to: '/academic/reports', label: 'التقارير المحفوظة', description: 'عرض تقارير الملاحظات', icon: FileText },
     { to: '/academic/communication', label: 'التواصل', description: 'اعتماد تقارير التواصل', icon: MessageSquare },
     { to: '/academic/export', label: 'التصدير', description: 'قوالب الواجبات والخطط PDF/PNG', icon: FileText },

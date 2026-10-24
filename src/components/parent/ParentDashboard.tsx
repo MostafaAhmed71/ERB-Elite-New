@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  AlertCircle, Award, CalendarCheck, ClipboardList, User, BookOpen,
+  AlertCircle, Award, ClipboardList, User, BookOpen,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useParentChildren } from '../../hooks/useParentChildren';
@@ -9,8 +9,6 @@ import { useStudentMetrics } from '../../hooks/useStudentMetrics';
 import { ParentPageShell } from './ParentPageShell';
 import { ParentWeeklySummary } from './ParentWeeklySummary';
 import { ParentMonthlyReport } from './ParentMonthlyReport';
-import { ParentAbsenceAlert } from './ParentAbsenceAlert';
-import { ParentAbsencePushSetting } from './ParentAbsencePushSetting';
 import { ParentCommunicationSuggestions } from './ParentCommunicationSuggestions';
 import { ParentProgressComparison } from './ParentProgressComparison';
 import { ParentFaqSection } from './ParentFaqSection';
@@ -25,7 +23,6 @@ import { UpcomingExamsWidget } from '../shared/UpcomingExamsWidget';
 import { ActivityTimeline } from '../shared/ActivityTimeline';
 import { PageHeader, TapHandLoader } from '../ui';
 import { containerVariants, itemVariants } from '../../lib/motionVariants';
-import { summarizeAttendance } from '../../lib/attendanceScore';
 
 function ChildSummaryCard({
   child,
@@ -86,12 +83,6 @@ export function ParentDashboard() {
     );
   }
 
-  const attSummary = summarizeAttendance(
-    metrics.attendanceRecords.map((r) => ({
-      status: r.status as 'present' | 'absent' | 'late',
-    }))
-  );
-
   const lastExam = metrics.lastExam as {
     score: number;
     max_score: number;
@@ -139,13 +130,6 @@ export function ParentDashboard() {
               <p className="text-white/40 text-xs">نقاط ومستوى الابن المختار</p>
             </div>
           </Link>
-          <Link to="/attendance/view" className="glass-card glass-card-hover p-4 flex items-center gap-3">
-            <CalendarCheck className="w-8 h-8 text-cyan-400 shrink-0" />
-            <div>
-              <p className="text-white font-semibold text-sm">الحضور</p>
-              <p className="text-white/40 text-xs">سجل حضور الابن المختار</p>
-            </div>
-          </Link>
           <Link to="/exams/results" className="glass-card glass-card-hover p-4 flex items-center gap-3">
             <ClipboardList className="w-8 h-8 text-purple-300 shrink-0" />
             <div>
@@ -178,16 +162,6 @@ export function ParentDashboard() {
           </motion.div>
         )}
 
-        {selectedChild && (
-          <FeatureGate featureId="widget:parent:absence_alert">
-            <ParentAbsenceAlert studentId={selectedChild.id} studentName={selectedChild.full_name} />
-          </FeatureGate>
-        )}
-
-        <FeatureGate featureId="widget:parent:push_settings">
-          <ParentAbsencePushSetting />
-        </FeatureGate>
-
         {selectedChild && !metrics.isLoading && (
           <>
             <motion.div variants={itemVariants}>
@@ -202,10 +176,9 @@ export function ParentDashboard() {
                     <p className="text-2xl font-bold text-white font-mono">
                       {metrics.classRank != null ? `#${metrics.classRank}` : '—'}
                     </p>
-                  </div>
-                  <div className="glass-card p-4">
-                    <p className="text-white/40 text-[10px]">نسبة الحضور</p>
-                    <p className="text-2xl font-bold text-emerald-400">{attSummary.ratePct}%</p>
+                    {metrics.classRank == null && (
+                      <p className="text-white/30 text-[10px] mt-1">يظهر بعد منح نقاط للفصل</p>
+                    )}
                   </div>
                   <div className="glass-card p-4">
                     <p className="text-white/40 text-[10px]">آخر اختبار</p>
@@ -302,12 +275,6 @@ export function ParentDashboard() {
                 <Link to="/student-profile" className="glass-card glass-card-hover p-4 flex items-center gap-3">
                   <User className="w-5 h-5 text-gold-400" />
                   <span className="text-white text-sm">ملف الطالب</span>
-                </Link>
-              </FeatureGate>
-              <FeatureGate featureId="nav:parent:/attendance/view">
-                <Link to="/attendance/view" className="glass-card glass-card-hover p-4 flex items-center gap-3">
-                  <CalendarCheck className="w-5 h-5 text-emerald-400" />
-                  <span className="text-white text-sm">الحضور</span>
                 </Link>
               </FeatureGate>
               <FeatureGate featureId="nav:parent:/exams/results">

@@ -1,6 +1,6 @@
 <?php
 /**
- * رفع ملفات مراجعات PDF إلى Hostinger — يُحفظ الملف محلياً ويُرجع الرابط العام.
+ * رفع ملفات مراجعات (PDF أو صورة) إلى Hostinger — يُحفظ الملف محلياً ويُرجع الرابط العام.
  * ضع هذا الملف على السيرفر (مثلاً public_html/api/upload-exam-review.php)
  * وأنشئ مجلد: public_html/uploads/exam-reviews/ بصلاحية الكتابة.
  *
@@ -34,6 +34,33 @@ if (!is_string($token) || !hash_equals(UPLOAD_TOKEN, $token)) {
   exit;
 }
 
+$action = strtolower(trim((string) ($_POST['action'] ?? 'upload')));
+if ($action === 'delete') {
+  $rawName = (string) ($_POST['stored_name'] ?? $_POST['file_name'] ?? '');
+  $stored = basename(str_replace(['\\', "\0"], '', $rawName));
+  if ($stored === '' || $stored === '.' || $stored === '..' || !preg_match('/\.(pdf|jpe?g|png|webp|gif)$/i', $stored)) {
+    http_response_code(400);
+    echo json_encode(['ok' => false, 'error' => 'INVALID_FILE']);
+    exit;
+  }
+  $root = dirname(__DIR__);
+  $path = $root . '/uploads/exam-reviews/' . $stored;
+  $realRoot = realpath($root . '/uploads/exam-reviews');
+  $realFile = realpath($path);
+  if ($realRoot === false || $realFile === false || strpos($realFile, $realRoot) !== 0) {
+    http_response_code(404);
+    echo json_encode(['ok' => false, 'error' => 'FILE_NOT_FOUND']);
+    exit;
+  }
+  if (!@unlink($realFile)) {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'DELETE_FAILED']);
+    exit;
+  }
+  echo json_encode(['ok' => true, 'deleted' => $stored], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  exit;
+}
+
 if (!isset($_FILES['file']) || !is_array($_FILES['file'])) {
   http_response_code(400);
   echo json_encode(['ok' => false, 'error' => 'NO_FILE']);
@@ -56,19 +83,27 @@ if (($file['size'] ?? 0) <= 0 || $file['size'] > $maxBytes) {
 
 $finfo = new finfo(FILEINFO_MIME_TYPE);
 $mime = $finfo->file($file['tmp_name']) ?: ($file['type'] ?? '');
-$allowed = ['application/pdf', 'application/x-pdf', 'application/octet-stream'];
 $origName = (string) ($file['name'] ?? 'review.pdf');
 $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-if ($ext !== 'pdf' && !in_array($mime, $allowed, true)) {
+$mimeByExt = [
+  'pdf' => ['application/pdf', 'application/x-pdf', 'application/octet-stream'],
+  'jpg' => ['image/jpeg'],
+  'jpeg' => ['image/jpeg'],
+  'png' => ['image/png'],
+  'webp' => ['image/webp'],
+  'gif' => ['image/gif'],
+];
+if (!isset($mimeByExt[$ext]) || !in_array($mime, $mimeByExt[$ext], true)) {
   http_response_code(400);
-  echo json_encode(['ok' => false, 'error' => 'PDF_ONLY', 'mime' => $mime]);
+  echo json_encode(['ok' => false, 'error' => 'TYPE_NOT_ALLOWED', 'mime' => $mime]);
   exit;
 }
 
+$safeExt = $ext === 'jpeg' ? 'jpg' : $ext;
 $teacherId = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($_POST['teacher_id'] ?? 'unknown')) ?: 'unknown';
 $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '_', pathinfo($origName, PATHINFO_FILENAME)) ?: 'review';
 $safeBase = substr($safeBase, 0, 80);
-$filename = $teacherId . '_' . date('Ymd_His') . '_' . $safeBase . '.pdf';
+$filename = $teacherId . '_' . date('Ymd_His') . '_' . $safeBase . '.' . $safeExt;
 
 $root = dirname(__DIR__); // public_html
 $uploadDir = $root . '/uploads/exam-reviews';
@@ -94,5 +129,5 @@ echo json_encode([
   'url' => $publicUrl,
   'file_name' => $origName,
   'stored_name' => $filename,
-  'mime' => 'application/pdf',
+  'mime' => $mime,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

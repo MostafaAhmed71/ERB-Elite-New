@@ -3,10 +3,9 @@ export async function downloadFileFromUrl(url: string, fileName?: string) {
   const cleanUrl = url.trim();
   if (!cleanUrl) throw new Error('رابط الملف غير متوفر');
 
+  const name = fileName?.trim();
   const suggested =
-    (fileName?.trim() && (fileName.trim().toLowerCase().endsWith('.pdf')
-      ? fileName.trim()
-      : `${fileName.trim()}.pdf`)) ||
+    (name && (/\.[a-z0-9]{2,5}$/i.test(name) ? name : `${name}.pdf`)) ||
     decodeURIComponent(cleanUrl.split('/').pop()?.split('?')[0] || 'file.pdf') ||
     'file.pdf';
 

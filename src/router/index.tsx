@@ -62,7 +62,6 @@ import { MyProfilePage } from '../pages/student/MyProfilePage';
 import { StudentPortfolioPage } from '../pages/student/StudentPortfolioPage';
 import { StudentRewardsPage } from '../pages/student/StudentRewardsPage';
 import { StudentProfilePage } from '../pages/parent/StudentProfilePage';
-import { ParentAttendancePage } from '../pages/parent/ParentAttendancePage';
 import { ParentExamResultsPage } from '../pages/parent/ParentExamResultsPage';
 
 // Olympiad 1448H components
@@ -130,6 +129,8 @@ import { PromoTourStartPage } from '../pages/promo/PromoTourStartPage';
 import { ClassScreenPage } from '../pages/competition/ClassScreenPage';
 import { AnswerScreenPage } from '../pages/competition/AnswerScreenPage';
 import { CompLeaderboardPage } from '../pages/competition/CompLeaderboardPage';
+import { PublicSecondaryReviewsPage } from '../pages/public/PublicSecondaryReviewsPage';
+import { PUBLIC_SECONDARY_REVIEWS_PATH } from '../lib/academic/constants';
 import { CompAdminPage } from '../pages/competition/CompAdminPage';
 import { DevLayout } from '../layouts/DevLayout';
 import { DeveloperDashboard } from '../pages/dev/DeveloperDashboard';
@@ -243,6 +244,11 @@ export const router = createBrowserRouter([
   {
     path: '/competition/leaderboard',
     element: <CompLeaderboardPage />,
+  },
+  {
+    // مراجعات الثانوي — عامة بدون تسجيل دخول
+    path: PUBLIC_SECONDARY_REVIEWS_PATH,
+    element: <PublicSecondaryReviewsPage />,
   },
   {
     // All authenticated routes
@@ -540,7 +546,7 @@ export const router = createBrowserRouter([
           // ─── Shared Points Granting Routes ───────────────────
           {
             element: (
-              <ProtectedRoute allowedRoles={['activity_leader', 'teacher', 'admin', 'principal']} />
+              <ProtectedRoute allowedRoles={['activity_leader', 'teacher', 'admin', 'principal', 'deputy']} />
             ),
             children: [
               {
@@ -548,6 +554,12 @@ export const router = createBrowserRouter([
                 element: <GrantPointsPage />,
               },
             ],
+          },
+
+          // لوحة المتصدرين متاحة لكل المستخدمين المسجّلين
+          {
+            path: '/leaderboard',
+            element: <LeaderboardPage />,
           },
 
           // ─── Teacher Routes ─────────────────────────────────
@@ -653,10 +665,6 @@ export const router = createBrowserRouter([
               {
                 path: '/exams/take',
                 element: <Navigate to="/student/exams" replace />,
-              },
-              {
-                path: '/leaderboard',
-                element: <LeaderboardPage />,
               },
               {
                 path: '/my-profile',
@@ -808,7 +816,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: '/attendance/view',
-                element: <ParentAttendancePage />,
+                element: <Navigate to="/dashboard" replace />,
               },
               {
                 path: '/exams/results',

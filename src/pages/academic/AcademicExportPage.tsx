@@ -28,6 +28,7 @@ import {
   exportHomeworkGroupPng,
   exportWeeklyPlanGroupPdf,
   exportWeeklyPlanGroupPng,
+  exportWeeklyPlanGroupsPngZip,
   openHomeworkPreview,
   openWeeklyPlanPreview,
 } from '../../lib/academic/exportService';
@@ -169,6 +170,7 @@ export function AcademicExportPage() {
   const [tab, setTab] = useState<Tab>('homework');
   const [exporting, setExporting] = useState(false);
   const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [exportLabel, setExportLabel] = useState('جاري إنشاء الملف...');
   const [hwDate, setHwDate] = useState(new Date().toISOString().split('T')[0]);
   const weekCal = useSemesterWeekCalendar();
   const [planSemester, setPlanSemester] = useState<AcademicSemester>(weekCal.current.semester);
@@ -248,6 +250,7 @@ export function AcademicExportPage() {
   const runExport = async (key: string, fn: () => Promise<void>) => {
     setExporting(true);
     setExportingKey(key);
+    setExportLabel('جاري إنشاء الملف...');
     try {
       await fn();
     } finally {
@@ -255,6 +258,13 @@ export function AcademicExportPage() {
       setExportingKey(null);
     }
   };
+
+  const exportAllPlanImages = () =>
+    runExport('all-plans-png', () =>
+      exportWeeklyPlanGroupsPngZip(filteredPlans, exportLayout, (done, total) => {
+        setExportLabel(`جاري إنشاء الصور ${done} من ${total}`);
+      }),
+    );
 
   const shiftDate = (days: number) => {
     const d = new Date(hwDate);
@@ -433,6 +443,14 @@ export function AcademicExportPage() {
               <span className="text-[#A3AED0] text-xs mr-auto">كل فصل = خطة واحدة مجمّعة من كل المعلمين</span>
               <button
                 type="button"
+                className={academicBtnPrimary}
+                disabled={exporting || filteredPlans.length === 0}
+                onClick={exportAllPlanImages}
+              >
+                <Image className="w-4 h-4" /> تصدير كل الصور ({filteredPlans.length})
+              </button>
+              <button
+                type="button"
                 className={academicBtnSecondary}
                 onClick={() => openSampleWeeklyPlanPreview(exportLayout)}
               >
@@ -573,7 +591,7 @@ export function AcademicExportPage() {
       {exporting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/70 backdrop-blur-sm">
           <HorizonCard className="px-8 py-6 text-center">
-            <TapHandLoader label="جاري إنشاء الملف..." />
+            <TapHandLoader label={exportLabel} />
           </HorizonCard>
         </div>
       )}

@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { User, Award, CalendarCheck, ClipboardList, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
+import { User, Award, ClipboardList, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
-import { ATTENDANCE_LABELS, ATTENDANCE_COLORS } from '../../types';
 import { getPointsStatusLabel } from '../../lib/pointsStatusLabels';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
@@ -76,22 +75,6 @@ export function MyProfilePage() {
     enabled: !!profile,
   });
 
-  // 3. Fetch Attendance History
-  const { data: attendance = [], isLoading: attendanceLoading } = useQuery({
-    queryKey: ['student', 'attendance', profile?.id],
-    queryFn: async () => {
-      if (!profile) return [];
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('student_id', profile.id)
-        .order('date', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile,
-  });
-
   // 4. Fetch Exam Results
   const { data: examResults = [], isLoading: examsLoading } = useQuery({
     queryKey: ['student', 'exams', profile?.id],
@@ -121,13 +104,7 @@ export function MyProfilePage() {
     .filter(p => p.status === 'pending')
     .reduce((sum, item) => sum + item.points, 0);
 
-  const attendanceSummary = {
-    present: attendance.filter(a => a.status === 'present').length,
-    absent: attendance.filter(a => a.status === 'absent').length,
-    late: attendance.filter(a => a.status === 'late').length,
-  };
-
-  const isLoading = profileLoading || pointsLoading || attendanceLoading || examsLoading;
+  const isLoading = profileLoading || pointsLoading || examsLoading;
 
   if (isLoading) {
     return <BarsLoader label="جاري تحميل ملفك..." fullScreen />;
@@ -194,28 +171,6 @@ export function MyProfilePage() {
             </div>
             <div className="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-400">
               <Award className="w-5 h-5" />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Attendance Percentage */}
-        <motion.div
-          variants={itemVariants}
-          whileHover={{ y: -4, scale: 1.02 }}
-          className="bg-navy-900/50 border border-white/5 rounded-2xl p-5 relative overflow-hidden backdrop-blur"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-white/50 text-xs mb-1">نسبة الحضور</p>
-              <h2 className="text-3xl font-bold text-emerald-400">
-                {attendance.length > 0
-                  ? `${Math.round(((attendanceSummary.present + attendanceSummary.late * 0.7) / attendance.length) * 100)}%`
-                  : '—'}
-              </h2>
-              <p className="text-xs text-white/40 mt-1">حاضر: {attendanceSummary.present} | متأخر: {attendanceSummary.late} | غائب: {attendanceSummary.absent}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <CalendarCheck className="w-5 h-5" />
             </div>
           </div>
         </motion.div>

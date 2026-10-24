@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  BookOpen, CheckCircle2, ChevronDown, ClipboardList, Eye, Plus, Send, Trash2, Users,
+  BookOpen, CheckCircle2, ChevronDown, ClipboardList, Eye, Plus, Search, Send, Trash2, Users, X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { academicAdminService, academicObservationService } from '../../lib/academic/adminService';
 import { DEFAULT_SECTIONS, formatGradeWithLevel, gradesForLevel } from '../../lib/academic/constants';
 import { subjectsForGrade } from '../../lib/academic/subjectHelpers';
+import { classesMatch, normalizeClassName, olympiadGradeToAcademic } from '../../lib/academic/gradeBridge';
 import type {
   AcademicClassTeacherCandidate,
   AcademicEducationLevel,
@@ -41,6 +42,31 @@ function statusVariant(status: string): 'warning' | 'info' | 'success' | 'danger
   if (status === 'rejected') return 'danger';
   return 'default';
 }
+
+/** يوحّد الهمزات والتاء المربوطة والألف المقصورة ويزيل التشكيل ليطابق البحث أي كتابة للاسم */
+function normalizeNameForSearch(raw: string): string {
+  return raw
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function nameMatchesQuery(fullName: string, query: string): boolean {
+  const tokens = normalizeNameForSearch(query).split(' ').filter(Boolean);
+  if (tokens.length === 0) return false;
+  const name = normalizeNameForSearch(fullName);
+  return tokens.every((t) => name.includes(t));
+}
+
+const NAME_SEARCH_MIN_CHARS = 2;
+const NAME_SEARCH_MAX_RESULTS = 30;
 
 function studentMeta(s: AcademicParentRequest['students'][number]) {
   if (s.grade_label) return s.grade_label;
@@ -156,7 +182,10 @@ function TeachersPicker({
           {isLoading || isFetching ? (
             <p className="text-white/40 text-sm">جاري التحميل...</p>
           ) : candidates.length === 0 ? (
-            <p className="text-amber-300/90 text-sm">لا معلمون لهذه المواد في الفصل المحدد</p>
+            <p className="text-amber-300/90 text-sm">
+              لا معلمون لهذه المواد في {formatGradeWithLevel(level, grade)} — فصل {section}. تأكد من إسناد
+              المعلمين لهذا الفصل أو من جداولهم.
+            </p>
           ) : (
             <ul className="space-y-2 max-h-56 overflow-y-auto">
               {candidates.map((c: AcademicClassTeacherCandidate) => (
@@ -386,19 +415,104 @@ function TeacherProgressPanel({
 }
 
 function CreateStaffRequestForm({ onCreated }: { onCreated: (req: AcademicParentRequest) => void }) {
+  const { user, role } = useAuthStore();
+  /** الوكيل: مرحلته فقط (بدون مرحلة محددة = المرحلتان) */
+  const deputyLevel =
+    role === 'deputy' &&
+    (user?.staff_education_level === 'middle' || user?.staff_education_level === 'high')
+      ? user.staff_education_level
+      : null;
   const [studentId, setStudentId] = useState('');
   const [parentName, setParentName] = useState('إدارة المدرسة');
   const [parentPhone, setParentPhone] = useState('0000000000');
   const [manual, setManual] = useState(false);
   const [name, setName] = useState('');
-  const [level, setLevel] = useState<AcademicEducationLevel>('middle');
+  const [level, setLevel] = useState<AcademicEducationLevel>(deputyLevel ?? 'middle');
   const [grade, setGrade] = useState(1);
-  const [section, setSection] = useState('أ');
+  const [section, setSection] = useState('');
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['obs-active-students'],
     queryFn: () => academicObservationService.listActiveStudentsForObservation(),
   });
+
+  const roster = useMemo(
+    () => students.map((s) => ({ ...s, scope: olympiadGradeToAcademic(s.grade ?? '') })),
+    [students],
+  );
+
+  const gradeStudents = useMemo(
+    () => roster.filter((s) => s.scope?.level === level && s.scope.grade === grade),
+    [roster, level, grade],
+  );
+
+  const sectionOptions = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const s of gradeStudents) {
+      const label = s.class_name?.trim();
+      if (label && !byKey.has(normalizeClassName(label))) byKey.set(normalizeClassName(label), label);
+    }
+    if (manual || byKey.size === 0) {
+      for (const d of DEFAULT_SECTIONS) {
+        if (!byKey.has(normalizeClassName(d))) byKey.set(normalizeClassName(d), d);
+      }
+    }
+    return [...byKey.values()].sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [gradeStudents, manual]);
+
+  const classStudents = useMemo(
+    () => (section ? gradeStudents.filter((s) => classesMatch(s.class_name ?? '', section)) : []),
+    [gradeStudents, section],
+  );
+
+  const [nameQuery, setNameQuery] = useState('');
+  const trimmedQuery = nameQuery.trim();
+
+  const searchResults = useMemo(() => {
+    if (normalizeNameForSearch(trimmedQuery).length < NAME_SEARCH_MIN_CHARS) return [];
+    return roster
+      .filter((s) => !deputyLevel || s.scope?.level === deputyLevel)
+      .filter((s) => nameMatchesQuery(s.full_name ?? '', trimmedQuery))
+      .slice(0, NAME_SEARCH_MAX_RESULTS);
+  }, [roster, trimmedQuery, deputyLevel]);
+
+  const selectedStudent = useMemo(
+    () => (studentId ? roster.find((s) => s.id === studentId) ?? null : null),
+    [roster, studentId],
+  );
+
+  const rosterStudentMeta = (s: (typeof roster)[number]) => {
+    const gradeText = s.scope ? formatGradeWithLevel(s.scope.level, s.scope.grade) : s.grade?.trim() || 'صف غير محدد';
+    const classText = s.class_name?.trim();
+    return classText ? `${gradeText} — فصل ${classText}` : gradeText;
+  };
+
+  const pickFromSearch = (s: (typeof roster)[number]) => {
+    if (s.scope) {
+      setLevel(s.scope.level);
+      setGrade(s.scope.grade);
+      const scope = s.scope;
+      const sectionLabel =
+        roster.find(
+          (r) =>
+            r.scope?.level === scope.level &&
+            r.scope.grade === scope.grade &&
+            classesMatch(r.class_name ?? '', s.class_name ?? ''),
+        )?.class_name ?? s.class_name ?? '';
+      setSection(sectionLabel.trim());
+    } else {
+      setSection('');
+    }
+    setStudentId(s.id);
+    setNameQuery('');
+  };
+
+  const changeLevel = (lv: AcademicEducationLevel) => {
+    setLevel(lv);
+    setGrade(gradesForLevel(lv)[0]);
+    setSection('');
+    setStudentId('');
+  };
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -423,6 +537,7 @@ function CreateStaffRequestForm({ onCreated }: { onCreated: (req: AcademicParent
         }
       } else {
         if (!name.trim()) throw new Error('أدخل اسم الطالب');
+        if (!section) throw new Error('اختر الفصل');
         studentsPayload = [
           {
             name: name.trim(),
@@ -467,55 +582,140 @@ function CreateStaffRequestForm({ onCreated }: { onCreated: (req: AcademicParent
         </button>
       </div>
 
+      {!manual && (
+        <div className="block text-sm text-[#A3AED0]">
+          <span className="block mb-1.5 font-medium">بحث بالاسم (إذا لم تتذكر الصف والفصل)</span>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-white/40" />
+            <input
+              type="search"
+              aria-label="بحث عن طالب بأي جزء من الاسم"
+              className={clsx(academicInputClass, 'ps-9')}
+              placeholder="اكتب أي جزء من اسم الطالب..."
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          {trimmedQuery && normalizeNameForSearch(trimmedQuery).length < NAME_SEARCH_MIN_CHARS ? (
+            <p className="mt-2 text-white/45 text-xs">اكتب حرفين على الأقل</p>
+          ) : trimmedQuery && isLoading ? (
+            <p className="mt-2 text-white/40 text-sm">جاري التحميل...</p>
+          ) : trimmedQuery && searchResults.length === 0 ? (
+            <p className="mt-2 text-amber-300/90 text-sm">لا يوجد طالب بهذا الاسم — جرّب جزءاً آخر أو «إدخال يدوي»</p>
+          ) : searchResults.length > 0 ? (
+            <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-white/10 divide-y divide-white/[0.06]">
+              {searchResults.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => pickFromSearch(s)}
+                  className="w-full text-start px-3 py-2.5 hover:bg-white/[0.05] transition-colors"
+                >
+                  <span className="block text-white text-sm font-semibold">{s.full_name}</span>
+                  <span className="block text-white/50 text-xs mt-0.5">{rosterStudentMeta(s)}</span>
+                </button>
+              ))}
+              {searchResults.length === NAME_SEARCH_MAX_RESULTS && (
+                <p className="px-3 py-2 text-white/40 text-xs">تظهر أول {NAME_SEARCH_MAX_RESULTS} نتيجة — أضف جزءاً آخر من الاسم لتضييق البحث</p>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {!manual && selectedStudent && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-gold-400/30 bg-gold-500/10 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-white text-sm font-semibold truncate">{selectedStudent.full_name}</p>
+            <p className="text-white/55 text-xs mt-0.5">{rosterStudentMeta(selectedStudent)}</p>
+          </div>
+          <button
+            type="button"
+            className="shrink-0 p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10"
+            onClick={() => setStudentId('')}
+            aria-label="إلغاء اختيار الطالب"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <AcademicField label="المرحلة">
+          <select
+            className={academicInputClass}
+            value={level}
+            disabled={!!deputyLevel}
+            onChange={(e) => changeLevel(e.target.value as AcademicEducationLevel)}
+          >
+            {(!deputyLevel || deputyLevel === 'middle') && <option value="middle">المتوسطة</option>}
+            {(!deputyLevel || deputyLevel === 'high') && <option value="high">الثانوية</option>}
+          </select>
+        </AcademicField>
+        <AcademicField label="الصف">
+          <select
+            className={academicInputClass}
+            value={grade}
+            onChange={(e) => {
+              setGrade(+e.target.value);
+              setSection('');
+              setStudentId('');
+            }}
+          >
+            {gradesForLevel(level).map((g) => (
+              <option key={g} value={g}>
+                {formatGradeWithLevel(level, g)}
+              </option>
+            ))}
+          </select>
+        </AcademicField>
+        <AcademicField label="الفصل">
+          <select
+            className={academicInputClass}
+            value={section}
+            onChange={(e) => {
+              setSection(e.target.value);
+              setStudentId('');
+            }}
+          >
+            <option value="">اختر الفصل</option>
+            {sectionOptions.map((s) => (
+              <option key={s} value={s}>
+                فصل {s}
+              </option>
+            ))}
+          </select>
+        </AcademicField>
+      </div>
+
       {!manual ? (
         <AcademicField label="الطالب">
           {isLoading ? (
             <p className="text-white/40 text-sm">جاري التحميل...</p>
+          ) : !section ? (
+            <p className="text-white/45 text-sm">اختر المرحلة والصف والفصل لعرض أسماء الطلاب، أو ابحث بالاسم أعلاه</p>
+          ) : classStudents.length === 0 ? (
+            <p className="text-amber-300/90 text-sm">لا يوجد طلاب مسجّلون في هذا الفصل — استخدم «إدخال يدوي»</p>
           ) : (
             <select
               className={academicInputClass}
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
             >
-              <option value="">اختر الطالب</option>
-              {students.map((s) => (
+              <option value="">اختر الطالب ({classStudents.length})</option>
+              {classStudents.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.full_name} — {s.grade} / {s.class_name}
+                  {s.full_name}
                 </option>
               ))}
             </select>
           )}
         </AcademicField>
       ) : (
-        <>
-          <AcademicField label="اسم الطالب">
-            <input className={academicInputClass} value={name} onChange={(e) => setName(e.target.value)} />
-          </AcademicField>
-          <div className="grid grid-cols-3 gap-2">
-            <select
-              className={academicInputClass}
-              value={level}
-              onChange={(e) => setLevel(e.target.value as AcademicEducationLevel)}
-            >
-              <option value="middle">متوسط</option>
-              <option value="high">ثانوي</option>
-            </select>
-            <select className={academicInputClass} value={grade} onChange={(e) => setGrade(+e.target.value)}>
-              {gradesForLevel(level).map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-            <select className={academicInputClass} value={section} onChange={(e) => setSection(e.target.value)}>
-              {DEFAULT_SECTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
+        <AcademicField label="اسم الطالب">
+          <input className={academicInputClass} value={name} onChange={(e) => setName(e.target.value)} />
+        </AcademicField>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -535,7 +735,7 @@ function CreateStaffRequestForm({ onCreated }: { onCreated: (req: AcademicParent
       <button
         type="button"
         className={academicBtnPrimary}
-        disabled={createMut.isPending || (!manual && !studentId)}
+        disabled={createMut.isPending || (!manual && !studentId) || (manual && (!name.trim() || !section))}
         onClick={() => createMut.mutate()}
       >
         <Plus className="w-4 h-4" />
@@ -739,6 +939,7 @@ export function AcademicObservationInboxPage() {
   const [tab, setTab] = useState<'pending' | 'assigned' | 'closed' | 'all'>('pending');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [listQuery, setListQuery] = useState('');
 
   const { data: requests = [], isLoading, refetch } = useQuery({
     queryKey: ['academic-parent-requests'],
@@ -772,21 +973,26 @@ export function AcademicObservationInboxPage() {
     };
   }, [requests, refetch, qc]);
 
+  const searched = useMemo(() => {
+    if (!normalizeNameForSearch(listQuery)) return requests;
+    return requests.filter((r) => r.students.some((s) => nameMatchesQuery(s.name ?? '', listQuery)));
+  }, [requests, listQuery]);
+
   const filtered = useMemo(() => {
-    if (tab === 'pending') return requests.filter((r) => r.status === 'pending');
-    if (tab === 'assigned') return requests.filter((r) => r.status === 'assigned');
-    if (tab === 'closed') return requests.filter((r) => r.status === 'processed' || r.status === 'rejected');
-    return requests;
-  }, [requests, tab]);
+    if (tab === 'pending') return searched.filter((r) => r.status === 'pending');
+    if (tab === 'assigned') return searched.filter((r) => r.status === 'assigned');
+    if (tab === 'closed') return searched.filter((r) => r.status === 'processed' || r.status === 'rejected');
+    return searched;
+  }, [searched, tab]);
 
   const counts = useMemo(
     () => ({
-      pending: requests.filter((r) => r.status === 'pending').length,
-      assigned: requests.filter((r) => r.status === 'assigned').length,
-      closed: requests.filter((r) => r.status === 'processed' || r.status === 'rejected').length,
-      all: requests.length,
+      pending: searched.filter((r) => r.status === 'pending').length,
+      assigned: searched.filter((r) => r.status === 'assigned').length,
+      closed: searched.filter((r) => r.status === 'processed' || r.status === 'rejected').length,
+      all: searched.length,
     }),
-    [requests],
+    [searched],
   );
 
   const invalidate = () => {
@@ -795,6 +1001,10 @@ export function AcademicObservationInboxPage() {
     qc.invalidateQueries({ queryKey: ['academic-obs-reports'] });
     qc.invalidateQueries({ queryKey: ['academic-obs-report'] });
   };
+
+  if (role === 'teacher') {
+    return <Navigate to="/academic/observation-tasks" replace />;
+  }
 
   if (!canManage) {
     return (
@@ -844,6 +1054,19 @@ export function AcademicObservationInboxPage() {
         </div>
       )}
 
+      <div className="relative mb-4">
+        <Search className="pointer-events-none absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-white/40" />
+        <input
+          type="search"
+          aria-label="بحث في الطلبات بأي جزء من اسم الطالب"
+          className={clsx(academicInputClass, 'ps-9')}
+          placeholder="ابحث في الطلبات بأي جزء من اسم الطالب..."
+          value={listQuery}
+          onChange={(e) => setListQuery(e.target.value)}
+          autoComplete="off"
+        />
+      </div>
+
       <div className="flex flex-wrap gap-2 mb-5">
         {tabs.map((t) => (
           <button
@@ -866,7 +1089,10 @@ export function AcademicObservationInboxPage() {
       {isLoading ? (
         <TapHandLoader />
       ) : filtered.length === 0 ? (
-        <AcademicEmpty message="لا توجد طلبات في هذا القسم" icon={ClipboardList} />
+        <AcademicEmpty
+          message={listQuery.trim() ? 'لا توجد طلبات تطابق اسم الطالب في هذا القسم' : 'لا توجد طلبات في هذا القسم'}
+          icon={ClipboardList}
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((req) => (

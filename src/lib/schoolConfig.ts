@@ -48,21 +48,16 @@ export async function fetchAxisWeights(): Promise<AxisWeights> {
   return full;
 }
 
-export async function fetchExcellenceLevels(): Promise<ExcellenceLevel[]> {
-  const levels = await fetchSetting<ExcellenceLevel[]>('excellence_levels', DEFAULT_EXCELLENCE_LEVELS);
-  return levels.length > 0 ? levels.sort((a, b) => a.min - b.min) : DEFAULT_EXCELLENCE_LEVELS;
-}
-
 export async function fetchGradeClassCatalog(): Promise<GradeClassCatalog> {
   return fetchSetting('grade_class_catalog', DEFAULT_GRADE_CLASS_CATALOG);
 }
 
 export async function saveSchoolSetting(key: string, value: unknown): Promise<void> {
-  const payload = JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+  const payload = JSON.parse(JSON.stringify(value)) as Record<string, unknown> | unknown[];
 
   const { error: rpcError } = await supabase.rpc('upsert_school_setting', {
     p_key: key,
-    p_value: payload,
+    p_value: payload as Record<string, unknown>,
   });
 
   if (!rpcError) return;
@@ -73,16 +68,94 @@ export async function saveSchoolSetting(key: string, value: unknown): Promise<vo
   if (error) throw error;
 }
 
+function parseExcellenceLevels(raw: unknown): ExcellenceLevel[] {
+  const source = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { levels?: unknown }).levels)
+      ? (raw as { levels: unknown[] }).levels
+      : null;
+  if (!source) return [];
+  return source
+    .map((row) => {
+      const item = row as { name?: unknown; min?: unknown };
+      const name = String(item?.name ?? '').trim();
+      const min = Number(item?.min);
+      if (!name || !Number.isFinite(min)) return null;
+      return { name, min: Math.floor(min) };
+    })
+    .filter((row): row is ExcellenceLevel => row != null)
+    .sort((a, b) => a.min - b.min);
+}
+
+export function normalizeExcellenceLevels(raw: unknown): ExcellenceLevel[] {
+  const parsed = parseExcellenceLevels(raw);
+  return parsed.length > 0 ? parsed : DEFAULT_EXCELLENCE_LEVELS;
+}
+
+export async function fetchExcellenceLevels(): Promise<ExcellenceLevel[]> {
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_excellence_levels');
+    if (!rpcError && rpcData != null) {
+      const fromRpc = parseExcellenceLevels(rpcData);
+      if (fromRpc.length > 0) return fromRpc;
+    }
+
+    const levels = await fetchSetting<unknown>('excellence_levels', DEFAULT_EXCELLENCE_LEVELS);
+    return normalizeExcellenceLevels(levels);
+  } catch {
+    return DEFAULT_EXCELLENCE_LEVELS;
+  }
+}
+
+export async function saveExcellenceLevels(levels: ExcellenceLevel[]): Promise<ExcellenceLevel[]> {
+  const value = normalizeExcellenceLevels(levels);
+  await saveSchoolSetting('excellence_levels', value);
+
+  const saved = await fetchExcellenceLevels();
+  const same =
+    saved.length === value.length &&
+    saved.every((lvl, i) => lvl.name === value[i].name && lvl.min === value[i].min);
+  if (!same) {
+    throw new Error(
+      'مستويات التميز لم تُحفظ. شغّل ملف supabase/fix-achievement-thresholds.sql في Supabase ثم أعد الحفظ.',
+    );
+  }
+  return saved;
+}
+
 export function getLevelInfoFromConfig(score: number, levels: ExcellenceLevel[]): LevelInfo {
-  const sorted = [...levels].sort((a, b) => a.min - b.min);
+  const sorted = normalizeExcellenceLevels(levels);
   for (let i = sorted.length - 1; i >= 0; i--) {
     if (score >= sorted[i].min) {
-      const base = LEVELS.find((l) => l.name === sorted[i].name) ?? LEVELS[0];
+      const byName = LEVELS.find((l) => l.name === sorted[i].name);
+      const byIndex = LEVELS[Math.min(i, LEVELS.length - 1)];
+      const base = byName ?? byIndex ?? LEVELS[0];
       const nextMin = i < sorted.length - 1 ? sorted[i + 1].min : null;
-      return { ...base, min: sorted[i].min, nextMin };
+      return { ...base, name: sorted[i].name, min: sorted[i].min, nextMin };
     }
   }
-  return LEVELS[0];
+  const first = sorted[0] ?? DEFAULT_EXCELLENCE_LEVELS[0];
+  return {
+    ...LEVELS[0],
+    name: first.name,
+    min: first.min,
+    nextMin: sorted[1]?.min ?? null,
+  };
+}
+
+export function buildLevelLadder(levels: ExcellenceLevel[]): LevelInfo[] {
+  const sorted = normalizeExcellenceLevels(levels);
+  return sorted.map((lvl, i) => {
+    const byName = LEVELS.find((l) => l.name === lvl.name);
+    const byIndex = LEVELS[Math.min(i, LEVELS.length - 1)];
+    const base = byName ?? byIndex ?? LEVELS[0];
+    return {
+      ...base,
+      name: lvl.name,
+      min: lvl.min,
+      nextMin: i < sorted.length - 1 ? sorted[i + 1].min : null,
+    };
+  });
 }
 
 export function computeWeightedFromBreakdown(

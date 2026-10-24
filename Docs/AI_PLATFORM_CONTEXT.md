@@ -4,8 +4,8 @@
 > **مصدر الحقيقة:** هذا الملف + `VERSION.md` + الكود الفعلي. عند التعارض مع `CLAUDE.md` اعتمد **هذا الملف**.  
 > **الصيانة:** أي مطور/وكيل AI يعدّل المنصة **يجب** تحديث هذا الملف في نفس الجلسة (انظر `.cursor/rules/ai-platform-context-maintenance.mdc`).
 
-**تاريخ التحديث:** 2026-08-21  
-**إصدار المنصة:** v2.8.23  
+**تاريخ التحديث:** 2026-10-04  
+**إصدار المنصة:** v2.20.0  
 **الموقع:** https://northelite.tech  
 **اسم الحزمة:** `erb-elite`  
 **المجلد:** `ERB Elite/`
@@ -170,7 +170,7 @@ ERB Elite/
 المصدر: `src/types/index.ts` — **كل عنصر = مسار حقيقي في Router**.
 
 ### مدير المدرسة (`principal`)
-`/dashboard` · `/qa/simulator` · `/principal/executive` · `/principal/users` · `/principal/bulk-upload` · `/principal/import-export` · `/principal/bulk-accounts` · `/principal/reports` · `/admin/reports-hub` · `/principal/settings` · `/academic` · `/academic/templates` · `/principal/academic` · **`/principal/academic/attendance`** · **`/principal/academic/students`** · `/principal/evaluation` · `/principal/ai-settings` · `/competition/admin` · `/support`
+`/dashboard` · `/qa/simulator` · `/principal/executive` · `/principal/users` · `/principal/bulk-upload` · `/principal/import-export` · `/principal/bulk-accounts` · `/principal/reports` · `/admin/reports-hub` · `/principal/settings` · `/academic` · **`/academic/reviews`** (رفع حسب المرحلة والصف + اعتماد المعلمين) · `/academic/templates` · `/principal/academic` · **`/principal/academic/attendance`** · **`/principal/academic/students`** · `/principal/evaluation` · `/principal/ai-settings` · `/competition/admin` · `/support`
 
 ### رائد النشاط (`admin` / `activity_leader`)
 `/admin` · `/admin/points` · `/admin/bulk-grant` · `/admin/attendance` · `/admin/suggestions` · `/admin/activities` · `/admin/user-guides` · `/admin/users` · `/admin/leaderboard` · `/competition/admin` · `/admin/id-cards` · `/admin/reports-hub` · `/admin/settings` · `/support`
@@ -305,6 +305,8 @@ ERB Elite/
 `src/lib/academic/` · `src/pages/academic/` · `src/pages/principal/academic/`  
 جدول قوالب: `academic_message_templates` (103)  
 نطاق مرحلة: `stageScope.ts` · `gradeBridge.ts` · `staff_education_level`
+
+**رفع مراجعات المدير (v2.20.0):** `/academic/reviews` — المدير يختار مرحلة + صف + مادة + نوع ويرفع PDF فيُنشر فوراً (`sentToParent`) لطلاب ذلك الصف. مسار المعلم يبقى: معلم → مراجع → مدير.
 
 ### 8.3b حضور الوكيل + متابعة المدير (v2.8.14–15)
 | الدور | المسار | الوظيفة |

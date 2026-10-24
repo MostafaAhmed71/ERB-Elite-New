@@ -104,7 +104,7 @@ export function ParentMonthlyReport({ studentId, studentName, grade, className }
         <div>
           <h3 className="text-white font-semibold text-sm">تقرير شهري PDF</h3>
           <p className="text-white/40 text-[11px] mt-1">
-            نقاط · حضور · اختبارات — {monthLabelAr()}
+            نقاط · اختبارات — {monthLabelAr()}
           </p>
         </div>
         <button
@@ -119,8 +119,7 @@ export function ParentMonthlyReport({ studentId, studentName, grade, className }
       </div>
       {monthExtras && (
         <p className="text-white/35 text-[10px]">
-          هذا الشهر: {monthExtras.monthPoints} نقطة معتمدة · {monthExtras.att.ratePct}% حضور ·{' '}
-          {monthExtras.exams.length} اختبار
+          هذا الشهر: {monthExtras.monthPoints} نقطة معتمدة · {monthExtras.exams.length} اختبار
         </p>
       )}
     </div>

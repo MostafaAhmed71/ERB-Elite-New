@@ -1,6 +1,16 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpen, ClipboardList, FileText, Search, CalendarCheck } from 'lucide-react';
+import {
+  Award,
+  BookOpen,
+  ClipboardList,
+  FileText,
+  QrCode,
+  Search,
+  CalendarCheck,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
 import { ROLE_LABELS } from '../../types';
@@ -15,6 +25,34 @@ import { DailyOpsInbox, type DailyOpsItem } from '../../components/shared/DailyO
 import { TapHandLoader } from '../../components/ui/TapHandLoader';
 
 const ACTIONS = [
+  {
+    to: '/points/grant',
+    label: 'منح النقاط',
+    description: 'منح فوري معتمد لطلاب مرحلتك',
+    icon: Award,
+    accent: 'gold' as const,
+  },
+  {
+    to: '/points/grant?scan=1',
+    label: 'مسح QR ومنح',
+    description: 'امسح بطاقة الطالب وامنحه مباشرة',
+    icon: QrCode,
+    accent: 'purple' as const,
+  },
+  {
+    to: '/points/grant?bulk=1',
+    label: 'منح جماعي للفصل',
+    description: 'منح كل طلاب الفصل دفعة واحدة',
+    icon: Users,
+    accent: 'blue' as const,
+  },
+  {
+    to: '/leaderboard',
+    label: 'لوحة المتصدرين',
+    description: 'ترتيب الطلاب على المدرسة والصف والفصل',
+    icon: Trophy,
+    accent: 'gold' as const,
+  },
   {
     to: '/academic/attendance',
     label: 'الحضور والغياب',

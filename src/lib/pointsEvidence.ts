@@ -3,27 +3,66 @@ import { supabase } from './supabase';
 
 /** نشاط ثابت في الكتالوج للمنح اليدوي من المعلم */
 export const MANUAL_TEACHER_ACTIVITY_ID = 'e1111111-1111-4111-8111-111111111101';
+/** نشاط ثابت في الكتالوج للمنح اليدوي في محور السلوك */
+export const MANUAL_BEHAVIOR_ACTIVITY_ID = 'e1111111-1111-4111-8111-111111111102';
 
-export function buildManualActivityNote(activityName: string, extraNote?: string): string {
+export const MANUAL_ACTIVITY_IDS: readonly string[] = [
+  MANUAL_TEACHER_ACTIVITY_ID,
+  MANUAL_BEHAVIOR_ACTIVITY_ID,
+];
+
+export type ManualActivityKind = 'activity' | 'behavior';
+
+const MANUAL_ACTIVITY_META: Record<
+  ManualActivityKind,
+  { id: string; name: string; rpc: string; notePrefix: string; sqlHint: string }
+> = {
+  activity: {
+    id: MANUAL_TEACHER_ACTIVITY_ID,
+    name: 'نشاط يدوي',
+    rpc: 'ensure_manual_teacher_activity',
+    notePrefix: 'نشاط يدوي',
+    sqlHint: 'supabase/fix-ensure-manual-teacher-activity.sql',
+  },
+  behavior: {
+    id: MANUAL_BEHAVIOR_ACTIVITY_ID,
+    name: 'سلوك يدوي',
+    rpc: 'ensure_manual_behavior_activity',
+    notePrefix: 'سلوك يدوي',
+    sqlHint: 'supabase/migrations/144_manual_behavior_activity.sql',
+  },
+};
+
+export function isManualActivityId(id: string | null | undefined): boolean {
+  return !!id && MANUAL_ACTIVITY_IDS.includes(id);
+}
+
+export function buildManualActivityNote(
+  activityName: string,
+  extraNote?: string,
+  kind: ManualActivityKind = 'activity',
+): string {
+  const prefix = MANUAL_ACTIVITY_META[kind].notePrefix;
   const title = activityName.trim();
   const extra = (extraNote ?? '').trim();
-  if (extra) return `نشاط يدوي: ${title} — ${extra}`;
-  return `نشاط يدوي: ${title}`;
+  if (extra) return `${prefix}: ${title} — ${extra}`;
+  return `${prefix}: ${title}`;
 }
 
 /**
- * يضمن وجود صف «نشاط يدوي» في الكتالوج قبل الإدراج في points_ledger.
+ * يضمن وجود صف النشاط اليدوي (نشاطي أو سلوكي) في الكتالوج قبل الإدراج في points_ledger.
  * يستخدم RPC (SECURITY DEFINER) ثم upsert كاحتياط.
  */
-export async function ensureManualTeacherActivity(): Promise<string> {
-  const { error: rpcError } = await supabase.rpc('ensure_manual_teacher_activity');
-  if (!rpcError) return MANUAL_TEACHER_ACTIVITY_ID;
+export async function ensureManualActivity(kind: ManualActivityKind = 'activity'): Promise<string> {
+  const meta = MANUAL_ACTIVITY_META[kind];
+  const { error: rpcError } = await supabase.rpc(meta.rpc);
+  if (!rpcError) return meta.id;
 
   const { error: upsertError } = await supabase.from('activities').upsert(
     {
-      id: MANUAL_TEACHER_ACTIVITY_ID,
-      name: 'نشاط يدوي',
-      category: 'activity',
+      id: meta.id,
+      name: meta.name,
+      category: kind,
       default_points: 10,
       is_active: true,
     },
@@ -34,20 +73,24 @@ export async function ensureManualTeacherActivity(): Promise<string> {
     const { data, error: readError } = await supabase
       .from('activities')
       .select('id')
-      .eq('id', MANUAL_TEACHER_ACTIVITY_ID)
+      .eq('id', meta.id)
       .maybeSingle();
 
-    if (data?.id) return MANUAL_TEACHER_ACTIVITY_ID;
+    if (data?.id) return meta.id;
 
     throw new Error(
       readError?.message ||
         upsertError.message ||
         rpcError.message ||
-        'نشاط المنح اليدوي غير موجود في الكتالوج — شغّل supabase/fix-ensure-manual-teacher-activity.sql',
+        `نشاط «${meta.name}» غير موجود في الكتالوج — شغّل ${meta.sqlHint}`,
     );
   }
 
-  return MANUAL_TEACHER_ACTIVITY_ID;
+  return meta.id;
+}
+
+export function ensureManualTeacherActivity(): Promise<string> {
+  return ensureManualActivity('activity');
 }
 
 /**

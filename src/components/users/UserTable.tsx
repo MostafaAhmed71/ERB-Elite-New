@@ -1,4 +1,4 @@
-import { Pencil, ToggleLeft, ToggleRight, Trash2, Users } from 'lucide-react';
+import { Pencil, ToggleLeft, ToggleRight, Trash2, Users, KeyRound } from 'lucide-react';
 import type { DbUser } from '../../types';
 import { ROLE_LABELS, ROLE_COLORS } from '../../types';
 import { ACADEMIC_LEVEL_LABELS } from '../../lib/academic/constants';
@@ -16,6 +16,7 @@ interface UserTableProps {
   onEdit: (user: DbUser) => void;
   onToggleActive: (user: DbUser) => void;
   onDelete: (user: DbUser) => void;
+  onTeacherActivation?: (user: DbUser) => void;
 }
 
 export function UserTable({
@@ -29,6 +30,7 @@ export function UserTable({
   onEdit,
   onToggleActive,
   onDelete,
+  onTeacherActivation,
 }: UserTableProps) {
   const bulkMode = !!selected && !!onSelectChange;
   const allSelected = bulkMode && users.length > 0 && users.every((u) => selected.has(u.id));
@@ -126,6 +128,11 @@ export function UserTable({
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
+                    {user.role === 'teacher' && onTeacherActivation && (
+                      <button type="button" onClick={() => onTeacherActivation(user)} title="كود تفعيل كلمة المرور" aria-label={`كود تفعيل كلمة مرور ${user.full_name}`} className="p-1.5 rounded-lg bg-gold-400/10 hover:bg-gold-400/20 text-gold-400 transition-all">
+                        <KeyRound className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onEdit(user)}
                       title="تعديل"

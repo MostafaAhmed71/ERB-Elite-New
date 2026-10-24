@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useParentChildren } from './useParentChildren';
 import { computeAchievements } from '../lib/achievements';
+import { fetchAchievementThresholds } from '../lib/achievementConfig';
 
 /**
  * إشعارات فورية للطالب وولي الأمر عبر Supabase Realtime + toasts.
@@ -198,6 +199,7 @@ export function useStudentParentNotifications(enabled: boolean) {
         .eq('student_id', selectedChild!.id)
         .in('status', ['approved', 'implemented']);
 
+      const thresholds = await fetchAchievementThresholds();
       const achievements = computeAchievements(
         (ledger ?? []).map((r) => ({
           id: r.activity_id ?? '',
@@ -210,7 +212,9 @@ export function useStudentParentNotifications(enabled: boolean) {
           },
         })),
         null,
-        (count ?? 0) > 0
+        (count ?? 0) > 0,
+        0,
+        thresholds,
       );
       const earnedIds = new Set(achievements.filter((a) => a.earned).map((a) => a.id));
 

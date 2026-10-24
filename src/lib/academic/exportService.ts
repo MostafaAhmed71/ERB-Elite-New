@@ -1,5 +1,6 @@
 import { toCanvas } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import JSZip from 'jszip';
 import {
   buildHomeworkHtml,
   buildWeeklyPlanHtml,
@@ -9,6 +10,7 @@ import {
   type WeeklyPlanGroup,
 } from './exportTemplates';
 import type { AcademicExportTemplateLayout } from './exportTemplateConfig';
+import { formatGradeSection, formatSemesterWeek } from './constants';
 
 function preloadImages(doc: Document): Promise<void> {
   const imgs = Array.from(doc.images);
@@ -109,6 +111,60 @@ export async function exportWeeklyPlanGroupPng(group: WeeklyPlanGroup, layout?: 
     canvas,
     `plan_s${group.semester}_w${group.week_number}_g${group.grade}_${group.section}.png`,
     false,
+  );
+}
+
+function sanitizeFileName(name: string): string {
+  return name.replace(/[/\\:*?"<>|\n\r]/g, '_').replace(/\s+/g, ' ').trim() || 'خطة';
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('تعذر إنشاء الصورة'));
+    }, 'image/png');
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** كل خطط الأسبوع الظاهرة كصور PNG داخل ملف مضغوط واحد. */
+export async function exportWeeklyPlanGroupsPngZip(
+  groups: WeeklyPlanGroup[],
+  layout?: AcademicExportTemplateLayout,
+  onProgress?: (done: number, total: number) => void,
+) {
+  if (groups.length === 0) throw new Error('لا توجد خطط للتصدير');
+
+  const zip = new JSZip();
+  const used = new Map<string, number>();
+
+  for (let index = 0; index < groups.length; index += 1) {
+    const group = groups[index];
+    onProgress?.(index + 1, groups.length);
+    const canvas = await renderHtmlToCanvas(buildWeeklyPlanHtml(group, layout));
+    const blob = await canvasToPngBlob(canvas);
+    const label = sanitizeFileName(
+      `${formatGradeSection(group.education_level, group.grade, group.section)} — ${formatSemesterWeek(group.semester, group.week_number)}`,
+    );
+    const count = used.get(label) ?? 0;
+    used.set(label, count + 1);
+    zip.file(count === 0 ? `${label}.png` : `${label}_${count + 1}.png`, blob);
+  }
+
+  const first = groups[0];
+  const archive = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(
+    archive,
+    `${sanitizeFileName(`خطط الأسبوع ${formatSemesterWeek(first.semester, first.week_number)}`)}.zip`,
   );
 }
 

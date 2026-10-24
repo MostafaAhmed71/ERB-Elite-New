@@ -1,6 +1,33 @@
 import type { AcademicEducationLevel, AcademicSubject, AcademicTeacherSetup } from './types';
 import { formatGradeLabel } from './constants';
 
+/** تطبيع اسم المادة للمقارنة: «الرياضيات» = «رياضيات»، «اللغة الإنجليزية» ≈ «انجليزي» */
+export function normalizeSubjectName(raw: string): string {
+  return raw
+    .normalize('NFKC')
+    .replace(/ـ/gu, '')
+    .replace(/[\u064B-\u0652]/gu, '')
+    .replace(/[أإآٱ]/gu, 'ا')
+    .replace(/ة/gu, 'ه')
+    .replace(/ى/gu, 'ي')
+    .replace(/[()\-_.،,/]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (w.startsWith('ال') && w.length > 3 ? w.slice(2) : w))
+    .join(' ')
+    .toLowerCase();
+}
+
+/** تطابق مادتين رغم اختلاف الصياغة بين دليل المواد وجداول المعلمين */
+export function subjectsMatch(a: string, b: string): boolean {
+  const x = normalizeSubjectName(a);
+  const y = normalizeSubjectName(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= 3 && long.includes(short);
+}
+
 /** مواد نشطة لمرحلة وصف محددين */
 export function subjectsForGrade(
   subjects: AcademicSubject[],

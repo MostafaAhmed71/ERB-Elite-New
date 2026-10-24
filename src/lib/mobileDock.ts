@@ -58,7 +58,7 @@ export function getMobileDockShortcuts(
       { to: '/dashboard', label: 'الرئيسية', icon: 'Home' },
       { to: '/parent/academic', label: 'أكاديمي', icon: 'BookOpen' },
       { to: '/student-profile', label: 'ملف', icon: 'User' },
-      { to: '/attendance/view', label: 'حضور', icon: 'CalendarCheck' },
+      { to: '/parent/academic/homework', label: 'واجبات', icon: 'BookOpen' },
       { to: '/exams/results', label: 'نتائج', icon: 'ClipboardCheck' },
     ],
     student: [
@@ -91,10 +91,10 @@ export function getMobileDockShortcuts(
     ],
     deputy: [
       { to: '/dashboard', label: 'الرئيسية', icon: 'LayoutDashboard' },
+      { to: '/points/grant', label: 'نقاط', icon: 'Award' },
       { to: '/academic/attendance', label: 'حضور', icon: 'CalendarCheck' },
       { to: '/academic/students', label: 'طلاب', icon: 'Users' },
       { to: '/academic', label: 'أكاديمي', icon: 'BookOpen' },
-      { to: '/academic/observation-inbox', label: 'ملاحظات', icon: 'ClipboardList' },
     ],
     reviewer: [
       { to: '/dashboard', label: 'الرئيسية', icon: 'LayoutDashboard' },

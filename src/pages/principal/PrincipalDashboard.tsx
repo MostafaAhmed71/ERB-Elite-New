@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import { DASHBOARD_LOOKBACK_DAYS, fetchAttendanceSince } from '../../lib/attendanceQueries';
 import { useAuthStore } from '../../stores/authStore';
 import { ROLE_LABELS } from '../../types';
 import { containerVariants } from '../../lib/motionVariants';
@@ -162,13 +163,11 @@ export function PrincipalDashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard_stats'],
     queryFn: async () => {
-      const [studentsRes, attendanceRes, examsRes] = await Promise.all([
+      const [studentsRes, attendanceRows, examsRes] = await Promise.all([
         supabase.from('students').select('*', { count: 'exact', head: true }),
-        supabase.from('attendance').select('status'),
+        fetchAttendanceSince<{ status: string }>(DASHBOARD_LOOKBACK_DAYS, 'status'),
         supabase.from('exams').select('*', { count: 'exact', head: true }).eq('is_active', true),
       ]);
-
-      const attendanceRows = (attendanceRes.data ?? []) as { status: string }[];
       const presentCount = attendanceRows.filter((a) => a.status === 'present').length;
       const attendancePct =
         attendanceRows.length > 0 ? Math.round((presentCount / attendanceRows.length) * 100) : null;

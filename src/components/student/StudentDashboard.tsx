@@ -82,7 +82,8 @@ export function StudentDashboard() {
     );
   }
 
-  const { totalPoints, level, breakdown, achievements, points, pendingCount, pendingSum, progressPercent, pointsToNext } = metrics;
+  const { totalPoints, level, levelLadder, breakdown, achievements, points, pendingCount, pendingSum, progressPercent, pointsToNext } = metrics;
+  const levelMap = levelLadder.length > 0 ? levelLadder : LEVELS;
   const categoryPoints = {
     activity: breakdown.activity,
     behavior: breakdown.behavior,
@@ -308,7 +309,7 @@ export function StudentDashboard() {
             خارطة مستويات التميز و{PLATFORM_NAME_SHORT}
           </SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {LEVELS.map((lvl) => {
+            {levelMap.map((lvl) => {
               const isCurrent = level.name === lvl.name;
               return (
                 <motion.div

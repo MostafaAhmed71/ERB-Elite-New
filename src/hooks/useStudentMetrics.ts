@@ -2,12 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import {
   getApprovedPointsTotal,
-  getLevelInfo,
   getRawAxisBreakdown,
   type PointEntry,
 } from '../lib/calculations';
 import { computeAchievements } from '../lib/achievements';
+import { DEFAULT_ACHIEVEMENT_THRESHOLDS, fetchAchievementThresholds } from '../lib/achievementConfig';
+import {
+  buildLevelLadder,
+  fetchExcellenceLevels,
+  getLevelInfoFromConfig,
+} from '../lib/schoolConfig';
+import { computeEngagementStreak } from '../lib/studentStreak';
 import type { DbStudent } from '../types';
+import { fetchStudentClassAttendanceCalendar } from '../lib/attendanceQueries';
 
 export type ClassRankEntry = {
   studentId: string;
@@ -49,17 +56,9 @@ export function useStudentMetrics(studentId: string | undefined | null) {
     enabled: !!studentId,
   });
 
-  const { data: attendanceRecords = [] } = useQuery({
-    queryKey: ['student-metrics', 'attendance', studentId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('status, date')
-        .eq('student_id', studentId!)
-        .order('date', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+  const { data: attendanceRecords = [], isLoading: attendanceLoading } = useQuery({
+    queryKey: ['student-metrics', 'attendance', studentId, 'class-calendar'],
+    queryFn: () => fetchStudentClassAttendanceCalendar(studentId!),
     enabled: !!studentId,
   });
 
@@ -93,16 +92,18 @@ export function useStudentMetrics(studentId: string | undefined | null) {
       }
 
       const nameMap = new Map((classmates ?? []).map((c: { id: string; full_name: string }) => [c.id, c.full_name]));
-      const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1]);
-      const entries: ClassRankEntry[] = sorted.map(([id, score], i) => ({
+      const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      const maxScore = Math.max(0, ...scores.values());
+      const entries: ClassRankEntry[] = sorted.map(([id, score]) => ({
         studentId: id,
         name: nameMap.get(id) ?? 'طالب',
         score,
-        rank: i + 1,
+        rank: maxScore <= 0 ? 0 : 1 + sorted.filter(([, other]) => other > score).length,
       }));
 
-      const rank = entries.find((e) => e.studentId === profile.id)?.rank ?? null;
-      const top3 = entries.slice(0, 3);
+      const rank =
+        maxScore <= 0 ? null : (entries.find((e) => e.studentId === profile.id)?.rank ?? null);
+      const top3 = maxScore <= 0 ? [] : entries.filter((e) => e.rank <= 3).slice(0, 3);
       const classAverage =
         entries.length > 0
           ? Math.round(entries.reduce((s, e) => s + e.score, 0) / entries.length)
@@ -143,11 +144,47 @@ export function useStudentMetrics(studentId: string | undefined | null) {
     enabled: !!studentId,
   });
 
+  const { data: achievementThresholds } = useQuery({
+    queryKey: ['school-settings', 'achievement-thresholds'],
+    queryFn: fetchAchievementThresholds,
+    staleTime: 60_000,
+  });
+
+  const { data: excellenceLevels } = useQuery({
+    queryKey: ['school-settings', 'excellence-levels'],
+    queryFn: fetchExcellenceLevels,
+    staleTime: 60_000,
+  });
+
   const pointEntries = points as PointEntry[];
   const totalPoints = getApprovedPointsTotal(pointEntries);
-  const level = getLevelInfo(totalPoints);
+  const level = excellenceLevels
+    ? getLevelInfoFromConfig(totalPoints, excellenceLevels)
+    : getLevelInfoFromConfig(totalPoints, []);
+  const levelLadder = buildLevelLadder(excellenceLevels ?? []);
   const breakdown = getRawAxisBreakdown(pointEntries);
-  const achievements = computeAchievements(pointEntries, classRanking?.rank, hasApprovedSuggestion);
+  const attendanceDates = attendanceRecords
+    .filter((row) => row.status === 'present' || row.status === 'late')
+    .map((row) => row.date);
+  const activityDates = (points as Array<{ status?: string; created_at?: string }>)
+    .filter((row) => row.status === 'approved' && row.created_at)
+    .map((row) => String(row.created_at).slice(0, 10));
+  const streakDays = computeEngagementStreak(attendanceDates, activityDates).current;
+  const badgeThresholds = { ...(achievementThresholds ?? DEFAULT_ACHIEVEMENT_THRESHOLDS) };
+  if (excellenceLevels) {
+    for (const lvl of excellenceLevels) {
+      if (/برونز/.test(lvl.name)) badgeThresholds.bronze = lvl.min;
+      else if (/فض/.test(lvl.name)) badgeThresholds.silver = lvl.min;
+      else if (/ذهب/.test(lvl.name) && !/سفير/.test(lvl.name)) badgeThresholds.gold = lvl.min;
+    }
+  }
+  const achievements = computeAchievements(
+    pointEntries,
+    classRanking?.rank,
+    hasApprovedSuggestion,
+    streakDays,
+    badgeThresholds,
+  );
 
   const pendingEntries = pointEntries.filter(
     (p) => p.status === 'pending' || p.status === 'pending_principal'
@@ -170,6 +207,7 @@ export function useStudentMetrics(studentId: string | undefined | null) {
     attendanceRecords,
     totalPoints,
     level,
+    levelLadder,
     breakdown,
     achievements,
     classRank: classRanking?.rank ?? null,
@@ -181,6 +219,6 @@ export function useStudentMetrics(studentId: string | undefined | null) {
     progressPercent,
     pointsToNext,
     hasApprovedSuggestion,
-    isLoading: profileLoading || pointsLoading || rankLoading,
+    isLoading: profileLoading || pointsLoading || rankLoading || attendanceLoading,
   };
 }

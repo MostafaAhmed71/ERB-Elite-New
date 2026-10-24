@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Save, Plus, Trash2, Zap, Trophy, Calendar } from 'lucide-react';
+import { Settings, Save, Plus, Trash2, Zap, Trophy, Calendar, Award } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { TapHandLoader } from '../../components/ui/TapHandLoader';
@@ -8,11 +8,15 @@ import {
   fetchAxisWeights,
   fetchExcellenceLevels,
   fetchGradeClassCatalog,
+  getLevelInfoFromConfig,
+  saveExcellenceLevels,
   saveSchoolSetting,
   normalizeWeights,
   type ExcellenceLevel,
   type GradeClassCatalog,
   DEFAULT_AXIS_WEIGHTS,
+  DEFAULT_EXCELLENCE_LEVELS,
+  normalizeExcellenceLevels,
 } from '../../lib/schoolConfig';
 import type { AxisWeights } from '../../lib/calculations';
 import { fetchActivityWeek, saveActivityWeek, newScheduleSlot, type ActivityWeekConfig } from '../../lib/activityWeek';
@@ -46,6 +50,15 @@ import { ExamPointsPolicySettings } from '../../components/admin/ExamPointsPolic
 import { SmsAlertsSettingsPanel } from '../../components/admin/SmsAlertsSettingsPanel';
 import { OfficialCertificateSettingsPanel } from '../../components/admin/OfficialCertificateSettingsPanel';
 import { FeatureVisibilityPanel } from '../../components/admin/FeatureVisibilityPanel';
+import {
+  ACHIEVEMENT_THRESHOLD_FIELDS,
+  DEFAULT_ACHIEVEMENT_THRESHOLDS,
+  fetchAchievementThresholds,
+  normalizeAchievementThresholds,
+  saveAchievementThresholds,
+  type AchievementThresholds,
+} from '../../lib/achievementConfig';
+import { computeAchievements } from '../../lib/achievements';
 import { showSuccess, showError } from '../../lib/toast';
 import clsx from 'clsx';
 
@@ -55,6 +68,7 @@ type Tab =
   | 'school_calendar'
   | 'weights'
   | 'levels'
+  | 'badges'
   | 'classes'
   | 'policy'
   | 'teacher_limits'
@@ -67,7 +81,7 @@ export function ProgramSettingsPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('olympiad');
   const [weights, setWeights] = useState<AxisWeights>({ ...DEFAULT_AXIS_WEIGHTS });
-  const [levels, setLevels] = useState<ExcellenceLevel[]>([]);
+  const [levels, setLevels] = useState<ExcellenceLevel[]>([...DEFAULT_EXCELLENCE_LEVELS]);
   const [catalog, setCatalog] = useState<GradeClassCatalog>({ grades: [], classes: [] });
   const [newGrade, setNewGrade] = useState('');
   const [newClass, setNewClass] = useState('');
@@ -93,11 +107,14 @@ export function ProgramSettingsPage() {
     ...DEFAULT_EXAM_POINTS_POLICY,
   });
   const [calendarEvents, setCalendarEvents] = useState<SchoolCalendarEvent[]>([]);
+  const [badgeThresholds, setBadgeThresholds] = useState<AchievementThresholds>({
+    ...DEFAULT_ACHIEVEMENT_THRESHOLDS,
+  });
 
   const { isLoading } = useQuery({
     queryKey: ['program-settings'],
     queryFn: async () => {
-      const [w, l, c, aw, oc, pp, tl, ep, teacherRows, cal] = await Promise.all([
+      const [w, l, c, aw, oc, pp, tl, ep, teacherRows, cal, badges] = await Promise.all([
         fetchAxisWeights(),
         fetchExcellenceLevels(),
         fetchGradeClassCatalog(),
@@ -108,9 +125,10 @@ export function ProgramSettingsPage() {
         fetchExamPointsPolicy(),
         fetchTeacherLimitRows(),
         fetchSchoolCalendarEvents(),
+        fetchAchievementThresholds(),
       ]);
       setWeights(w);
-      setLevels(l);
+      setLevels(normalizeExcellenceLevels(l));
       setCatalog(c);
       setActivityWeek(aw);
       setOlympiadId(oc.id);
@@ -118,6 +136,7 @@ export function ProgramSettingsPage() {
       setTeacherLimits(tl);
       setExamPointsPolicy(ep);
       setTeacherLimitRows(teacherRows);
+      setBadgeThresholds(badges);
       setCalendarEvents(cal);
       setApplyDefaultsToAll(false);
       return { w, l, c, aw, oc, pp, tl, ep, teacherRows, cal };
@@ -141,13 +160,14 @@ export function ProgramSettingsPage() {
     mutationFn: async () => {
       const normalized = normalizeWeights(weights);
       await saveSchoolSetting('axis_weights', normalized);
-      await saveSchoolSetting('excellence_levels', levels);
+      await saveExcellenceLevels(levels);
       await saveSchoolSetting('grade_class_catalog', catalog);
       await saveActivityWeek(activityWeek);
       await saveSchoolCalendarEvents(calendarEvents);
       await saveSchoolSetting('points_policy', pointsPolicy);
       await saveTeacherPointsLimits(teacherLimits);
       await saveExamPointsPolicy(examPointsPolicy);
+      await saveAchievementThresholds(badgeThresholds);
 
       if (applyDefaultsToAll) {
         await applyDefaultLimitsToAllTeachers(teacherLimits);
@@ -156,14 +176,41 @@ export function ProgramSettingsPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['program-settings'] });
+      queryClient.setQueryData(
+        ['school-settings', 'achievement-thresholds'],
+        normalizeAchievementThresholds(badgeThresholds),
+      );
       queryClient.invalidateQueries({ queryKey: ['school-settings'] });
       queryClient.invalidateQueries({ queryKey: ['school-calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['principal', 'executive'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'teachers-report'] });
       queryClient.invalidateQueries({ queryKey: ['teacher', 'quota'] });
+      queryClient.setQueryData(['school-settings', 'excellence-levels'], levels);
+      queryClient.invalidateQueries({ queryKey: ['student-metrics'] });
       setApplyDefaultsToAll(false);
       showSuccess('تم حفظ إعدادات البرنامج');
+    },
+    onError: (e: Error) => showError(e),
+  });
+
+  const levelsSaveMutation = useMutation({
+    mutationFn: () => saveExcellenceLevels(levels),
+    onSuccess: (saved) => {
+      setLevels(saved);
+      queryClient.setQueryData(['school-settings', 'excellence-levels'], saved);
+      queryClient.invalidateQueries({ queryKey: ['student-metrics'] });
+      showSuccess('تم حفظ مستويات التميز');
+    },
+    onError: (e: Error) => showError(e),
+  });
+
+  const badgeSaveMutation = useMutation({
+    mutationFn: () => saveAchievementThresholds(badgeThresholds),
+    onSuccess: (saved) => {
+      setBadgeThresholds(saved);
+      queryClient.setQueryData(['school-settings', 'achievement-thresholds'], saved);
+      queryClient.invalidateQueries({ queryKey: ['student-metrics'] });
+      showSuccess('تم حفظ عتبات الشارات');
     },
     onError: (e: Error) => showError(e),
   });
@@ -178,6 +225,7 @@ export function ProgramSettingsPage() {
     { id: 'school_calendar', label: 'التقويم المدرسي' },
     { id: 'weights', label: 'أوزان المحاور' },
     { id: 'levels', label: 'مستويات التميز' },
+    { id: 'badges', label: 'الشارات' },
     { id: 'classes', label: 'الصفوف والفصول' },
     { id: 'policy', label: 'سياسة النقاط' },
     { id: 'teacher_limits', label: 'حدود المعلمين' },
@@ -598,13 +646,17 @@ export function ProgramSettingsPage() {
           )}
 
           {tab === 'levels' && (
-            <div className="space-y-3">
-              {levels.map((lvl, i) => (
+            <div className="space-y-4">
+              <p className="text-white/50 text-xs leading-relaxed">
+                هذه العتبات هي التي تظهر كـ «المستوى» في شاشة الطالب وولي الأمر (مبتدئ / برونزي / فضي...). خفّض الحد الأدنى ليتغيّر المستوى عند نفس عدد النقاط.
+              </p>
+              {(levels.length > 0 ? levels : DEFAULT_EXCELLENCE_LEVELS).map((lvl, i) => (
                 <div key={i} className="flex gap-3 items-center">
                   <input
                     value={lvl.name}
                     onChange={(e) => {
-                      const next = [...levels];
+                      const base = levels.length > 0 ? levels : DEFAULT_EXCELLENCE_LEVELS;
+                      const next = [...base];
                       next[i] = { ...lvl, name: e.target.value };
                       setLevels(next);
                     }}
@@ -614,7 +666,8 @@ export function ProgramSettingsPage() {
                     type="number"
                     value={lvl.min}
                     onChange={(e) => {
-                      const next = [...levels];
+                      const base = levels.length > 0 ? levels : DEFAULT_EXCELLENCE_LEVELS;
+                      const next = [...base];
                       next[i] = { ...lvl, min: Number(e.target.value) };
                       setLevels(next);
                     }}
@@ -622,7 +675,12 @@ export function ProgramSettingsPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setLevels(levels.filter((_, j) => j !== i))}
+                    onClick={() =>
+                      setLevels((prev) => {
+                        const base = prev.length > 0 ? prev : DEFAULT_EXCELLENCE_LEVELS;
+                        return base.filter((_, j) => j !== i);
+                      })
+                    }
                     className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -637,6 +695,94 @@ export function ProgramSettingsPage() {
               >
                 إضافة مستوى
               </Button>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-1.5">
+                <p className="text-white/60 text-xs font-semibold">معاينة المستوى</p>
+                {[30, 80, 150, 300, 500].map((pts) => (
+                  <p key={pts} className="text-white/45 text-xs font-mono">
+                    طالب بـ {pts} نقطة → {getLevelInfoFromConfig(pts, levels).name}
+                  </p>
+                ))}
+              </div>
+              <Button
+                icon={<Save className="w-4 h-4" />}
+                onClick={() => levelsSaveMutation.mutate()}
+                disabled={levelsSaveMutation.isPending || levels.length === 0}
+              >
+                {levelsSaveMutation.isPending ? 'جاري حفظ المستويات...' : 'حفظ مستويات التميز'}
+              </Button>
+            </div>
+          )}
+
+          {tab === 'badges' && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-xl border border-gold-400/20 bg-gold-500/5 p-4">
+                <Award className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-white text-sm font-semibold">عتبات شارات الإنجاز</p>
+                  <p className="text-white/50 text-xs mt-1 leading-relaxed">
+                    غيّر عدد النقاط أو الأيام المطلوبة لكل شارة. يظهر العدد (محققة / 10) حسب نقاط كل طالب بعد الحفظ.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {ACHIEVEMENT_THRESHOLD_FIELDS.map((field) => (
+                  <label key={field.key} className="block space-y-1.5">
+                    <span className="text-white/70 text-sm font-medium">{field.label}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={badgeThresholds[field.key]}
+                      onChange={(e) =>
+                        setBadgeThresholds((prev) => ({
+                          ...prev,
+                          [field.key]: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm font-mono"
+                    />
+                    <span className="text-white/35 text-xs">{field.hint}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-1.5">
+                <p className="text-white/60 text-xs font-semibold">معاينة فورية (نقاط نشاط فقط)</p>
+                {[30, 80, 150, 300].map((pts) => {
+                  const count = computeAchievements(
+                    [{
+                      id: 'preview',
+                      points: pts,
+                      status: 'approved',
+                      activity_id: 'preview',
+                      activities: { name: 'نشاط', category: 'activity' },
+                    }],
+                    null,
+                    false,
+                    0,
+                    badgeThresholds,
+                  ).filter((a) => a.earned).length;
+                  return (
+                    <p key={pts} className="text-white/45 text-xs font-mono">
+                      طالب بـ {pts} نقطة → {count}/10 شارات
+                    </p>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  icon={<Save className="w-4 h-4" />}
+                  onClick={() => badgeSaveMutation.mutate()}
+                  disabled={badgeSaveMutation.isPending}
+                >
+                  {badgeSaveMutation.isPending ? 'جاري حفظ الشارات...' : 'حفظ عتبات الشارات'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setBadgeThresholds({ ...DEFAULT_ACHIEVEMENT_THRESHOLDS })}
+                  className="text-xs text-white/40 hover:text-gold-400 transition-colors"
+                >
+                  إعادة القيم الافتراضية
+                </button>
+              </div>
             </div>
           )}
 

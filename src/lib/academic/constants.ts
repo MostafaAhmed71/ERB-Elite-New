@@ -61,6 +61,10 @@ export const EXAM_REVIEW_TYPE_LABELS = {
   testSchedule: 'جدول الاختبارات',
 } as const;
 
+export const EXAM_REVIEW_TYPES = Object.keys(EXAM_REVIEW_TYPE_LABELS) as Array<
+  keyof typeof EXAM_REVIEW_TYPE_LABELS
+>;
+
 export const REVIEW_STATUS_LABELS = {
   pending: 'بانتظار المراجع',
   approved: 'معتمد',
@@ -72,6 +76,28 @@ export const REVIEW_STATUS_LABELS = {
 export function gradesForLevel(level: AcademicEducationLevel): number[] {
   return level === 'high' ? HIGH_GRADES : MIDDLE_GRADES;
 }
+
+/** اقتراحات مواد الثانوي عند خلو دليل المواد من مواد هذه المرحلة */
+export const HIGH_SCHOOL_SUGGESTED_SUBJECTS = [
+  'الدراسات الإسلامية',
+  'اللغة العربية',
+  'الرياضيات',
+  'اللغة الإنجليزية',
+  'الفيزياء',
+  'الكيمياء',
+  'الأحياء',
+  'علوم الأرض والفضاء',
+  'التقنية الرقمية',
+  'التفكير الناقد',
+  'الدراسات الاجتماعية',
+  'المهارات الحياتية والأسرية',
+  'التربية الصحية والبدنية',
+  'الإدارة المالية',
+  'علم البيئة',
+];
+
+/** مسار الصفحة العامة لمراجعات الثانوي (بدون تسجيل دخول) */
+export const PUBLIC_SECONDARY_REVIEWS_PATH = '/reviews/secondary';
 
 /** الفصل الأول: 20 أسبوع — الفصل الثاني: 22 أسبوع */
 export const SEMESTER_WEEKS: Record<AcademicSemester, number> = {

@@ -1,10 +1,9 @@
-import { Eye, EyeOff, CheckCircle2, XCircle, BookOpen, Award, CalendarCheck, ClipboardList, Users, Shield } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, BookOpen, Award, ClipboardList, Users, Shield } from 'lucide-react';
 import clsx from 'clsx';
 
 const CAN_SEE = [
   { icon: Award, label: 'إجمالي النقاط المعتمدة والمستوى', color: 'text-gold-400' },
   { icon: BookOpen, label: 'محاور التميز والشارات', color: 'text-cyan-400' },
-  { icon: CalendarCheck, label: 'سجل الحضور والغياب', color: 'text-emerald-400' },
   { icon: ClipboardList, label: 'نتائج الاختبارات وتحليل المهارات', color: 'text-purple-400' },
   { icon: Users, label: 'ترتيب الابن في الفصل (بدون أسماء الآخرين)', color: 'text-blue-400' },
 ];

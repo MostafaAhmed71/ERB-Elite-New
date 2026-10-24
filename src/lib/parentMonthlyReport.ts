@@ -43,7 +43,6 @@ export function printParentMonthlyReport(data: ParentMonthlyReportData) {
       <div class="kpi-grid">
         <div class="kpi"><div class="kpi-label">إجمالي النقاط</div><div class="kpi-value">${data.totalPoints}</div></div>
         <div class="kpi"><div class="kpi-label">نقاط الشهر</div><div class="kpi-value">${data.monthPoints}</div></div>
-        <div class="kpi"><div class="kpi-label">الحضور</div><div class="kpi-value">${data.attendanceRatePct}%</div></div>
       </div>
 
       <h2>ملخص الشهر</h2>
@@ -52,9 +51,6 @@ export function printParentMonthlyReport(data: ParentMonthlyReportData) {
         <tbody>
           <tr><td>المستوى الحالي</td><td>${data.levelName}</td></tr>
           <tr><td>الترتيب في الفصل</td><td>${data.classRank != null ? `#${data.classRank}` : '—'}</td></tr>
-          <tr><td>حضور</td><td>${data.present}</td></tr>
-          <tr><td>غياب</td><td>${data.absent}</td></tr>
-          <tr><td>تأخر</td><td>${data.late}</td></tr>
         </tbody>
       </table>
 

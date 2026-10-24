@@ -9,6 +9,9 @@ import {
   User,
   Sparkles,
   AlertTriangle,
+  Trophy,
+  Medal,
+  ChevronLeft,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -18,8 +21,15 @@ import { Button } from '../ui/Button';
 import { showSuccess, showError } from '../../lib/toast';
 import { parsePointsGrantError, fetchTeacherBudget, fetchTeacherQuotaUsage } from '../../lib/teacherScope';
 import { logAction, parseRoleFromMetadata } from '../../lib/auth';
-import { AXES_KEYS } from '../../lib/pointsReference';
-import { ensureManualTeacherActivity, buildManualActivityNote } from '../../lib/pointsEvidence';
+import { AXES_KEYS, POINT_AXIS_OPTIONS } from '../../lib/pointsReference';
+import {
+  ensureManualActivity,
+  buildManualActivityNote,
+  isManualActivityId,
+  type ManualActivityKind,
+} from '../../lib/pointsEvidence';
+import { BEHAVIOR_SUGGESTIONS, MANUAL_KIND_OPTIONS } from '../../lib/behaviorCatalog';
+import { classesMatch, gradesMatch } from '../../lib/academic/gradeBridge';
 import type { DbActivity } from '../../types';
 import clsx from 'clsx';
 import { PLATFORM_NAME, PLATFORM_NAME_SHORT } from '../../lib/branding';
@@ -49,6 +59,25 @@ type PublicCard = {
   ledger: LedgerRow[];
 };
 
+type LeaderboardRpc = {
+  students: Array<{
+    id: string;
+    full_name: string;
+    grade: string;
+    class_name: string;
+    photo_url: string | null;
+    total_points: number;
+  }>;
+  classes: Array<{
+    id: string;
+    grade: string;
+    class_name: string;
+    total_points: number;
+    grant_count: number;
+    student_count: number;
+  }>;
+};
+
 const AXIS_ORDER = ['activity', 'behavior', 'achievement', 'initiative', 'attendance'] as const;
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -72,6 +101,8 @@ export function StudentCardPage() {
 
   const [activitySource, setActivitySource] = useState<'catalog' | 'manual'>('catalog');
   const [manualActivityName, setManualActivityName] = useState('');
+  const [manualKind, setManualKind] = useState<ManualActivityKind>('activity');
+  const [catalogAxis, setCatalogAxis] = useState<string>('all');
   const [selectedActivity, setSelectedActivity] = useState('');
   const [customPoints, setCustomPoints] = useState<number | ''>('');
   const [note, setNote] = useState('');
@@ -150,12 +181,48 @@ export function StudentCardPage() {
         .eq('is_active', true)
         .order('name');
       if (aErr) throw aErr;
-      return (data as DbActivity[]).filter(
-        (a) => a.id !== 'e1111111-1111-4111-8111-111111111101',
-      );
+      return (data as DbActivity[]).filter((a) => !isManualActivityId(a.id));
     },
     enabled: canGrant,
   });
+
+  const catalogActivities = useMemo(
+    () => (catalogAxis === 'all' ? activities : activities.filter((a) => a.category === catalogAxis)),
+    [activities, catalogAxis],
+  );
+
+  const { data: leaderboard } = useQuery({
+    queryKey: ['display_leaderboard_rpc'],
+    queryFn: async () => {
+      const { data, error: lbErr } = await supabase.rpc('display_leaderboard');
+      if (lbErr) throw lbErr;
+      return (data ?? { students: [], classes: [] }) as LeaderboardRpc;
+    },
+    staleTime: 30_000,
+    enabled: !!student?.id,
+  });
+
+  /** ترتيب تنافسي: 1 + عدد من يتفوق على الطالب في النطاق (يعالج التعادل والطلاب بلا نقاط) */
+  const ranks = useMemo(() => {
+    if (!student || !leaderboard) return null;
+    const list = leaderboard.students ?? [];
+    const own = list.find((s) => s.id === student.id);
+    const myPoints = Number(own?.total_points ?? student.score ?? 0);
+    const sameGrade = list.filter((s) => gradesMatch(s.grade, student.grade));
+    const sameClass = sameGrade.filter((s) => classesMatch(s.class_name, student.class_name));
+    const rankIn = (scope: typeof list) =>
+      1 + scope.filter((s) => s.id !== student.id && Number(s.total_points) > myPoints).length;
+    const sizeOf = (scope: typeof list) =>
+      scope.length + (scope.some((s) => s.id === student.id) ? 0 : 1);
+    return {
+      classRank: rankIn(sameClass),
+      classSize: sizeOf(sameClass),
+      gradeRank: rankIn(sameGrade),
+      gradeSize: sizeOf(sameGrade),
+    };
+  }, [student, leaderboard]);
+
+  const leaderboardPath = authUser ? '/leaderboard' : '/display/leaderboard';
 
   const selectedActivityData = activities.find((a) => a.id === selectedActivity);
   const isManual = activitySource === 'manual';
@@ -201,12 +268,16 @@ export function StudentCardPage() {
 
       if (isManual) {
         const name = manualActivityName.trim();
-        if (!name) throw new Error('أدخل اسم النشاط أو الإنجاز اليدوي');
+        if (!name) {
+          throw new Error(
+            manualKind === 'behavior' ? 'أدخل وصف السلوك' : 'أدخل اسم النشاط أو الإنجاز اليدوي',
+          );
+        }
         if (customPoints === '' || Number(customPoints) <= 0) {
           throw new Error('حدد عدد النقاط للنشاط اليدوي');
         }
-        activityId = await ensureManualTeacherActivity();
-        ledgerNote = buildManualActivityNote(name, note);
+        activityId = await ensureManualActivity(manualKind);
+        ledgerNote = buildManualActivityNote(name, note, manualKind);
       } else {
         if (!activityId) throw new Error('اختر نشاطاً');
       }
@@ -237,6 +308,7 @@ export function StudentCardPage() {
         points: pointsToApply,
         source: 'qr_card',
         manual: isManual,
+        manual_kind: isManual ? manualKind : undefined,
       });
     },
     onSuccess: () => {
@@ -249,6 +321,7 @@ export function StudentCardPage() {
       setCustomPoints('');
       setManualActivityName('');
       queryClient.invalidateQueries({ queryKey: ['public', 'student', 'card', studentId, qrToken] });
+      queryClient.invalidateQueries({ queryKey: ['display_leaderboard_rpc'] });
       queryClient.invalidateQueries({ queryKey: ['teacher', 'budget'] });
     },
     onError: (e: Error) => showError(e),
@@ -399,12 +472,36 @@ export function StudentCardPage() {
           )}
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>نشاط يدوي مخصص</span>
+          <span>إدخال يدوي</span>
         </button>
       </div>
 
       {activitySource === 'catalog' ? (
         <>
+          <div className="space-y-1.5">
+            <label className="text-white/55 text-xs">المحور</label>
+            <div className="flex flex-wrap gap-1.5">
+              {[{ key: 'all', label: 'الكل' }, ...POINT_AXIS_OPTIONS].map((axis) => (
+                <button
+                  key={axis.key}
+                  type="button"
+                  onClick={() => {
+                    setCatalogAxis(axis.key);
+                    setSelectedActivity('');
+                  }}
+                  className={clsx(
+                    'px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-colors',
+                    catalogAxis === axis.key
+                      ? 'bg-gold-500/20 border-gold-500/30 text-gold-300'
+                      : 'bg-white/5 border-white/10 text-white/55 hover:text-white',
+                  )}
+                >
+                  {axis.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-white/55 text-xs">النشاط المسجل</label>
             <select
@@ -413,9 +510,9 @@ export function StudentCardPage() {
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm appearance-none focus:border-gold-500/50 focus:outline-none"
             >
               <option value="" className="bg-navy-900">
-                اختر نشاطاً...
+                {catalogActivities.length === 0 ? 'لا توجد أنشطة في هذا المحور' : 'اختر نشاطاً...'}
               </option>
-              {activities.map((a) => (
+              {catalogActivities.map((a) => (
                 <option key={a.id} value={a.id} className="bg-navy-900">
                   {a.name} ({a.default_points} نقطة)
                 </option>
@@ -444,16 +541,61 @@ export function StudentCardPage() {
       ) : (
         <>
           <div className="space-y-1.5">
+            <label className="text-white/70 text-xs font-medium">نوع الإدخال اليدوي</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {MANUAL_KIND_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setManualKind(opt.key)}
+                  className={clsx(
+                    'py-2 rounded-xl border text-xs font-bold transition-colors',
+                    manualKind === opt.key
+                      ? 'bg-gold-500/20 border-gold-500/30 text-gold-300'
+                      : 'bg-white/5 border-white/10 text-white/60 hover:text-white/90',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
             <label className="text-white/70 text-xs font-medium">
-              اسم النشاط أو الإنجاز اليدوي <span className="text-red-400">*</span>
+              {manualKind === 'behavior' ? 'وصف السلوك' : 'اسم النشاط أو الإنجاز اليدوي'}{' '}
+              <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
               value={manualActivityName}
               onChange={(e) => setManualActivityName(e.target.value)}
-              placeholder="مثال: تميز في الإذاعة، مساعدة زميل، مبادرة صفية..."
+              placeholder={
+                manualKind === 'behavior'
+                  ? 'مثال: احترام المعلمين والزملاء، الأمانة...'
+                  : 'مثال: تميز في الإذاعة، مساعدة زميل، مبادرة صفية...'
+              }
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:border-gold-500/50 focus:outline-none"
             />
+            {manualKind === 'behavior' && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {BEHAVIOR_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setManualActivityName(s)}
+                    className={clsx(
+                      'px-2.5 py-1 rounded-lg border text-[11px] transition-colors',
+                      manualActivityName === s
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                        : 'bg-white/5 border-white/10 text-white/55 hover:text-white',
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -636,6 +778,46 @@ export function StudentCardPage() {
               </div>
             ))}
           </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { key: 'class', label: 'ترتيبه في الفصل', rank: ranks?.classRank, size: ranks?.classSize, icon: Medal },
+              { key: 'grade', label: 'ترتيبه في الصف', rank: ranks?.gradeRank, size: ranks?.gradeSize, icon: Trophy },
+            ].map((item) => (
+              <div
+                key={item.key}
+                className="rounded-2xl border border-gold-500/25 bg-gold-500/[0.06] px-3 py-3 flex items-center gap-3"
+              >
+                <span className="w-9 h-9 rounded-xl bg-gold-500/15 border border-gold-500/25 flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5 text-gold-400" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-white/50 text-[10px]">{item.label}</p>
+                  {item.rank ? (
+                    <p className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-xl font-black text-gold-400 font-mono">#{item.rank}</span>
+                      {item.size ? (
+                        <span className="text-white/40 text-[10px]">من {item.size}</span>
+                      ) : null}
+                    </p>
+                  ) : (
+                    <p className="text-white/35 text-sm font-bold mt-0.5">—</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Link
+            to={leaderboardPath}
+            className="flex items-center justify-between gap-2 rounded-2xl border border-gold-500/30 bg-gradient-to-l from-gold-500/15 to-transparent px-4 py-3 text-gold-300 hover:border-gold-400/60 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold">
+              <Trophy className="w-4 h-4" />
+              لوحة المتصدرين
+            </span>
+            <ChevronLeft className="w-4 h-4" />
+          </Link>
 
           <div className="text-center text-[9px] border-t border-white/5 pt-3 text-white/20 flex items-center justify-center gap-1.5">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />

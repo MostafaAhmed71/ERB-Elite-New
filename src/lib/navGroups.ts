@@ -37,6 +37,7 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
       title: 'أكاديمي',
       paths: [
         '/academic',
+        '/academic/reviews',
         '/academic/templates',
         '/principal/academic',
         '/principal/academic/attendance',
@@ -170,6 +171,10 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
   deputy: [
     { title: 'الرئيسية', paths: ['/dashboard'] },
     {
+      title: 'النقاط والتميز',
+      paths: ['/points/grant', '/points/grant?bulk=1', '/leaderboard'],
+    },
+    {
       title: 'المتابعة',
       paths: [
         '/academic',
@@ -198,11 +203,16 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
     { title: 'الرئيسية', paths: ['/dashboard'] },
     {
       title: 'ابني',
-      paths: ['/student-profile', '/parent/link-child', '/attendance/view', '/exams/results'],
+      paths: ['/student-profile', '/parent/link-child', '/exams/results'],
     },
     {
       title: 'أكاديمي',
-      paths: ['/parent/academic', '/parent/academic/homework', '/parent/academic/request', '/parent/academic/requests', '/parent/academic/reviews'],
+      paths: [
+        '/parent/academic/homework',
+        '/parent/academic/request',
+        '/parent/academic/requests',
+        '/parent/academic/reviews',
+      ],
     },
     { title: 'الدعم', paths: ['/support'] },
   ],

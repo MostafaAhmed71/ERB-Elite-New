@@ -12,6 +12,14 @@ export type HostingerUploadResult = {
   mime: string;
 };
 
+export type HostingerUploadProgress = {
+  loaded: number;
+  total: number;
+  percent: number;
+};
+
+export type HostingerUploadProgressFn = (progress: HostingerUploadProgress) => void;
+
 function examReviewUploadEndpoint(): string {
   const fromEnv = (import.meta.env.VITE_HOSTINGER_UPLOAD_URL as string | undefined)?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, '');
@@ -61,10 +69,16 @@ function requireUploadToken(): string {
   return token;
 }
 
-function sanitizePdfName(name: string): string {
+function sanitizeReviewFileName(name: string): string {
+  const ext = (name.split('.').pop() ?? 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+  const safeExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)
+    ? ext === 'jpeg'
+      ? 'jpg'
+      : ext
+    : 'pdf';
   const base = name.replace(/\.[^.]+$/, '');
   const safe = base.replace(/[^\w.\u0600-\u06FF-]+/g, '_').slice(0, 80) || 'review';
-  return `${safe}.pdf`;
+  return `${safe}.${safeExt}`;
 }
 
 function sanitizeEvidenceName(name: string): string {
@@ -86,11 +100,33 @@ function sanitizeImageName(name: string): string {
   return `${safe}.${safeExt}`;
 }
 
+function throwHostingerError(
+  status: number,
+  payload: { ok?: boolean; url?: string; file_name?: string; mime?: string; error?: string },
+  parsedJson: boolean,
+): never {
+  const code = payload.error ?? (parsedJson ? `HTTP_${status}` : 'NOT_PHP_JSON');
+  if (code === 'UNAUTHORIZED') throw new Error('رمز رفع الملفات غير صحيح');
+  if (code === 'PDF_ONLY') throw new Error('يُسمح بملفات PDF فقط');
+  if (code === 'TYPE_NOT_ALLOWED') throw new Error('يُسمح بالصور أو PDF فقط');
+  if (code === 'FILE_TOO_LARGE') throw new Error('حجم الملف أكبر من المسموح');
+  if (code === 'INVALID_KIND' || code === 'INVALID_KEY') {
+    throw new Error('بيانات رفع الصورة غير صالحة');
+  }
+  if (code === 'NOT_PHP_JSON' || status === 404) {
+    throw new Error(
+      'سكربت الرفع غير موجود على Hostinger — ارفع public/api/upload-school-media.php وأنشئ مجلد uploads/school-media بصلاحية الكتابة',
+    );
+  }
+  throw new Error(`فشل رفع الملف إلى الاستضافة (${code})`);
+}
+
 async function postToHostinger(
   endpoint: string,
   file: File,
   clientFileName: string,
   fields: Record<string, string>,
+  onProgress?: HostingerUploadProgressFn,
 ): Promise<HostingerUploadResult> {
   const token = requireUploadToken();
   const body = new FormData();
@@ -100,15 +136,26 @@ async function postToHostinger(
     body.append(k, v);
   }
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'X-Upload-Token': token,
-    },
-    body,
+  const { status, rawText } = await new Promise<{ status: number; rawText: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', endpoint);
+    xhr.setRequestHeader('X-Upload-Token', token);
+    xhr.upload.onprogress = (event) => {
+      if (!onProgress) return;
+      const total = event.lengthComputable && event.total > 0 ? event.total : file.size;
+      const loaded = event.loaded;
+      const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+      onProgress({ loaded, total, percent });
+    };
+    xhr.onload = () => {
+      onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
+      resolve({ status: xhr.status, rawText: xhr.responseText || '' });
+    };
+    xhr.onerror = () => reject(new Error('تعذّر الاتصال بخادم الرفع'));
+    xhr.onabort = () => reject(new Error('أُلغي رفع الملف'));
+    xhr.send(body);
   });
 
-  const rawText = await res.text();
   let payload: { ok?: boolean; url?: string; file_name?: string; mime?: string; error?: string } = {};
   let parsedJson = false;
   try {
@@ -118,46 +165,83 @@ async function postToHostinger(
     /* HTML / empty — غالباً السكربت غير مرفوع أو مسار خاطئ */
   }
 
-  if (!res.ok || !payload.ok || !payload.url) {
-    const code = payload.error ?? (parsedJson ? `HTTP_${res.status}` : 'NOT_PHP_JSON');
-    if (code === 'UNAUTHORIZED') throw new Error('رمز رفع الملفات غير صحيح');
-    if (code === 'PDF_ONLY') throw new Error('يُسمح بملفات PDF فقط');
-    if (code === 'TYPE_NOT_ALLOWED') throw new Error('يُسمح بالصور أو PDF فقط');
-    if (code === 'FILE_TOO_LARGE') throw new Error('حجم الملف أكبر من المسموح');
-    if (code === 'INVALID_KIND' || code === 'INVALID_KEY') {
-      throw new Error('بيانات رفع الصورة غير صالحة');
-    }
-    if (code === 'NOT_PHP_JSON' || res.status === 404) {
-      throw new Error(
-        'سكربت الرفع غير موجود على Hostinger — ارفع public/api/upload-school-media.php وأنشئ مجلد uploads/school-media بصلاحية الكتابة',
-      );
-    }
-    throw new Error(`فشل رفع الملف إلى الاستضافة (${code})`);
+  if (status < 200 || status >= 300 || !payload.ok || !payload.url) {
+    throwHostingerError(status, payload, parsedJson);
   }
 
   return {
-    url: payload.url,
+    url: payload.url!,
     file_name: payload.file_name || file.name,
     mime: payload.mime || file.type || 'application/octet-stream',
   };
 }
 
+const REVIEW_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
 export async function uploadExamReviewToHostinger(
   file: File,
   teacherId: string,
+  onProgress?: HostingerUploadProgressFn,
 ): Promise<HostingerUploadResult> {
-  if (!file || file.size === 0) throw new Error('اختر ملف PDF صالحاً');
+  if (!file || file.size === 0) throw new Error('اختر صورة أو ملف PDF صالحاً');
   if (file.size > 25 * 1024 * 1024) throw new Error('حجم الملف أكبر من 25 ميجابايت');
 
   const isPdf =
     file.type === 'application/pdf' ||
     file.type === 'application/x-pdf' ||
     file.name.toLowerCase().endsWith('.pdf');
-  if (!isPdf) throw new Error('يُسمح بملفات PDF فقط');
+  const isImage = REVIEW_IMAGE_TYPES.has(file.type) || /\.(jpe?g|png|webp|gif)$/i.test(file.name);
+  if (!isPdf && !isImage) throw new Error('يُسمح بالصور أو ملفات PDF فقط');
 
-  return postToHostinger(examReviewUploadEndpoint(), file, sanitizePdfName(file.name), {
-    teacher_id: teacherId,
+  return postToHostinger(
+    examReviewUploadEndpoint(),
+    file,
+    sanitizeReviewFileName(file.name),
+    { teacher_id: teacherId },
+    onProgress,
+  );
+}
+
+export function storedExamReviewNameFromUrl(fileUrl: string): string | null {
+  try {
+    const u = new URL(fileUrl);
+    const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() ?? '');
+    if (!last || !/\.(pdf|jpe?g|png|webp|gif)$/i.test(last) || last.includes('..')) return null;
+    return last;
+  } catch {
+    return null;
+  }
+}
+
+/** حذف ملف مراجعة من Hostinger — لا يرمي إن كان الملف غير موجود */
+export async function deleteExamReviewFromHostinger(fileUrl: string): Promise<void> {
+  const stored = storedExamReviewNameFromUrl(fileUrl);
+  if (!stored) return;
+
+  const token = requireUploadToken();
+  const body = new FormData();
+  body.append('action', 'delete');
+  body.append('stored_name', stored);
+  body.append('token', token);
+
+  const res = await fetch(examReviewUploadEndpoint(), {
+    method: 'POST',
+    headers: { 'X-Upload-Token': token },
+    body,
   });
+
+  if (res.status === 404) return;
+  if (!res.ok) {
+    let code = `HTTP_${res.status}`;
+    try {
+      const payload = (await res.json()) as { error?: string };
+      if (payload.error === 'FILE_NOT_FOUND') return;
+      if (payload.error) code = payload.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`تعذّر حذف الملف من الاستضافة (${code})`);
+  }
 }
 
 const EVIDENCE_ALLOWED = new Set([

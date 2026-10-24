@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Clock, Award, CalendarCheck, ClipboardList, Star } from 'lucide-react';
+import { Clock, Award, ClipboardList, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import clsx from 'clsx';
 
@@ -10,7 +10,7 @@ type Props = {
 
 type TimelineItem = {
   id: string;
-  type: 'points' | 'attendance' | 'exam' | 'badge';
+  type: 'points' | 'exam' | 'badge';
   title: string;
   subtitle: string;
   date: string;
@@ -22,19 +22,13 @@ export function ActivityTimeline({ studentId, limit = 8 }: Props) {
   const { data: items = [] } = useQuery({
     queryKey: ['activity-timeline', studentId, limit],
     queryFn: async () => {
-      const [points, attendance, exams] = await Promise.all([
+      const [points, exams] = await Promise.all([
         supabase
           .from('points_ledger')
           .select('id, points, status, created_at, activities(name)')
           .eq('student_id', studentId)
           .eq('status', 'approved')
           .order('created_at', { ascending: false })
-          .limit(limit),
-        supabase
-          .from('attendance')
-          .select('id, status, date')
-          .eq('student_id', studentId)
-          .order('date', { ascending: false })
           .limit(limit),
         supabase
           .from('exam_results')
@@ -57,19 +51,6 @@ export function ActivityTimeline({ studentId, limit = 8 }: Props) {
           date: p.created_at as string,
           icon: Award,
           color: 'text-gold-400 bg-gold-500/10 border-gold-500/20',
-        });
-      }
-
-      for (const a of attendance.data ?? []) {
-        if (a.status === 'present') continue;
-        timeline.push({
-          id: `a-${a.id}`,
-          type: 'attendance',
-          title: a.status === 'absent' ? 'غياب' : 'تأخير',
-          subtitle: new Date(a.date as string).toLocaleDateString('ar-SA'),
-          date: a.date as string,
-          icon: CalendarCheck,
-          color: a.status === 'absent' ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20',
         });
       }
 

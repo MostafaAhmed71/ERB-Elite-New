@@ -131,6 +131,7 @@ export const DASHBOARD_FEATURES: FeatureDefinition[] = [
   { id: 'widget:parent:academic_reviews', label: 'مراجعات PDF أكاديمية', category: 'لوحة ولي الأمر', roles: ['parent'], kind: 'action', path: '/parent/academic/reviews' },
   { id: 'widget:student:academic_reviews', label: 'مراجعات PDF أكاديمية', category: 'لوحة الطالب', roles: ['student'], kind: 'action', path: '/student/academic/reviews' },
   { id: 'action:reviewer:inbox', label: 'صندوق المراجعات', category: 'المراجع', roles: ['reviewer'], kind: 'action', path: '/academic/reviews' },
+  { id: 'action:principal:upload_reviews', label: 'رفع المراجعات حسب المرحلة والصف', category: 'لوحة المدير', roles: ['principal'], kind: 'action', path: '/academic/reviews' },
   // — عام
   { id: 'widget:global:pwa_install', label: 'زر تثبيت التطبيق PWA', category: 'عام — الشريط العلوي', roles: ['student', 'parent', 'teacher', 'supervisor', 'activity_leader', 'admin', 'principal'], kind: 'widget' },
   { id: 'widget:global:push_prompt', label: 'تنبيه تفعيل Push', category: 'عام — الشريط العلوي', roles: ['student', 'parent', 'teacher', 'supervisor', 'activity_leader', 'admin', 'principal'], kind: 'widget' },

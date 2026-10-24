@@ -1,6 +1,10 @@
 import { Trophy, Star, Award, Zap, Target, Crown, Coins, Lightbulb, Flame } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getApprovedPointsTotal, getLevelInfo, LEVELS, type PointEntry } from './calculations';
+import { getApprovedPointsTotal, type PointEntry } from './calculations';
+import {
+  DEFAULT_ACHIEVEMENT_THRESHOLDS,
+  type AchievementThresholds,
+} from './achievementConfig';
 
 export type Achievement = {
   id: string;
@@ -16,73 +20,72 @@ export function computeAchievements(
   rankInClass?: number | null,
   hasApprovedSuggestion = false,
   streakDays = 0,
+  thresholds: AchievementThresholds = DEFAULT_ACHIEVEMENT_THRESHOLDS,
 ): Achievement[] {
   const approved = entries.filter((e) => e.status === 'approved');
-  const totalPoints = getApprovedPointsTotal(entries);
-  const level = getLevelInfo(totalPoints);
   const totalRaw = approved.reduce((s, e) => s + e.points, 0);
+  const weightedTotal = getApprovedPointsTotal(entries);
+  const score = Math.max(totalRaw, weightedTotal);
   const activityPoints = approved
     .filter((e) => (e.activities?.category || 'activity') === 'activity')
     .reduce((s, e) => s + e.points, 0);
-
-  const levelIndex = LEVELS.findIndex((l) => l.name === level.name);
 
   return [
     {
       id: 'first_points',
       title: 'أول نقطة',
-      description: 'حصلت على أول نقطة تميز',
+      description: `حصلت على ${thresholds.first_points}+ نقطة تميز`,
       icon: Star,
       color: 'text-gold-400',
-      earned: totalRaw > 0,
+      earned: score >= thresholds.first_points,
     },
     {
       id: 'bronze',
       title: 'مستوى برونزي',
-      description: 'وصلت لمستوى برونزي (200+ نقطة)',
+      description: `وصلت لـ ${thresholds.bronze}+ نقطة`,
       icon: Award,
       color: 'text-amber-500',
-      earned: levelIndex >= 1,
+      earned: score >= thresholds.bronze,
     },
     {
       id: 'silver',
       title: 'مستوى فضي',
-      description: 'وصلت لمستوى فضي (400+ نقطة)',
+      description: `وصلت لـ ${thresholds.silver}+ نقطة`,
       icon: Trophy,
       color: 'text-zinc-300',
-      earned: levelIndex >= 2,
+      earned: score >= thresholds.silver,
     },
     {
       id: 'gold',
       title: 'مستوى ذهبي',
-      description: 'وصلت لمستوى ذهبي (600+ نقطة)',
+      description: `وصلت لـ ${thresholds.gold}+ نقطة`,
       icon: Crown,
       color: 'text-yellow-500',
-      earned: levelIndex >= 3,
+      earned: score >= thresholds.gold,
     },
     {
       id: 'activity_100',
       title: 'نشيط',
-      description: 'جمعت 100+ نقطة في محور النشاط',
+      description: `جمعت ${thresholds.activity}+ نقطة في محور النشاط`,
       icon: Zap,
       color: 'text-blue-400',
-      earned: activityPoints >= 100,
+      earned: activityPoints >= thresholds.activity,
     },
     {
       id: 'points_100',
-      title: 'مئة نقطة',
-      description: 'جمعت 100+ نقطة إجمالية',
+      title: 'جامع النقاط',
+      description: `جمعت ${thresholds.total}+ نقطة إجمالية`,
       icon: Coins,
       color: 'text-gold-300',
-      earned: totalRaw >= 100,
+      earned: score >= thresholds.total,
     },
     {
       id: 'class_top3',
       title: 'نجم الفصل',
-      description: 'من أوائل 3 في فصلك',
+      description: `من أوائل ${thresholds.class_top} في فصلك`,
       icon: Target,
       color: 'text-emerald-400',
-      earned: rankInClass != null && rankInClass <= 3,
+      earned: rankInClass != null && rankInClass <= thresholds.class_top,
     },
     {
       id: 'idea_maker',
@@ -94,19 +97,19 @@ export function computeAchievements(
     },
     {
       id: 'streak_3',
-      title: 'سلسلة 3 أيام',
-      description: '3 أيام متتالية بحضور أو نشاط',
+      title: `سلسلة ${thresholds.streak_short} أيام`,
+      description: `${thresholds.streak_short} أيام متتالية بنشاط معتمد`,
       icon: Flame,
       color: 'text-orange-400',
-      earned: streakDays >= 3,
+      earned: streakDays >= thresholds.streak_short,
     },
     {
       id: 'streak_7',
-      title: 'سلسلة أسبوع',
-      description: '7 أيام متتالية من الالتزام',
+      title: `سلسلة ${thresholds.streak_long} أيام`,
+      description: `${thresholds.streak_long} أيام متتالية من الالتزام`,
       icon: Flame,
       color: 'text-red-400',
-      earned: streakDays >= 7,
+      earned: streakDays >= thresholds.streak_long,
     },
   ];
 }

@@ -1,69 +1,43 @@
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Lock } from 'lucide-react';
-import { academicConfigService } from '../../lib/academic/adminService';
-import {
-  AcademicLayout, AcademicPageHeader, AcademicFormPanel,
-  academicInputClass, academicBtnPrimary,
-} from '../../components/academic/AcademicUi';
+import { useMemo } from 'react';
+import { FileText } from 'lucide-react';
+import { AcademicEmpty } from '../../components/academic/AcademicUi';
 import { PublishedExamReviewsList } from '../../components/academic/PublishedExamReviewsList';
-import { useAuthStore } from '../../stores/authStore';
+import { useParentChildren } from '../../hooks/useParentChildren';
+import { olympiadGradeToAcademic } from '../../lib/academic/gradeBridge';
+import { formatGradeLabel } from '../../lib/academic/constants';
+import { TapHandLoader } from '../../components/ui/TapHandLoader';
 
 export function ParentAcademicReviewsPage() {
-  const { user } = useAuthStore();
-  const [activated, setActivated] = useState(false);
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
+  const { selectedChild, children, isLoading: childrenLoading } = useParentChildren();
 
-  const storageKey = `parent_academic_activated_${user?.id ?? 'guest'}`;
+  const scope = useMemo(
+    () => olympiadGradeToAcademic(selectedChild?.grade ?? ''),
+    [selectedChild?.grade],
+  );
 
-  useEffect(() => {
-    if (sessionStorage.getItem(storageKey) === '1') setActivated(true);
-  }, [storageKey]);
+  if (childrenLoading) {
+    return <TapHandLoader label="جاري تحميل مراجعات الابن..." />;
+  }
 
-  const { data: correctCode = 'UUXZCV7412' } = useQuery({
-    queryKey: ['parent-activation-code'],
-    queryFn: () => academicConfigService.getParentActivationCode(),
-  });
+  if (children.length === 0 || !selectedChild) {
+    return <AcademicEmpty message="لا يوجد أبناء مرتبطين بحسابك" icon={FileText} />;
+  }
 
-  const verify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (code.trim() === correctCode) {
-      sessionStorage.setItem(storageKey, '1');
-      setActivated(true);
-      setError('');
-    } else setError('كود التفعيل غير صحيح');
-  };
-
-  if (!activated) {
+  if (!scope) {
     return (
-      <AcademicLayout size="lg">
-        <AcademicPageHeader title="المراجعات والاختبارات" backTo="/dashboard" subtitle="محتوى أكاديمي معتمد من المدرسة" />
-        <form onSubmit={verify}>
-          <AcademicFormPanel>
-            <p className="text-[#A3AED0] text-sm flex items-center gap-2">
-              <Lock className="w-4 h-4 text-gold-400" /> أدخل كود التفعيل من المدرسة
-            </p>
-            {error && <p className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded-xl">{error}</p>}
-            <input
-              className={academicInputClass}
-              dir="ltr"
-              placeholder="XXXXXX"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              required
-            />
-            <button type="submit" className={`${academicBtnPrimary} w-full`}>تفعيل</button>
-          </AcademicFormPanel>
-        </form>
-      </AcademicLayout>
+      <AcademicEmpty
+        message={`تعذر تحديد صف ${selectedChild.full_name} من «${selectedChild.grade}»`}
+        icon={FileText}
+      />
     );
   }
 
   return (
-    <AcademicLayout>
-      <AcademicPageHeader title="المراجعات والاختبارات" backTo="/dashboard" badge="مفعّل" />
-      <PublishedExamReviewsList enabled={activated} />
-    </AcademicLayout>
+    <PublishedExamReviewsList
+      enabled
+      lockLevel={scope.level}
+      lockGrade={scope.grade}
+      lockLabel={`${selectedChild.full_name} · ${formatGradeLabel(scope.level, scope.grade)} — فصل ${selectedChild.class_name}`}
+    />
   );
 }

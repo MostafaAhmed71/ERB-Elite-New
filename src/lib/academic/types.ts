@@ -201,7 +201,7 @@ export interface AcademicClassTeacherCandidate {
   teacher_id: string;
   teacher_name: string;
   subjects: string[];
-  source: 'assignment' | 'setup';
+  source: 'assignment' | 'setup' | 'schedule';
 }
 
 export interface AcademicParentCommunication {

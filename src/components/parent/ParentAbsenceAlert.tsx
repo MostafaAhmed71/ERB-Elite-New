@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { fetchStudentClassAttendanceCalendar } from '../../lib/attendanceQueries';
 
 const ABSENCE_THRESHOLD = 3;
 const LOOKBACK_DAYS = 30;
@@ -13,22 +13,10 @@ type Props = {
 
 export function ParentAbsenceAlert({ studentId, studentName }: Props) {
   const { data: alert } = useQuery({
-    queryKey: ['parent', 'absence-alert', studentId],
+    queryKey: ['parent', 'absence-alert', studentId, 'class-calendar'],
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - LOOKBACK_DAYS);
-      const sinceStr = since.toISOString().slice(0, 10);
-
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('date, status')
-        .eq('student_id', studentId)
-        .eq('status', 'absent')
-        .gte('date', sinceStr)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-      const absences = data ?? [];
+      const days = await fetchStudentClassAttendanceCalendar(studentId, LOOKBACK_DAYS);
+      const absences = days.filter((d) => d.status === 'absent');
       if (absences.length < ABSENCE_THRESHOLD) return null;
 
       return {

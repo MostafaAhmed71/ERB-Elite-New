@@ -27,3 +27,6 @@ enabled = true
 # دخول/تسجيل OTP قبل وجود جلسة مستخدم — anon key يكفي
 [functions.auth-phone-otp]
 verify_jwt = false
+
+[functions.teacher-password-auth]
+verify_jwt = false

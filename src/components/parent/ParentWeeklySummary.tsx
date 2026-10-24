@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { CalendarCheck, Award, ClipboardList, Mail, Send } from 'lucide-react';
+import { Award, ClipboardList, Mail, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { showSuccess, showError } from '../../lib/toast';
@@ -60,18 +60,13 @@ export function ParentWeeklySummary({ studentId }: Props) {
   const { data: summary } = useQuery({
     queryKey: ['parent', 'weekly-summary', studentId, since],
     queryFn: async () => {
-      const [pointsRes, attRes, examRes] = await Promise.all([
+      const [pointsRes, examRes] = await Promise.all([
         supabase
           .from('points_ledger')
           .select('points')
           .eq('student_id', studentId)
           .eq('status', 'approved')
           .gte('created_at', weekAgo.toISOString()),
-        supabase
-          .from('attendance')
-          .select('status')
-          .eq('student_id', studentId)
-          .gte('date', since),
         supabase
           .from('exam_results')
           .select('score, max_score')
@@ -80,12 +75,9 @@ export function ParentWeeklySummary({ studentId }: Props) {
       ]);
 
       const pointsSum = (pointsRes.data ?? []).reduce((s, r) => s + Number(r.points), 0);
-      const att = attRes.data ?? [];
-      const present = att.filter((a) => a.status === 'present' || a.status === 'late').length;
-      const absent = att.filter((a) => a.status === 'absent').length;
       const exams = examRes.data ?? [];
 
-      return { pointsSum, present, absent, examCount: exams.length };
+      return { pointsSum, examCount: exams.length };
     },
     enabled: !!studentId,
   });
@@ -129,16 +121,11 @@ export function ParentWeeklySummary({ studentId }: Props) {
   return (
     <div className="glass-card p-5 space-y-3" dir="rtl">
       <h3 className="text-white font-semibold text-sm">ملخص الأسبوع الأخير</h3>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="text-center p-3 rounded-xl bg-gold-500/10 border border-gold-500/20">
           <Award className="w-4 h-4 text-gold-400 mx-auto mb-1" />
           <p className="text-lg font-bold text-gold-400 tabular-nums">{summary.pointsSum}</p>
           <p className="text-[10px] text-white/40">نقطة معتمدة</p>
-        </div>
-        <div className="text-center p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-          <CalendarCheck className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
-          <p className="text-lg font-bold text-emerald-400 tabular-nums">{summary.present}</p>
-          <p className="text-[10px] text-white/40">حضور · {summary.absent} غياب</p>
         </div>
         <div className="text-center p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
           <ClipboardList className="w-4 h-4 text-purple-400 mx-auto mb-1" />

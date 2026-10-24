@@ -1,114 +1,94 @@
 # ERB-Elite — Version History
 
-## Version: v2.17.0
-**Date:** 2026-09-19
-
-### Changes
-- **إضافة الملفات والموضوعات التعليمية للمعلمين إلى النسخ الاحتياطي**: تضمين جدول موضوعات الدروس وتوزيع المناهج للمعلمين (`academic_lesson_topics`)، مراجعات الاختبارات وأوراق العمل والملفات المرفوعة (`academic_exam_reviews`)، الخطط والتحاضير التعليمية (`lesson_plans` و `academic_weekly_plans`)، والواجبات اليومية (`academic_homeworks`).
-- **إضافة الجداول الدراسية الأسبوعية الخاصة بكل معلم**: تضمين جداول حصص وفصول كل معلم (`academic_teacher_schedules`)، وإسناد وتوزيع المعلمين على الصفوف والمواد (`academic_teacher_assignments` و `academic_teacher_setups`).
-- **تحديث ملفات التصدير (Excel & JSON)**: إضافة أوراق عمل مخصصة في ملف الإكسيل الشامل لجداول المعلمين والموضوعات والملفات التعليمية ومراجعات الاختبارات مع تنظيف كامل للبيانات وتجنب أخطاء الكائنات.
-- **تطوير محرك استرداد النسخة الاحتياطية (Backup Restore Engine)**:
-  - دعم رفع وفحص ملفات النسخ الاحتياطي (`.json`) مع التحقق الفوري من التوافق وإحصاء السجلات المتاحة.
-  - إمكانية تحديد الجداول المراد استردادها بصورة مخصصة أو استرداد كامل قاعدة البيانات بضغطة زر.
-  - تنفيذ الاسترداد بالدفعات الذكية (Upsert Chunks) مع آلية إنقاذ عنصر بعنصر عند حدوث أي خطأ في أي سجل.
-  - مراعاة تسلسل المفاتيح الأجنبية والاعتماديات بين الجداول لحماية تكامل البيانات.
-  - شريط تقدم مباشر مع تفاصيل كل جدول قيد الاستيراد، ونافذة تأكيد أمان لتفادي الضغط بالخطأ، وتقرير ختامي مفصل بالسجلات المستردة والمتجاوزة.
-
-### Files Modified / Created
-- `src/lib/systemBackupService.ts`
-- `src/pages/admin/AdminBackupPage.tsx`
-- `VERSION.md`
-
-### Version bump
-- السابق: v2.16.1 → الجديد: v2.17.0 (Minor — دعم استرداد النسخة الاحتياطية وإدراج الملفات التعليمية والجداول الدراسية لكل معلم)
-
----
-
-## Version: v2.16.1
-**Date:** 2026-09-19
-
-### Changes
-- **إصلاح توجيه مسح بطاقة QR للطالب**: عند مسح رمز QR لبطاقة الطالب بواسطة المعلم، يتم توجيهه مباشرة إلى شاشة منح النقاط (`/points/grant?studentId=...`) مع تحديد الطالب تلقائياً، بدلاً من التحويل إلى لوحة التحكم العامة.
-- **حفظ رابط التوجيه بعد تسجيل الدخول**: في حال مسح المعلم للـ QR وهو غير مسجل للدخول، يتم الاحتفاظ بصفحة الطالب ونقله إليها فور اكتمال تسجيل الدخول.
-- **إتاحة منح النقاط لأي طالب في المدرسة**: إلغاء تقييد المعلم بفصوله المسندة فقط في منح النقاط، ليتمكن المعلم من تحفيز أي طالب في المدرسة بكل مرونة وسرعة عبر البحث أو مسح QR.
-- **دعم التكرار اليومي**: السماح بمنح الطالب أكثر من مرة في نفس اليوم أو الفصل الدراسي ما دام المعلم يمتلك رصيداً يومياً متاحاً.
-- **إشعار واضح عند استنفاد الرصيد اليومي**: إظهار رسالة تحذيرية واضحة في واجهة المعلم وتجميد زر المنح فور استنفاد الرصيد اليومي أو الميزانية، مع عرض الرصيد المتبقي بدقة.
-- **إجراء سريع في لوحة المعلم**: إضافة خيار "مسح QR الطالب" لفتح ماسح الكاميرا مباشرة بلمسة واحدة.
-
-### Files Modified / Created
-- `supabase/fix-teacher-grant-any-student.sql` ← **[NEW]**
-- `supabase/migrations/143_teacher_grant_any_student.sql` ← **[NEW]**
-- `src/components/shared/StudentCardPage.tsx`
-- `src/components/teacher/QRQuickGrant.tsx`
-- `src/lib/teacherScope.ts`
-- `src/pages/AuthCallbackPage.tsx`
-- `src/pages/LoginPage.tsx`
-- `src/pages/StaffLoginPage.tsx`
-- `src/pages/points/GrantPointsPage.tsx`
-- `src/pages/teacher/TeacherDashboard.tsx`
-- `VERSION.md`
-
-### Version bump
-- السابق: v2.16.0 → الجديد: v2.16.1 (Patch — إصلاح توجيه QR ومنح النقاط المرن لأي طالب مع حماية الرصيد اليومي)
-
----
-
 ## Version: v2.16.0
-**Date:** 2026-09-19
+**Date:** 2026-10-24
 
 ### Changes
-- إضافة نظام النسخ الاحتياطي الشامل للبيانات لرائد النشاط والمسؤول والمدير (`/admin/backup` و `/principal/backup`).
-- دعم تصدير كامل البيانات إلى ملف إكسيل متعدد الصفحات (`.xlsx`) وملف كائنات مهيكل (`.json`).
-- شمول 16 قطاعاً وقاعدة بيانات: الطلاب، المستخدمين، الحسابات المولدة وكلمات المرور، سجل النقاط، الأنشطة، التحاضير والخطط الدراسية، الواجبات، مراجعات الاختبارات، جداول الحصص الأسبوعية، توزيع المعلمين، جلسات الحضور، وإعدادات المدرسة.
-- واجهة تحكم تفاعلية مع شريط تقدم لحظي وإحصائيات مباشرة لكل جدول ومتابعة توقيت آخر نسخة احتياطية.
-
-### Files Modified / Created
-- `src/lib/systemBackupService.ts` ← **[NEW]**
-- `src/pages/admin/AdminBackupPage.tsx` ← **[NEW]**
-- `src/router/index.tsx`
-- `src/types/index.ts`
-- `src/lib/navGroups.ts`
-- `src/layouts/AppLayout.tsx`
-- `src/components/ui/MobileRoleDock.tsx`
-- `src/components/admin/AdminDashboard.tsx`
-- `VERSION.md`
-
-### Version bump
-- السابق: v2.15.0 → الجديد: v2.16.0 (Minor — نظام النسخ الاحتياطي المتكامل للمنصة)
-
----
-
-## Version: v2.15.0
-**Date:** 2026-09-16
-
-### Changes (Bug Fix Audit — Phase 1 & 2)
-- BUG-001: توحيد دالة `withTimeout` في `src/lib/utils/asyncUtils.ts` — حذف التعريف المكرر من authStore وauth
-- BUG-003: إعادة ضبط `initPromise = null` عند فشل تهيئة المصادقة للسماح بإعادة المحاولة
-- BUG-004: إصلاح كلاس CSS `py-0.2` غير الصالح في Tailwind إلى `py-px` في ملفين
-- BUG-006: توحيد مفتاح cache لـ `display_leaderboard_rpc` + إضافته لـ REALTIME_SUBSCRIPTIONS
-- BUG-007: إضافة `withTimeout` ومعالجة أخطاء كاملة لـ `refreshUser` في authStore
-- BUG-008: إصلاح `periodStart` لاستخدام توقيت السعودية (Asia/Riyadh) بدلاً من توقيت المتصفح
-- BUG-011: تأخير تقييم `allowedRoles` في `ProtectedRoute` حتى اكتمال جلب الملف الشخصي
-- IMP-006: إضافة `client_secret*.json` لـ `.gitignore` لحماية مفاتيح OAuth
-- تحديث `vite.config.ts` لاستثناء `Versions/**` و`*.zip` من مراقب الملفات (EBUSY fix)
+- تصدير الخطط الأسبوعية: زر «تصدير كل الصور» ينزّل صور كل الفصول الظاهرة للأسبوع المختار في ملف واحد
+- نسخة الاسترجاع: `Versions/2026-10-24_v2.15.5_BeforePlanPngBatch.zip`
 
 ### Files Modified
-- `src/lib/utils/asyncUtils.ts` ← **[NEW]**
-- `src/stores/authStore.ts`
-- `src/lib/auth.ts`
-- `src/router/ProtectedRoute.tsx`
-- `src/lib/teacherScope.ts`
-- `src/lib/realtimeConfig.ts`
-- `src/components/student/ClassRankSection.tsx`
-- `src/components/student/StudentDashboard.tsx`
-- `.gitignore`
-- `vite.config.ts`
+- `src/lib/academic/exportService.ts`
+- `src/pages/academic/AcademicExportPage.tsx`
 - `VERSION.md`
 
-### Version bump
-- السابق: v2.14.6 → الجديد: v2.15.0 (Minor — إصلاح 7 مشاكل + ميزة توحيد utils)
+## Version: v2.15.5
+**Date:** 2026-10-24
 
----
+### Changes
+- ملف واحد يجمع ترحيلات 071 حتى 147 لتشغيلها دفعة واحدة على المشروع الجديد بعد إكمال 001–070
+
+### Files Modified
+- `supabase/apply-071-to-147.sql`
+- `VERSION.md`
+
+## Version: v2.15.4
+**Date:** 2026-10-24
+
+### Changes
+- استبعاد مجلد `db-backups/` من Git حتى لا تُرفع نسخة قاعدة البيانات التي تحتوي حسابات وبيانات الطلاب
+
+### Files Modified
+- `.gitignore`
+- `VERSION.md`
+
+## Version: v2.15.3
+**Date:** 2026-10-13
+
+### Changes
+- إصلاح: المعلم كان يصل إلى شاشة إدارة طلبات الملاحظات (للمدير والوكيل والمشرف) عبر «التقارير المحفوظة» فلا يستطيع كتابة الإفادة
+- «التقارير المحفوظة» للمعلم: تعرض طلباته المعلّقة فقط وتقاريره هو، وكل الأزرار تفتح `/academic/observation-tasks`
+- فتح `/academic/observation-inbox` بحساب معلم يحوّله تلقائياً إلى صفحة طلبات الإفادة
+- اختيار المعلمين عند الإرسال: يظهر فقط من يدرّس المادة المختارة في هذا الفصل تحديداً (الجدول الدراسي وإسناد المدير أولاً، وملف المعلم احتياطياً)؛ الإسناد القديم بدون فصول محددة لم يعد يُعتبر تدريساً لكل الفصول
+- نسخة الاسترجاع: `Versions/2026-10-13_v2.15.2_BeforeObservationTeacherAccess.zip`
+
+### Files Modified
+- `src/pages/academic/AcademicReportsPage.tsx`
+- `src/pages/academic/AcademicObservationInboxPage.tsx`
+- `src/lib/academic/adminService.ts`
+- `VERSION.md`
+
+## Version: v2.15.2
+**Date:** 2026-10-13
+
+### Changes
+- استرجاع شاشة دخول الطاقم `StaffLoginPage.tsx` من نسخة `2026-10-13_v2.35.1_BeforeObservationClassPicker.zip`
+- دخول المعلم أصبح بالجوال + كلمة المرور (عبر `TeacherPasswordLogin` و Edge Function `teacher-password-auth`) بدل رمز واتساب
+- أول دخول: الجوال + كود التفعيل الموحّد من الإدارة + إنشاء كلمة مرور (8 أحرف على الأقل)
+- نسخة الاسترجاع قبل التعديل: `Versions/2026-10-13_v2.15.1_BeforeTeacherPasswordLoginRestore.zip`
+
+### Files Modified
+- `src/pages/StaffLoginPage.tsx`
+- `VERSION.md`
+
+## Version: v2.15.1
+**Date:** 2026-10-13
+
+### Changes
+- إصلاح فشل البناء (15 خطأ TypeScript): استرجاع `pointsEvidence.ts` و`AdminStudentCardsTab.tsx` من نسخة `2026-10-13_v2.35.1_BeforeObservationClassPicker.zip` بعد أن استُبدلا بنسخ أقدم
+- `pointsEvidence.ts`: عودة `isManualActivityId` و`ensureManualActivity` و`ManualActivityKind` ونشاط «سلوك يدوي» مع الإبقاء على `ensureManualTeacherActivity`
+- `AdminStudentCardsTab.tsx`: عودة اختيار نطاق رابط QR، وإزالة أزرار PDF (بطاقة/A4) التي تعتمد على دوال غير موجودة في `exportStudentCardsZip.ts`
+- نسخة الاسترجاع للملفين قبل الإصلاح: `Versions/2026-10-13_v2.15.0_BeforeBuildFixRestore.zip`
+
+### Files Modified
+- `src/lib/pointsEvidence.ts`
+- `src/components/admin/AdminStudentCardsTab.tsx`
+- `VERSION.md`
+
+## Version: v2.15.0
+**Date:** 2026-10-13
+
+### Changes
+- تقارير ملاحظات الطلاب: بحث بأي جزء من اسم الطالب داخل نموذج «إنشاء طلب» كبديل عن اختيار الصف والفصل؛ النتائج تعرض الاسم والصف والفصل، واختيار الطالب يملأ المرحلة والصف والفصل تلقائياً
+- بطاقة تعرض الطالب المختار مع زر إلغاء الاختيار
+- مربع بحث بالاسم في قائمة الطلبات (يحدّث أعداد التبويبات حسب نتيجة البحث)
+- البحث يتجاهل اختلاف الهمزات (أ/إ/آ) والتاء المربوطة والألف المقصورة والتشكيل، ويقبل أكثر من جزء من الاسم
+- الوكيل يرى في نتائج البحث طلاب مرحلته فقط
+- نسخة الاسترجاع: `Versions/2026-10-13_v2.14.6_BeforeObservationNameSearch.zip`
+
+### Files Modified
+- `src/pages/academic/AcademicObservationInboxPage.tsx`
+- `VERSION.md`
 
 ## Version: v2.14.6
 **Date:** 2026-09-11
