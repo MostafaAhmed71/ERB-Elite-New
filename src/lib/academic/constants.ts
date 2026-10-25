@@ -66,8 +66,8 @@ export const EXAM_REVIEW_TYPES = Object.keys(EXAM_REVIEW_TYPE_LABELS) as Array<
 >;
 
 export const REVIEW_STATUS_LABELS = {
-  pending: 'بانتظار المراجع',
-  approved: 'معتمد',
+  pending: 'بانتظار المشرف التربوي',
+  approved: 'بانتظار المراجع',
   needsRevision: 'يحتاج تعديل',
   awaitingPrincipal: 'بانتظار اعتماد المدير',
   sentToParent: 'منشور للطالب وولي الأمر',
