@@ -31,7 +31,7 @@ import {
 } from '../../lib/supervisorInsights';
 import { PageHeader, Panel, QuickLink, SectionTitle, TapHandLoader } from '../../components/ui';
 import clsx from 'clsx';
-import { fetchAcademicSnapshot } from '../../lib/unifiedDashboard';
+import { fetchSupervisorAcademicSnapshot } from '../../lib/unifiedDashboard';
 import { DailyOpsInbox, type DailyOpsItem } from '../../components/shared/DailyOpsInbox';
 import { academicHomeworkService } from '../../lib/academic/homeworkService';
 import { academicWeeklyPlanService } from '../../lib/academic/weeklyPlanService';
@@ -112,7 +112,7 @@ export function SupervisorDashboard() {
 
   const { data: academic, isLoading: academicLoading } = useQuery({
     queryKey: ['supervisor', 'academic-snapshot'],
-    queryFn: fetchAcademicSnapshot,
+    queryFn: fetchSupervisorAcademicSnapshot,
     staleTime: 120_000,
   });
 
@@ -263,6 +263,7 @@ export function SupervisorDashboard() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-4">
+                  <QuickLink icon={BookMarked} label="اعتماد المراجعات" to="/academic/reviews" />
                   <QuickLink icon={BookMarked} label="الواجبات المنزلية" to="/academic/homework" />
                   <QuickLink icon={Calendar} label="الخطط الأسبوعية" to="/academic/weekly-plans" />
                   <QuickLink icon={ClipboardList} label="صندوق الملاحظات" to="/academic/observation-inbox" />

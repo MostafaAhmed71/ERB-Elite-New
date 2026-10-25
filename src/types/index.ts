@@ -165,6 +165,7 @@ export const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'مركز التحليلات', path: '/analytics', icon: 'BarChart3' },
     { label: 'تقرير الفصول', path: '/admin/classes-report', icon: 'School' },
     { label: 'تقرير فصل', path: '/admin/class-report', icon: 'ScrollText' },
+    { label: 'اعتماد المراجعات', path: '/academic/reviews', icon: 'FileText' },
     { label: 'الشؤون الأكاديمية', path: '/academic', icon: 'BookOpen' },
     { label: 'الواجبات', path: '/academic/homework', icon: 'BookMarked' },
     { label: 'الخطط الأسبوعية', path: '/academic/weekly-plans', icon: 'Calendar' },

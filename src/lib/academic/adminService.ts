@@ -6,6 +6,7 @@ import {
 } from './exportTemplateConfig';
 import type {
   AcademicExamReview,
+  AcademicExamReviewHistory,
   AcademicReviewStatus,
   AcademicSubject,
   AcademicSection,
@@ -46,6 +47,12 @@ import {
 } from '../hostingerUpload';
 
 export const academicExamReviewService = {
+  async listHistory(id: string) {
+    const { data, error } = await supabase.from('academic_exam_review_history')
+      .select('*').eq('review_id', id).order('at').order('id');
+    if (error) throw error;
+    return data as AcademicExamReviewHistory[];
+  },
   async listByTeacher(teacherId: string) {
     const { data, error } = await supabase
       .from('academic_exam_reviews')
@@ -56,11 +63,26 @@ export const academicExamReviewService = {
     return data as AcademicExamReview[];
   },
 
+  async listForSupervisor() {
+    const { data, error } = await supabase.from('academic_exam_reviews').select('*')
+      .eq('status', 'pending').order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data as AcademicExamReview[];
+  },
+
+  async submitToReviewer(id: string, notes?: string) {
+    const { data, error } = await supabase.from('academic_exam_reviews')
+      .update({ status: 'approved', supervisor_notes: notes?.trim() || null })
+      .eq('id', id).eq('status', 'pending').select().single();
+    if (error) throw error;
+    return data as AcademicExamReview;
+  },
+
   async listForReviewer() {
     const { data, error } = await supabase
       .from('academic_exam_reviews')
       .select('*')
-      .eq('status', 'pending')
+      .eq('status', 'approved')
       .order('uploaded_at', { ascending: false });
     if (error) throw error;
     return data as AcademicExamReview[];
@@ -139,28 +161,26 @@ export const academicExamReviewService = {
         submitted_to_principal_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('status', 'pending')
+      .eq('status', 'approved')
       .select()
       .single();
     if (error) throw error;
-    try {
-      await supabase.rpc('academic_notify_principals_review_ready', { p_review_id: id });
-    } catch (e) {
-      console.warn('notify principals failed', e);
-    }
     return data as AcademicExamReview;
   },
 
   async requestRevision(
     id: string,
     notes: string,
-    by: { role: 'reviewer' | 'principal'; userId: string },
+    by: { role: 'supervisor' | 'reviewer' | 'principal'; userId: string },
   ) {
+    if (!notes.trim()) throw new Error('يجب كتابة ملاحظات التعديل');
     const updates: Record<string, unknown> = {
       status: 'needsRevision',
       reviewed_at: new Date().toISOString(),
     };
-    if (by.role === 'reviewer') {
+    if (by.role === 'supervisor') {
+      updates.supervisor_notes = notes.trim();
+    } else if (by.role === 'reviewer') {
       updates.reviewer_id = by.userId;
       updates.reviewer_notes = notes.trim() || null;
       updates.reviewer_reviewed_at = new Date().toISOString();
@@ -279,10 +299,14 @@ export const academicExamReviewService = {
         file_type: uploaded.mime || 'application/pdf',
         status: 'pending',
         uploaded_at: new Date().toISOString(),
+        supervisor_notes: null,
+        reviewer_id: null,
         reviewer_notes: null,
         principal_notes: null,
         submitted_to_principal_at: null,
         reviewer_reviewed_at: null,
+        reviewed_at: null,
+        sent_to_parent_at: null,
       })
       .eq('id', id)
       .eq('teacher_id', teacherId)

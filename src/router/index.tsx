@@ -751,7 +751,7 @@ export const router = createBrowserRouter([
           // مراجعات PDF — معلم / مراجع / مدير / وكيل
           {
             element: (
-              <ProtectedRoute allowedRoles={['teacher', 'deputy', 'principal', 'reviewer']} />
+              <ProtectedRoute allowedRoles={['teacher', 'deputy', 'principal', 'reviewer', 'supervisor']} />
             ),
             children: [
               {

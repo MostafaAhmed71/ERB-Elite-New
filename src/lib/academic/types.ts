@@ -114,6 +114,17 @@ export interface AcademicLessonTopics {
   topics: string[];
 }
 
+export interface AcademicExamReviewHistory {
+  id: number;
+  actor_id: string;
+  role: string;
+  at: string;
+  status: AcademicReviewStatus;
+  notes: string | null;
+  file_url: string;
+  file_name: string;
+}
+
 export interface AcademicExamReview {
   id: string;
   teacher_id: string;
@@ -127,6 +138,9 @@ export interface AcademicExamReview {
   file_url: string;
   file_type: string;
   status: AcademicReviewStatus;
+  supervisor_notes?: string | null;
+  supervisor_id?: string | null;
+  supervisor_reviewed_at?: string | null;
   principal_notes?: string | null;
   reviewer_id?: string | null;
   reviewer_notes?: string | null;

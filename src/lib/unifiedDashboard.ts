@@ -14,11 +14,19 @@ export type AcademicSnapshot = {
 };
 
 export async function fetchAcademicSnapshot(): Promise<AcademicSnapshot> {
+  return fetchSnapshot('awaitingPrincipal');
+}
+
+export async function fetchSupervisorAcademicSnapshot(): Promise<AcademicSnapshot> {
+  return fetchSnapshot('pending');
+}
+
+async function fetchSnapshot(reviewStatus: 'pending' | 'awaitingPrincipal'): Promise<AcademicSnapshot> {
   const today = todayIso();
   const [hwRes, revRes, reqRes, monitoring] = await Promise.all([
     supabase.from('academic_homeworks').select('teacher_id').eq('date', today),
-    // للمدير: بانتظار الاعتماد؛ للمراجع يُحسب pending في لوحته الخاصة
-    supabase.from('academic_exam_reviews').select('id').eq('status', 'awaitingPrincipal'),
+    // صندوق الدور الحالي: المشرف أولاً ثم المراجع ثم المدير.
+    supabase.from('academic_exam_reviews').select('id').eq('status', reviewStatus),
     supabase.from('academic_parent_requests').select('id').eq('status', 'pending'),
     academicAdminService.getHomeworkDayMonitoring(today),
   ]);

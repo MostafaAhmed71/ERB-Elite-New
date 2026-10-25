@@ -67,11 +67,11 @@ function statusVariant(status: AcademicExamReview['status']): 'warning' | 'succe
 }
 
 function actionTakenLabel(r: AcademicExamReview): string {
-  if (r.status === 'pending') return 'بانتظار إجراء المراجع';
+  if (r.status === 'pending') return 'بانتظار المشرف التربوي';
   if (r.status === 'needsRevision') return 'أُعيد للمعلم للتعديل';
   if (r.status === 'awaitingPrincipal') return 'أُرسل للمدير للاعتماد';
   if (r.status === 'sentToParent') return 'اعتمد المدير ونُشر';
-  if (r.status === 'approved') return 'معتمد';
+  if (r.status === 'approved') return 'اعتمد المشرف — بانتظار المراجع';
   return REVIEW_STATUS_LABELS[r.status] ?? r.status;
 }
 
@@ -148,6 +148,14 @@ function ReviewCard({
   showActionTaken?: boolean;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const { user: viewer, role: viewerRole } = useAuthStore();
+  const canViewHistory = viewer?.id === review.teacher_id || ['supervisor', 'reviewer', 'principal'].includes(viewerRole ?? '');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const { data: history = [], isLoading: historyLoading, error: historyError } = useQuery({
+    queryKey: ['academic-reviews', 'history', review.id, review.status, review.uploaded_at, viewer?.id, viewerRole],
+    queryFn: () => academicExamReviewService.listHistory(review.id),
+    enabled: historyOpen && canViewHistory,
+  });
   const [downloading, setDownloading] = useState(false);
   const fileUrl = review.file_url?.trim() || '';
   const imagePreview = isImageReview(review);
@@ -195,8 +203,9 @@ function ReviewCard({
               <span className="text-xs text-white/50">{actionTakenLabel(review)}</span>
             )}
           </div>
-          {(review.reviewer_notes || review.principal_notes) && (
+          {(review.supervisor_notes || review.reviewer_notes || review.principal_notes) && (
             <div className="mt-2 space-y-1 text-xs text-white/55">
+              {review.supervisor_notes && <p>ملاحظة المشرف التربوي: {review.supervisor_notes}</p>}
               {review.reviewer_notes && <p>ملاحظة المراجع: {review.reviewer_notes}</p>}
               {review.principal_notes && <p>ملاحظة المدير: {review.principal_notes}</p>}
             </div>
@@ -247,6 +256,22 @@ function ReviewCard({
         <p className="text-amber-300/80 text-xs">لا يوجد رابط ملف لهذا الطلب</p>
       )}
 
+      {canViewHistory && <details onToggle={(event) => setHistoryOpen(event.currentTarget.open)} className="text-sm rounded-xl border border-white/10 p-3">
+          <summary className="cursor-pointer">سجل النسخ والاعتمادات</summary>
+          {historyLoading && <p>جاري تحميل السجل...</p>}
+          {historyError && <p role="alert">تعذر تحميل سجل المراجعة</p>}
+          {!historyLoading && !historyError && history.length === 0 && <p>لا يوجد سجل بعد.</p>}
+          <ol className="space-y-3 mt-3">
+            {history.map((event, i) => (
+              <li key={`${event.at}-${i}`}>
+                <p>{formatWhen(event.at)} · {({ teacher: 'المعلم', supervisor: 'المشرف التربوي', reviewer: 'المراجع', principal: 'المدير', legacy: 'نسخة سابقة' } as Record<string, string>)[event.role] ?? event.role} · {REVIEW_STATUS_LABELS[event.status]}</p>
+                {event.notes && <p className="whitespace-pre-wrap">{event.notes}</p>}
+                <a href={event.file_url} target="_blank" rel="noreferrer" className="underline">{event.file_name}</a>
+              </li>
+            ))}
+          </ol>
+        </details>}
+
       {previewOpen && fileUrl && (
         <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40">
           {imagePreview ? (
@@ -273,11 +298,13 @@ function NotesPrompt({
   onConfirm,
   onCancel,
   pending,
+  required = false,
 }: {
   label: string;
   onConfirm: (notes: string) => void;
   onCancel: () => void;
   pending?: boolean;
+  required?: boolean;
 }) {
   const [notes, setNotes] = useState('');
   return (
@@ -286,12 +313,14 @@ function NotesPrompt({
       <textarea
         className={academicInputClass}
         rows={2}
+        aria-label={label}
+        required={required}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="ملاحظات (اختياري)"
+        placeholder={required ? "ملاحظات التعديل (إلزامي)" : "ملاحظات (اختياري)"}
       />
       <div className="flex gap-2">
-        <button type="button" className={academicBtnPrimary} disabled={pending} onClick={() => onConfirm(notes)}>
+        <button type="button" className={academicBtnPrimary} disabled={pending || (required && !notes.trim())} onClick={() => onConfirm(notes)}>
           تأكيد
         </button>
         <button type="button" className={academicBtnSecondary} onClick={onCancel}>
@@ -347,6 +376,8 @@ export function AcademicExamReviewsPage() {
   const qc = useQueryClient();
   const isTeacher = role === 'teacher';
   const isReviewer = role === 'reviewer';
+  const isSupervisor = role === 'supervisor';
+  const isReviewStaff = isReviewer || isSupervisor;
   const isPrincipal = role === 'principal';
   const isDeputy = role === 'deputy';
 
@@ -380,9 +411,9 @@ export function AcademicExamReviewsPage() {
     queryKey: ['academic-reviews', user?.id, role, principalTab, reviewerTab],
     queryFn: () => {
       if (isTeacher && user) return academicExamReviewService.listByTeacher(user.id);
-      if (isReviewer) {
+      if (isReviewStaff) {
         return reviewerTab === 'inbox'
-          ? academicExamReviewService.listForReviewer()
+          ? (isSupervisor ? academicExamReviewService.listForSupervisor() : academicExamReviewService.listForReviewer())
           : academicExamReviewService.listAllForReviewer();
       }
       if (isPrincipal) {
@@ -398,6 +429,8 @@ export function AcademicExamReviewsPage() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['academic-reviews'] });
     qc.invalidateQueries({ queryKey: ['published-academic-reviews'] });
+    qc.invalidateQueries({ queryKey: ['academic-reviews-reviewer-inbox'] });
+    qc.invalidateQueries({ queryKey: ['supervisor', 'academic-snapshot'] });
   };
 
   const selectedUploads = EXAM_REVIEW_TYPES
@@ -487,7 +520,7 @@ export function AcademicExamReviewsPage() {
       return result;
     },
     onSuccess: () => {
-      toast.success('تم إعادة الرفع للمراجع');
+      toast.success('تم إعادة الرفع للمشرف التربوي');
       setReplaceId(null);
       setReplaceFile(null);
       setReplacePhase('idle');
@@ -503,9 +536,9 @@ export function AcademicExamReviewsPage() {
 
   const submitMut = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      academicExamReviewService.submitToPrincipal(id, user!.id, notes),
+      isSupervisor ? academicExamReviewService.submitToReviewer(id, notes) : academicExamReviewService.submitToPrincipal(id, user!.id, notes),
     onSuccess: () => {
-      toast.success('أُرسل للمدير للاعتماد');
+      toast.success(isSupervisor ? 'اعتمدت المراجعة وأُرسلت للمراجع' : 'أُرسل للمدير للاعتماد');
       setActionFor(null);
       setReviewerTab('all');
       invalidate();
@@ -516,13 +549,13 @@ export function AcademicExamReviewsPage() {
   const reviseMut = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes: string }) =>
       academicExamReviewService.requestRevision(id, notes, {
-        role: isReviewer ? 'reviewer' : 'principal',
+        role: isSupervisor ? 'supervisor' : isReviewer ? 'reviewer' : 'principal',
         userId: user!.id,
       }),
     onSuccess: () => {
       toast.success('أُعيد للمعلم للتعديل');
       setActionFor(null);
-      if (isReviewer) setReviewerTab('all');
+      if (isReviewStaff) setReviewerTab('all');
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -551,14 +584,14 @@ export function AcademicExamReviewsPage() {
   });
 
   const subtitle = isTeacher
-    ? 'ارفع الملف ليراجعه المراجع ثم يعتمد المدير النشر'
-    : isReviewer
+    ? 'المعلم ← المشرف التربوي ← المراجع ← المدير للاعتماد النهائي والنشر'
+    : isReviewStaff
       ? 'راجع الملفات، عاينها داخل الشاشة، وتابع كل الطلبات والإجراءات'
       : isPrincipal
         ? 'ارفع ملفات كل أنواع المراجعة دفعة واحدة حسب المرحلة والصف، أو اعتمد ملفات المعلمين'
         : 'متابعة الملفات المنشورة';
 
-  const emptyMessage = isReviewer
+  const emptyMessage = isReviewStaff
     ? reviewerTab === 'inbox'
       ? 'لا ملفات بانتظار المراجعة'
       : 'لا توجد طلبات بعد'
@@ -588,7 +621,7 @@ export function AcademicExamReviewsPage() {
         <div className="rounded-2xl border border-white/10 bg-[#111c44] p-5 mb-6 space-y-3">
           <div>
             <h3 className="text-white font-bold text-sm">
-              {isPrincipal ? 'رفع مراجعات الصف دفعة واحدة' : 'رفع ملفات للمراجع دفعة واحدة'}
+              {isPrincipal ? 'رفع مراجعات الصف دفعة واحدة' : 'رفع ملفات للمشرف التربوي دفعة واحدة'}
             </h3>
             <p className="text-white/50 text-xs mt-1">
               {isPrincipal
@@ -711,13 +744,13 @@ export function AcademicExamReviewsPage() {
               : selectedUploads.length
                 ? isPrincipal
                   ? `رفع ونشر ${selectedUploads.length} ملفات للصف`
-                  : `رفع ${selectedUploads.length} ملفات للمراجع`
+                  : `رفع ${selectedUploads.length} ملفات للمشرف التربوي`
                 : 'اختر ملفاً واحداً على الأقل'}
           </button>
         </div>
       )}
 
-      {isReviewer && (
+      {isReviewStaff && (
         <div className="flex flex-wrap gap-2 mb-4">
           {(
             [
@@ -820,17 +853,17 @@ export function AcademicExamReviewsPage() {
             <div key={r.id} className="space-y-2">
               <ReviewCard
                 review={r}
-                showActionTaken={isReviewer && reviewerTab === 'all'}
+                showActionTaken={isReviewStaff && reviewerTab === 'all'}
                 actions={
                   <>
-                    {isReviewer && reviewerTab === 'inbox' && r.status === 'pending' && (
+                    {isReviewStaff && reviewerTab === 'inbox' && r.status === (isSupervisor ? 'pending' : 'approved') && (
                       <>
                         <button
                           type="button"
                           className={academicBtnPrimary}
                           onClick={() => setActionFor({ id: r.id, kind: 'submit' })}
                         >
-                          <Send className="w-4 h-4" /> إرسال للمدير
+                          <Send className="w-4 h-4" /> {isSupervisor ? 'اعتماد وإرسال للمراجع' : 'اعتماد وإرسال للمدير'}
                         </button>
                         <button
                           type="button"
@@ -848,7 +881,7 @@ export function AcademicExamReviewsPage() {
                           className={academicBtnPrimary}
                           onClick={() => setActionFor({ id: r.id, kind: 'publish' })}
                         >
-                          <CheckCircle2 className="w-4 h-4" /> اعتماد ورفع
+                          <CheckCircle2 className="w-4 h-4" /> اعتماد نهائي ونشر
                         </button>
                         <button
                           type="button"
@@ -871,7 +904,7 @@ export function AcademicExamReviewsPage() {
                         <Upload className="w-4 h-4" /> إعادة رفع
                       </button>
                     )}
-                    {(isPrincipal || isTeacher) && (
+                    {(isPrincipal || (isTeacher && ['pending', 'needsRevision'].includes(r.status))) && (
                       <button
                         type="button"
                         className={academicBtnDanger}
@@ -886,7 +919,7 @@ export function AcademicExamReviewsPage() {
 
               {actionFor?.id === r.id && actionFor.kind === 'submit' && (
                 <NotesPrompt
-                  label="إرسال للمدير للاعتماد والنشر"
+                  label={isSupervisor ? "اعتماد وإرسال للمراجع" : "إرسال للمدير للاعتماد والنشر"}
                   pending={submitMut.isPending}
                   onCancel={() => setActionFor(null)}
                   onConfirm={(notes) => submitMut.mutate({ id: r.id, notes })}
@@ -894,7 +927,8 @@ export function AcademicExamReviewsPage() {
               )}
               {actionFor?.id === r.id && actionFor.kind === 'revise' && (
                 <NotesPrompt
-                  label="سبب طلب التعديل من المعلم"
+                  required
+                  label="سبب طلب التعديل من المعلم (إلزامي)"
                   pending={reviseMut.isPending}
                   onCancel={() => setActionFor(null)}
                   onConfirm={(notes) => reviseMut.mutate({ id: r.id, notes })}
