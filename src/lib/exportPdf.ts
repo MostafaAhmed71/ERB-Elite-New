@@ -1,6 +1,15 @@
 /** طباعة تقرير HTML كـ PDF عبر نافذة الطباعة */
 import { PLATFORM_NAME } from './branding';
 
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function printHtmlReport(title: string, htmlBody: string) {
   const win = window.open('', '_blank', 'width=900,height=700');
   if (!win) return;
@@ -14,6 +23,7 @@ export function printHtmlReport(title: string, htmlBody: string) {
       <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 32px; color: #111; }
         h1 { font-size: 22px; margin-bottom: 4px; }
+        h2 { font-size: 16px; margin: 24px 0 8px; }
         .meta { color: #666; font-size: 12px; margin-bottom: 24px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: right; }

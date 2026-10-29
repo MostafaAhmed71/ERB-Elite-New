@@ -136,12 +136,23 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       } catch (err) {
         console.error('Auth initialization error:', err);
         initPromise = null; // BUG-003: السماح بإعادة المحاولة عند الفشل
+        // لا نمسح الجلسة المحلية: مهلة الشبكة أو تحديث الـ PWA لا تعني تسجيل خروج
         try {
-          await supabase.auth.signOut({ scope: 'local' });
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const metaRole = parseRoleFromMetadata(session.user.user_metadata?.role);
+            set({
+              session,
+              role: metaRole,
+              loading: false,
+              initialized: true,
+            });
+            return;
+          }
         } catch {
-          // ignore
+          /* الجلسة تبقى في localStorage لحين إعادة المحاولة */
         }
-        set({ session: null, user: null, role: null, loading: false, initialized: true });
+        set({ loading: false, initialized: true });
       }
     })();
 

@@ -1,5 +1,135 @@
 # ERB-Elite — Version History
 
+## Version: v2.19.4
+**Date:** 2026-10-29
+
+### Changes
+- تقرير الواجبات PDF أصبح على الورقة الرسمية للمدرسة، مجمّعاً حسب الفصل بجداول المعلم والمادة ووقت الرفع
+- نسخة الاسترجاع: `Versions/2026-10-29_v2.19.3_BeforeHomeworkReportLook.zip`
+
+### Files Modified
+- `src/lib/academic/homeworkDayReport.ts`
+- `src/pages/principal/academic/PrincipalAcademicMonitoringPage.tsx`
+- `src/pages/academic/AcademicHomeworkPage.tsx`
+- `VERSION.md`
+
+## Version: v2.19.3
+**Date:** 2026-10-29
+
+### Changes
+- تقرير الواجبات PDF والشاشة يُجمَّعان حسب الفصل، وداخل كل فصل: المعلم والمادة ووقت الرفع
+- نسخة الاسترجاع: `Versions/2026-10-29_v2.19.2_BeforeHomeworkByClass.zip`
+
+### Files Modified
+- `src/lib/academic/homeworkDayReport.ts`
+- `src/lib/academic/adminService.ts`
+- `src/lib/academic/types.ts`
+- `src/pages/principal/academic/PrincipalAcademicMonitoringPage.tsx`
+- `VERSION.md`
+
+## Version: v2.19.2
+**Date:** 2026-10-29
+
+### Changes
+- تقرير واجبات اليوم يعرض اسم الفصل مع المعلم ووقت الرفع، مع تصدير PDF
+- نسخة الاسترجاع: `Versions/2026-10-29_v2.19.1_BeforeHomeworkClassPdf.zip`
+
+### Files Modified
+- `src/pages/principal/academic/PrincipalAcademicMonitoringPage.tsx`
+- `src/pages/academic/AcademicHomeworkPage.tsx`
+- `src/lib/academic/adminService.ts`
+- `src/lib/academic/types.ts`
+- `src/lib/academic/constants.ts`
+- `src/lib/academic/homeworkDayReport.ts`
+- `src/lib/exportPdf.ts`
+- `VERSION.md`
+
+## Version: v2.19.1
+**Date:** 2026-10-29
+
+### Changes
+- شاشة واجبات المدير تعرض اليوم المختار والمعلمين مع وقت الرفع الفعلي بتوقيت السعودية
+- نسخة الاسترجاع: `Versions/2026-10-29_v2.19.0_BeforeHomeworkUploadTime.zip`
+
+### Files Modified
+- `src/pages/academic/AcademicHomeworkPage.tsx`
+- `src/pages/principal/academic/PrincipalAcademicMonitoringPage.tsx`
+- `src/lib/academic/adminService.ts`
+- `src/lib/academic/types.ts`
+- `src/lib/competition/time.ts`
+- `VERSION.md`
+
+## Version: v2.19.0
+**Date:** 2026-10-27
+
+### Changes
+- التحديث لم يعد يسجّل خروج المستخدمين ولا يكسر تطبيق الـ PWA: الجلسة تبقى، والتحديث يُطبَّق بعد موافقة المستخدم
+- نسخة الاسترجاع: `Versions/2026-10-27_v2.18.1_BeforePwaSessionKeep.zip`
+
+### Files Modified
+- `src/sw.ts`
+- `src/stores/authStore.ts`
+- `src/lib/supabase.ts`
+- `src/lib/competition/bustCompCache.ts`
+- `src/components/pwa/PwaManager.tsx`
+- `vite.config.ts`
+- `public/.htaccess`
+- `VERSION.md`
+
+## Version: v2.18.1
+**Date:** 2026-10-27
+
+### Changes
+- إصلاح حفظ الخطة الأسبوعية عندما تكون موجودة مسبقاً لنفس الفصل والأسبوع (بدلاً من خطأ duplicate key)
+- نسخة الاسترجاع: `Versions/2026-10-27_v2.18.0_BeforeWeeklyPlanUniqueSave.zip`
+
+### Files Modified
+- `src/lib/academic/weeklyPlanService.ts`
+- `src/lib/academic/supabaseError.ts`
+- `supabase/migrations/150_weekly_plan_unique_upsert.sql`
+- `supabase/fix-weekly-plan-unique-save.sql`
+- `VERSION.md`
+
+## Version: v2.18.0
+**Date:** 2026-10-26
+
+### Changes
+- المدير يعيّن الكود الموحّد لدخول المعلمين من الإعدادات الأكاديمية ويشاركه معهم عند أول تعيين لكلمة المرور
+- نسخة الاسترجاع: `Versions/2026-10-26_v2.17.0_BeforeTeacherSharedCodeSetting.zip`
+
+### Files Modified
+- `src/pages/principal/academic/PrincipalAcademicSettingsPage.tsx`
+- `src/lib/academic/adminService.ts`
+- `supabase/functions/teacher-password-auth/index.ts`
+- `supabase/migrations/149_teacher_password_activation_code.sql`
+- `VERSION.md`
+
+## Version: v2.17.0
+**Date:** 2026-10-26
+
+### Changes
+- دورة اعتماد المراجعات: معلم → مشرف تربوي → مراجع → مدير
+- رفض المشرف التربوي يلزم ملاحظات ويرجع الملف للمعلم بحالة «مطلوب تعديل»
+- إعادة رفع النسخة المعدّلة تعيد الدورة من المشرف التربوي
+- سجل محفوظ للنسخ والملاحظات وقرارات الاعتماد
+- نسخة الاسترجاع: `Versions/2026-10-26_v2.16.0_BeforeReviewSupervisorCycle.zip`
+
+### Files Modified
+- `supabase/migrations/148_exam_review_supervisor_cycle.sql`
+- `supabase/fix-exam-review-supervisor-cycle.sql`
+- `src/lib/academic/types.ts`
+- `src/lib/academic/constants.ts`
+- `src/lib/academic/adminService.ts`
+- `src/lib/unifiedDashboard.ts`
+- `src/pages/academic/AcademicExamReviewsPage.tsx`
+- `src/pages/academic/AcademicStaffHubPage.tsx`
+- `src/pages/reviewer/ReviewerDashboard.tsx`
+- `src/pages/supervisor/SupervisorDashboard.tsx`
+- `src/router/index.tsx`
+- `src/lib/navGroups.ts`
+- `src/types/index.ts`
+- `VERSION.md`
+
 ## Version: v2.16.0
 **Date:** 2026-10-24
 

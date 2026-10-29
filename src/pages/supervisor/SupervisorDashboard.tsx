@@ -6,6 +6,7 @@ import {
   BookOpen,
   BookMarked,
   ClipboardList,
+  FileText,
   HelpCircle,
   TrendingUp,
   Users,
@@ -254,8 +255,8 @@ export function SupervisorDashboard() {
                     <p className="text-2xl font-bold text-amber-400 mt-1">{academic?.teachersMissingHomeworkToday ?? 0}</p>
                   </div>
                   <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
-                    <p className="text-white/40 text-xs">مراجعات معلّقة</p>
-                    <p className="text-2xl font-bold text-cyan-400 mt-1">{academic?.pendingReviews ?? 0}</p>
+                    <p className="text-white/40 text-xs">مراجعات بانتظارك</p>
+                    <p className="text-2xl font-bold text-cyan-400 mt-1">{academic?.pendingSupervisorReviews ?? 0}</p>
                   </div>
                   <div className="bg-navy-900/50 border border-white/5 rounded-2xl p-4">
                     <p className="text-white/40 text-xs">طلبات أولياء الأمور</p>
@@ -266,6 +267,7 @@ export function SupervisorDashboard() {
                   <QuickLink icon={BookMarked} label="الواجبات المنزلية" to="/academic/homework" />
                   <QuickLink icon={Calendar} label="الخطط الأسبوعية" to="/academic/weekly-plans" />
                   <QuickLink icon={ClipboardList} label="صندوق الملاحظات" to="/academic/observation-inbox" />
+                  <QuickLink icon={FileText} label="اعتماد المراجعات" to="/academic/reviews" />
                   <QuickLink icon={BookOpen} label="الشؤون الأكاديمية" to="/academic" />
                 </div>
 

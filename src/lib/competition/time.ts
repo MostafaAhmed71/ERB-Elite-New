@@ -143,6 +143,33 @@ export function msUntilAnswerCloses(
   return Math.max(0, end.getTime() - now.getTime());
 }
 
+export function formatRiyadhTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '';
+  return d.toLocaleTimeString('ar-SA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: RIYADH_TZ,
+  });
+}
+
+export function formatRiyadhDateTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '';
+  return d.toLocaleString('ar-SA', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: RIYADH_TZ,
+  });
+}
+
 export function formatCountdown(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(totalSec / 60);

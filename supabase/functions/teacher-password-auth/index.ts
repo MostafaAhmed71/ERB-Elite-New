@@ -20,8 +20,20 @@ Deno.serve(async req => {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const passwordClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const bearer = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+    const { data: sharedCodeRow } = await admin
+      .from('academic_config')
+      .select('value')
+      .eq('key', 'teacher_password_activation_code')
+      .maybeSingle();
+    const sharedCodeRaw = typeof sharedCodeRow?.value === 'string'
+      ? sharedCodeRow.value.replace(/^"|"$/g, '').trim()
+      : '';
+    const sharedCodeHash = sharedCodeRaw
+      ? await codeHash('shared-teacher-activation', sharedCodeRaw)
+      : Deno.env.get('TEACHER_SHARED_ACTIVATION_HASH')?.trim();
+
     const deps: Dependencies = {
-      sharedCodeHash: Deno.env.get('TEACHER_SHARED_ACTIVATION_HASH')?.trim(),
+      sharedCodeHash,
       async claimSharedCode(id, claim, now, until) {
         const { error: insertError } = await admin.from('teacher_password_setup').upsert({ user_id: id }, { onConflict: 'user_id', ignoreDuplicates: true });
         if (insertError) throw insertError;

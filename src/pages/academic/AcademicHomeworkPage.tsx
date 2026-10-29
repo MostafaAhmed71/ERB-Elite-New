@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, BookOpen, FileDown, CalendarOff, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, FileDown, CalendarOff, Clock, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useAuthStore } from '../../stores/authStore';
@@ -10,7 +10,9 @@ import {
   ACADEMIC_LEVEL_LABELS,
   formatGradeLabel,
   formatGradeSection,
+  formatHomeworkClassLabels,
 } from '../../lib/academic/constants';
+import { exportHomeworkListPdf } from '../../lib/academic/homeworkDayReport';
 import {
   mergeTeacherClassRefs,
   teacherGradesForLevel,
@@ -26,7 +28,7 @@ import {
   teacherClassesForScheduleDay,
   teacherHasClassesOnDate,
 } from '../../lib/academic/scheduleDayHelpers';
-import { getRiyadhDateString } from '../../lib/competition/time';
+import { formatRiyadhDateTime, formatRiyadhTime, getRiyadhDateString } from '../../lib/competition/time';
 import type { AcademicEducationLevel, AcademicHomework } from '../../lib/academic/types';
 import {
   formatHomeworkPageNumbers,
@@ -60,6 +62,8 @@ export function AcademicHomeworkPage() {
     return 'all';
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<string>(() => (isTeacher ? 'all' : getRiyadhDateString()));
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const { data: homeworks = [], isLoading } = useQuery({
     queryKey: ['academic-homeworks', user?.id, role, deputyLevel],
@@ -72,7 +76,8 @@ export function AcademicHomeworkPage() {
   });
 
   const filteredHomeworks = useMemo(() => {
-    return homeworks.filter((hw) => {
+    const rows = homeworks.filter((hw) => {
+      if (dateFilter !== 'all' && hw.date !== dateFilter) return false;
       if (levelFilter !== 'all' && hw.education_level !== levelFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
@@ -84,7 +89,11 @@ export function AcademicHomeworkPage() {
       }
       return true;
     });
-  }, [homeworks, levelFilter, searchQuery]);
+    if (dateFilter !== 'all') {
+      return [...rows].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+    }
+    return rows;
+  }, [homeworks, levelFilter, searchQuery, dateFilter]);
 
   const deleteMut = useMutation({
     mutationFn: academicHomeworkService.delete,
@@ -125,13 +134,34 @@ export function AcademicHomeworkPage() {
             >
               <Plus className="w-4 h-4" /> واجب جديد
             </button>
-          ) : canExportAcademicTemplates(role) ? (
-            <Link to="/academic/export" className={academicBtnSecondary}>
-              <FileDown className="w-4 h-4" /> تصدير القوالب
-            </Link>
-          ) : isSupervisor ? (
-            <AcademicBadge variant="info">عرض فقط</AcademicBadge>
-          ) : undefined
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={academicBtnSecondary}
+                disabled={filteredHomeworks.length === 0 || exportingPdf}
+                onClick={() => {
+                  const label = dateFilter === 'all' ? 'كل الأيام' : dateFilter;
+                  setExportingPdf(true);
+                  void exportHomeworkListPdf(label, filteredHomeworks)
+                    .catch((err) => {
+                      alert(err instanceof Error ? err.message : 'تعذّر إنشاء التقرير');
+                    })
+                    .finally(() => setExportingPdf(false));
+                }}
+              >
+                <FileDown className="w-4 h-4" />
+                {exportingPdf ? 'جاري تجهيز التقرير…' : 'تصدير تقرير PDF'}
+              </button>
+              {canExportAcademicTemplates(role) ? (
+                <Link to="/academic/export" className={academicBtnSecondary}>
+                  <FileDown className="w-4 h-4" /> تصدير القوالب
+                </Link>
+              ) : isSupervisor ? (
+                <AcademicBadge variant="info">عرض فقط</AcademicBadge>
+              ) : null}
+            </div>
+          )
         }
       />
 
@@ -183,6 +213,39 @@ export function AcademicHomeworkPage() {
           {/* شريط الفلترة والبحث لغير المعلم (المشرف / الوكيل / المدير) */}
           {!isTeacher && (
             <div className="flex flex-wrap items-center justify-between gap-3 mb-5 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-white/50">اليوم:</span>
+                <input
+                  type="date"
+                  value={dateFilter === 'all' ? '' : dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value || 'all')}
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-gold-400/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setDateFilter(getRiyadhDateString())}
+                  className={clsx(
+                    'px-3 py-1 rounded-lg text-xs font-semibold transition-all',
+                    dateFilter === getRiyadhDateString()
+                      ? 'bg-gold-500 text-navy-950'
+                      : 'text-white/60 hover:text-white bg-white/5',
+                  )}
+                >
+                  اليوم
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDateFilter('all')}
+                  className={clsx(
+                    'px-3 py-1 rounded-lg text-xs font-semibold transition-all',
+                    dateFilter === 'all'
+                      ? 'bg-gold-500 text-navy-950'
+                      : 'text-white/60 hover:text-white bg-white/5',
+                  )}
+                >
+                  كل الأيام
+                </button>
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-white/50">المرحلة:</span>
                 <div className="flex rounded-xl bg-white/5 p-1 border border-white/10">
@@ -265,14 +328,14 @@ export function AcademicHomeworkPage() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#422AFB]/15 text-[#c4b5fd] border border-[#7551FF]/20">
-                          {formatGradeLabel(hw.education_level, hw.grade)}
-                        </span>
-                        {hw.sections?.length > 0 && (
-                          <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/[0.06] text-[#A3AED0]">
-                            {hw.sections.map((s) => `فصل ${s}`).join(' · ')}
+                        {formatHomeworkClassLabels(hw.education_level, hw.grade, hw.sections).map((label) => (
+                          <span
+                            key={label}
+                            className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#422AFB]/15 text-[#c4b5fd] border border-[#7551FF]/20"
+                          >
+                            {label}
                           </span>
-                        )}
+                        ))}
                         <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#01B574]/15 text-[#01B574] border border-[#01B574]/20">
                           {pages}
                         </span>
@@ -280,6 +343,12 @@ export function AcademicHomeworkPage() {
 
                       {!isTeacher && (
                         <p className="mt-3 text-xs text-[#A3AED0]">المعلم: <span className="text-white">{hw.teacher_name}</span></p>
+                      )}
+                      {hw.created_at && (
+                        <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-gold-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          وقت الرفع: {formatRiyadhDateTime(hw.created_at)}
+                        </p>
                       )}
 
                       {isTeacher && (
@@ -311,9 +380,11 @@ export function AcademicHomeworkPage() {
                   <thead>
                     <tr className="text-[#A3AED0] border-b border-white/10 bg-white/[0.02]">
                       <th className="p-3 font-semibold">التاريخ</th>
+                      <th className="p-3 font-semibold">وقت الرفع</th>
                       <th className="p-3 font-semibold">المعلم</th>
                       <th className="p-3 font-semibold">المرحلة</th>
                       <th className="p-3 font-semibold">الصف</th>
+                      <th className="p-3 font-semibold">الفصل</th>
                       <th className="p-3 font-semibold">المادة</th>
                       <th className="p-3 font-semibold">الموضوع</th>
                       <th className="p-3 font-semibold">الصفحات</th>
@@ -324,9 +395,24 @@ export function AcademicHomeworkPage() {
                     {filteredHomeworks.map((hw) => (
                       <tr key={hw.id} className="border-b border-white/5 text-white hover:bg-white/[0.02] transition-colors">
                         <td className="p-3">{new Date(hw.date).toLocaleDateString('ar-SA')}</td>
+                        <td className="p-3">
+                          {hw.created_at ? (
+                            <span className="inline-flex items-center gap-1 text-gold-400 font-semibold tabular-nums whitespace-nowrap">
+                              <Clock className="w-3.5 h-3.5" />
+                              {formatRiyadhTime(hw.created_at)}
+                            </span>
+                          ) : (
+                            <span className="text-[#A3AED0]">—</span>
+                          )}
+                        </td>
                         <td className="p-3">{hw.teacher_name}</td>
                         <td className="p-3">{ACADEMIC_LEVEL_LABELS[hw.education_level]}</td>
                         <td className="p-3">{formatGradeLabel(hw.education_level, hw.grade)}</td>
+                        <td className="p-3 text-white/90">
+                          {hw.sections?.length
+                            ? hw.sections.map((s) => `فصل ${s}`).join(' · ')
+                            : '—'}
+                        </td>
                         <td className="p-3 font-medium text-gold-400/90">{hw.subject}</td>
                         <td className="p-3">{hw.lesson_topic}</td>
                         <td className="p-3 text-[#A3AED0] text-sm">

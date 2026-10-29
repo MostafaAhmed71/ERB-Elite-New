@@ -24,9 +24,22 @@ export function getSupabaseErrorMessage(err: unknown): string {
   if (e.code === '42501' || msg.toLowerCase().includes('row-level security')) {
     return 'ليس لديك صلاحية الحفظ — تأكد من تسجيل الدخول كمعلم';
   }
+  if (isUniqueClassWeekViolation(err)) {
+    return 'هذه الخطة محفوظة مسبقاً لهذا الفصل والأسبوع — أعد الحفظ ليتم التحديث';
+  }
   if (msg) return msg;
   if (e.details) return e.details;
   return 'فشل الحفظ';
+}
+
+export function isUniqueClassWeekViolation(err: unknown): boolean {
+  const e = err as { message?: string; details?: string; code?: string };
+  const text = `${e.message ?? ''} ${e.details ?? ''}`;
+  return (
+    e.code === '23505'
+    || text.includes('idx_academic_plans_class_week_unique')
+    || (text.toLowerCase().includes('duplicate key') && text.includes('academic_weekly_plans'))
+  );
 }
 
 export function isMissingWeeklyPlanRpc(err: unknown): boolean {

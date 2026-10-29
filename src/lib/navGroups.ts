@@ -131,6 +131,7 @@ export const ROLE_NAV_GROUPS: Partial<Record<UserRole, NavGroupSpec[]>> = {
         '/academic',
         '/academic/homework',
         '/academic/weekly-plans',
+        '/academic/reviews',
         '/academic/observation-inbox',
         '/academic/search',
         '/academic/teacher-evaluation',

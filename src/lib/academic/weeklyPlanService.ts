@@ -1,7 +1,12 @@
 import { supabase } from '../supabase';
 import type { AcademicWeeklyPlan, AcademicWeeklyPlanEntry, AcademicEducationLevel, AcademicSemester } from './types';
 import { academicNotificationService } from './academicNotificationService';
-import { getSupabaseErrorMessage, isMissingListMyPlansRpc, isMissingWeeklyPlanRpc } from './supabaseError';
+import {
+  getSupabaseErrorMessage,
+  isMissingListMyPlansRpc,
+  isMissingWeeklyPlanRpc,
+  isUniqueClassWeekViolation,
+} from './supabaseError';
 import { maxWeeksForSemester, weeklyPlanEntryKey } from './constants';
 import {
   filterEntriesForTeacher,
@@ -95,6 +100,33 @@ export type ClassPlanKey = {
   week_number: number;
 };
 
+function normalizeClassPlanKey(key: ClassPlanKey): ClassPlanKey {
+  return {
+    ...key,
+    section: key.section.trim(),
+    grade: Number(key.grade),
+    week_number: Number(key.week_number),
+    semester: Number(key.semester ?? 1) as AcademicSemester,
+  };
+}
+
+async function findLatestClassPlan(key: ClassPlanKey) {
+  const k = normalizeClassPlanKey(key);
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('education_level', k.education_level)
+    .eq('grade', k.grade)
+    .eq('semester', k.semester)
+    .eq('week_number', k.week_number)
+    .order('updated_at', { ascending: false });
+  if (error) throw new Error(getSupabaseErrorMessage(error));
+  const match = (data as AcademicWeeklyPlan[] | null)?.find(
+    (row) => String(row.section ?? '').trim() === k.section,
+  );
+  return match ? normalizePlan(match) : null;
+}
+
 export const academicWeeklyPlanService = {
   async listByTeacher(teacherId: string) {
     const { data: rpcData, error: rpcErr } = await supabase.rpc('list_my_weekly_plans');
@@ -149,17 +181,7 @@ export const academicWeeklyPlanService = {
   },
 
   async getClassPlan(key: ClassPlanKey) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select('*')
-      .eq('education_level', key.education_level)
-      .eq('grade', key.grade)
-      .eq('section', key.section)
-      .eq('semester', key.semester)
-      .eq('week_number', key.week_number)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? normalizePlan(data as AcademicWeeklyPlan) : null;
+    return findLatestClassPlan(key);
   },
 
   async saveTeacherSlots(
@@ -167,9 +189,10 @@ export const academicWeeklyPlanService = {
     entries: AcademicWeeklyPlan['entries'],
     teacherName: string,
   ) {
-    const semester = (key.semester ?? 1) as AcademicSemester;
+    const k = normalizeClassPlanKey(key);
+    const semester = k.semester;
     const maxWeek = maxWeeksForSemester(semester);
-    if (key.week_number < 1 || key.week_number > maxWeek) {
+    if (k.week_number < 1 || k.week_number > maxWeek) {
       throw new Error(`رقم الأسبوع يجب أن يكون من 1 إلى ${maxWeek} للفصل المختار`);
     }
 
@@ -179,29 +202,29 @@ export const academicWeeklyPlanService = {
     const uid = authData.user.id;
 
     const { data, error } = await supabase.rpc('save_class_weekly_plan_slots', {
-      p_education_level: key.education_level,
-      p_grade: key.grade,
-      p_section: key.section,
+      p_education_level: k.education_level,
+      p_grade: k.grade,
+      p_section: k.section,
       p_semester: semester,
-      p_week_number: key.week_number,
+      p_week_number: k.week_number,
       p_entries: entries,
     });
 
     if (error) {
-      if (isMissingWeeklyPlanRpc(error)) {
-        return this.saveTeacherSlotsDirect(key, entries, teacherName, semester, uid);
+      if (isMissingWeeklyPlanRpc(error) || isUniqueClassWeekViolation(error)) {
+        return this.saveTeacherSlotsDirect(k, entries, teacherName, semester, uid);
       }
       const msg = getSupabaseErrorMessage(error);
       throw new Error(msg);
     }
 
     if (!data) {
-      throw new Error('لم يُرجع الخادم بيانات الخطة — شغّل supabase/fix-weekly-plan-save.sql في SQL Editor');
+      throw new Error('لم يُرجع الخادم بيانات الخطة — شغّل supabase/fix-weekly-plan-unique-save.sql في SQL Editor');
     }
 
     const saved = normalizePlan(data as AcademicWeeklyPlan);
     if (sentCount > 0 && countTeacherSlots(saved, uid) === 0) {
-      throw new Error('لم تُحفظ الحصص — تأكد من تطبيق supabase/fix-weekly-plan-save.sql على Supabase');
+      throw new Error('لم تُحفظ الحصص — شغّل supabase/fix-weekly-plan-unique-save.sql في SQL Editor');
     }
 
     try {
@@ -225,63 +248,70 @@ export const academicWeeklyPlanService = {
     semester: AcademicSemester,
     uid: string,
   ) {
+    const k = normalizeClassPlanKey(key);
     const sentCount = entries.filter((e) => e.lesson_topic?.trim()).length;
     if (sentCount === 0) {
       throw new Error('أدخل موضوعاً لحصة واحدة على الأقل');
     }
 
-    const { data: existing, error: findErr } = await supabase
-      .from(TABLE)
-      .select('*')
-      .eq('education_level', key.education_level)
-      .eq('grade', key.grade)
-      .eq('section', key.section)
-      .eq('semester', semester)
-      .eq('week_number', key.week_number)
-      .maybeSingle();
-    if (findErr) throw new Error(getSupabaseErrorMessage(findErr));
+    const existingPlan = await findLatestClassPlan({ ...k, semester });
+    const persistMerged = async (current: AcademicWeeklyPlan | null) => {
+      const mergedEntries = mergeWeeklyPlanEntries(
+        current?.entries ?? [],
+        entries,
+        uid,
+        teacherName,
+        current?.teacher_id,
+      );
 
-    const existingPlan = existing as AcademicWeeklyPlan | null;
-    const mergedEntries = mergeWeeklyPlanEntries(
-      existingPlan?.entries ?? [],
-      entries,
-      uid,
-      teacherName,
-      existingPlan?.teacher_id,
-    );
+      const payload = {
+        teacher_id: current?.teacher_id ?? uid,
+        teacher_name: teacherName,
+        education_level: k.education_level,
+        grade: k.grade,
+        section: k.section,
+        semester,
+        week_number: k.week_number,
+        entries: mergedEntries,
+        updated_at: new Date().toISOString(),
+      };
 
-    const payload = {
-      teacher_id: existingPlan?.teacher_id ?? uid,
-      teacher_name: teacherName,
-      education_level: key.education_level,
-      grade: key.grade,
-      section: key.section,
-      semester,
-      week_number: key.week_number,
-      entries: mergedEntries,
-      updated_at: new Date().toISOString(),
-    };
+      if (current?.id) {
+        const { data, error } = await supabase
+          .from(TABLE)
+          .update(payload)
+          .eq('id', current.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return normalizePlan(data as AcademicWeeklyPlan);
+      }
 
-    if (existingPlan?.id) {
       const { data, error } = await supabase
         .from(TABLE)
-        .update(payload)
-        .eq('id', existingPlan.id)
+        .insert({ ...payload, teacher_id: uid })
         .select()
         .single();
-      if (error) throw new Error(getSupabaseErrorMessage(error));
-      const saved = normalizePlan(data as AcademicWeeklyPlan);
-      if (countTeacherSlots(saved, uid) === 0) {
-        throw new Error('لم تُحفظ الحصص — شغّل supabase/fix-weekly-plan-save.sql في Supabase SQL Editor');
+      if (error) {
+        if (isUniqueClassWeekViolation(error)) {
+          const again = await findLatestClassPlan({ ...k, semester });
+          if (again?.id) {
+            return persistMerged(again);
+          }
+        }
+        throw error;
       }
-      return saved;
-    }
+      return normalizePlan(data as AcademicWeeklyPlan);
+    };
 
-    const { data, error } = await supabase.from(TABLE).insert({ ...payload, teacher_id: uid }).select().single();
-    if (error) throw new Error(getSupabaseErrorMessage(error));
-    const saved = normalizePlan(data as AcademicWeeklyPlan);
+    let saved: AcademicWeeklyPlan;
+    try {
+      saved = await persistMerged(existingPlan);
+    } catch (err) {
+      throw new Error(getSupabaseErrorMessage(err));
+    }
     if (countTeacherSlots(saved, uid) === 0) {
-      throw new Error('لم تُحفظ الحصص — شغّل supabase/fix-weekly-plan-save.sql في Supabase SQL Editor');
+      throw new Error('لم تُحفظ الحصص — شغّل supabase/fix-weekly-plan-unique-save.sql في Supabase SQL Editor');
     }
     return saved;
   },

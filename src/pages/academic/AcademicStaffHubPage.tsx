@@ -27,7 +27,7 @@ export function AcademicStaffHubPage() {
     { to: '/academic/schedule', label: 'الجدول الدراسي', description: 'جدول الحصص والنصاب', icon: ClipboardList },
     { to: '/academic/teacher-setup', label: 'الملف التعليمي', description: 'تعديل الصفوف والفصول والمواد', icon: Settings },
     { to: '/academic/lesson-topics', label: 'مواضيع الدروس', description: 'قائمة مواضيع كل مادة', icon: FileText },
-    { to: '/academic/reviews', label: 'مراجعات PDF', description: 'رفع للمراجع ثم اعتماد المدير والنشر', icon: Upload },
+    { to: '/academic/reviews', label: 'مراجعات PDF', description: 'رفع للمشرف التربوي ثم المراجع ثم المدير', icon: Upload },
     { to: '/academic/observation-tasks', label: 'طلبات ملاحظات الطلاب', description: 'إفادة طلبات الملاحظة المرسلة إليك', icon: Send },
     { to: '/academic/reports', label: 'تقارير الملاحظات', description: 'متابعة وملاحظات الطلاب', icon: ClipboardList },
     { to: '/academic/communication', label: 'التواصل', description: 'تقارير التواصل مع أولياء الأمور', icon: MessageSquare },
@@ -53,7 +53,7 @@ export function AcademicStaffHubPage() {
     { to: '/academic/observation-inbox', label: 'تقارير ملاحظات الطلاب', description: 'تفاصيل الطلبات، إرسال للمعلمين، وتذكير واتساب', icon: Send },
     { to: '/principal/academic', label: 'إدارة أكاديمية', description: 'مواد، فصول، إعدادات', icon: Settings },
     { to: '/principal/academic/monitoring', label: 'مراقبة النشاط', description: 'متابعة واجبات المعلمين', icon: ClipboardList },
-    { to: '/academic/reviews', label: 'رفع واعتماد المراجعات', description: 'رفع ملف حسب المرحلة والصف، أو اعتماد ملفات المعلمين', icon: Upload },
+    { to: '/academic/reviews', label: 'رفع واعتماد المراجعات', description: 'اعتماد ملفات المعلمين بعد المشرف والمراجع، أو رفع مباشر للصف', icon: Upload },
     { to: '/academic/reports', label: 'التقارير المحفوظة', description: 'عرض تقارير الملاحظات', icon: FileText },
     { to: '/academic/communication', label: 'التواصل', description: 'اعتماد تقارير التواصل', icon: MessageSquare },
     { to: '/academic/export', label: 'التصدير', description: 'قوالب الواجبات والخطط PDF/PNG', icon: FileText },
@@ -62,6 +62,7 @@ export function AcademicStaffHubPage() {
   ];
 
   const supervisorCards = [
+    { to: '/academic/reviews', label: 'اعتماد المراجعات', description: 'اعتمد ملف المعلم لينتقل للمراجع، أو أرجعه مع ملاحظات', icon: Upload },
     { to: '/academic/observation-inbox', label: 'تقارير ملاحظات الطلاب', description: 'تفاصيل الطلبات، إرسال للمعلمين، وتذكير واتساب', icon: Send },
     { to: '/academic/reports', label: 'التقارير المحفوظة', description: 'عرض تقارير الملاحظات المكتملة', icon: ClipboardList },
     { to: '/academic/homework', label: 'الواجبات', description: 'عرض واجبات جميع المعلمين', icon: BookOpen },

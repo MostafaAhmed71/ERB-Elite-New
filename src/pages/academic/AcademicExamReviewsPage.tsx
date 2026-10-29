@@ -12,6 +12,8 @@ import { academicTeacherService } from '../../lib/academic/teacherService';
 import {
   EXAM_REVIEW_TYPE_LABELS,
   EXAM_REVIEW_TYPES,
+  REVIEW_ACTOR_ROLE_LABELS,
+  REVIEW_EVENT_LABELS,
   REVIEW_STATUS_LABELS,
   gradesForLevel,
   formatGradeLabel,
@@ -21,6 +23,7 @@ import {
 import type {
   AcademicEducationLevel,
   AcademicExamReview,
+  AcademicExamReviewEvent,
   AcademicExamReviewType,
 } from '../../lib/academic/types';
 import {
@@ -60,6 +63,7 @@ function buildForcedDownloadUrl(fileUrl: string, fileName: string): string | nul
 
 function statusVariant(status: AcademicExamReview['status']): 'warning' | 'success' | 'danger' | 'info' | 'default' {
   if (status === 'pending') return 'warning';
+  if (status === 'awaitingReviewer') return 'info';
   if (status === 'awaitingPrincipal') return 'info';
   if (status === 'needsRevision') return 'danger';
   if (status === 'sentToParent') return 'success';
@@ -67,9 +71,10 @@ function statusVariant(status: AcademicExamReview['status']): 'warning' | 'succe
 }
 
 function actionTakenLabel(r: AcademicExamReview): string {
-  if (r.status === 'pending') return 'بانتظار إجراء المراجع';
+  if (r.status === 'pending') return 'بانتظار المشرف التربوي';
+  if (r.status === 'awaitingReviewer') return 'اعتمد المشرف — بانتظار المراجع';
   if (r.status === 'needsRevision') return 'أُعيد للمعلم للتعديل';
-  if (r.status === 'awaitingPrincipal') return 'أُرسل للمدير للاعتماد';
+  if (r.status === 'awaitingPrincipal') return 'اعتمد المراجع — بانتظار المدير';
   if (r.status === 'sentToParent') return 'اعتمد المدير ونُشر';
   if (r.status === 'approved') return 'معتمد';
   return REVIEW_STATUS_LABELS[r.status] ?? r.status;
@@ -138,14 +143,48 @@ function emptyFilesByType(): Record<AcademicExamReviewType, File | null> {
   };
 }
 
+function ReviewHistory({ events }: { events: AcademicExamReviewEvent[] }) {
+  if (events.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-white/8 bg-black/20 p-3 space-y-2">
+      <p className="text-[11px] font-semibold text-white/50">سجل النسخ والاعتماد</p>
+      <ol className="space-y-2">
+        {events.map((event) => (
+          <li key={event.id} className="text-xs text-white/70 leading-relaxed">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-gold-300 font-semibold">
+                {REVIEW_EVENT_LABELS[event.action] ?? event.action}
+              </span>
+              <span className="text-white/35">نسخة {event.version}</span>
+              {formatWhen(event.created_at) && (
+                <span className="text-white/35">{formatWhen(event.created_at)}</span>
+              )}
+            </div>
+            <p className="text-white/50 mt-0.5">
+              {REVIEW_ACTOR_ROLE_LABELS[event.actor_role ?? ''] ?? event.actor_role ?? 'النظام'}
+              {event.actor_name ? ` — ${event.actor_name}` : ''}
+            </p>
+            {event.notes && <p className="text-amber-200/80 mt-0.5">الملاحظات: {event.notes}</p>}
+            {event.file_name && event.action === 'archived' && (
+              <p className="text-white/35 mt-0.5">الملف السابق: {event.file_name}</p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function ReviewCard({
   review,
   actions,
   showActionTaken,
+  events = [],
 }: {
   review: AcademicExamReview;
   actions?: React.ReactNode;
   showActionTaken?: boolean;
+  events?: AcademicExamReviewEvent[];
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -191,20 +230,27 @@ function ReviewCard({
             <AcademicBadge variant={statusVariant(review.status)}>
               {REVIEW_STATUS_LABELS[review.status] ?? review.status}
             </AcademicBadge>
+            {(review.version_number ?? 1) > 1 && (
+              <AcademicBadge variant="default">النسخة {review.version_number}</AcademicBadge>
+            )}
             {showActionTaken && (
               <span className="text-xs text-white/50">{actionTakenLabel(review)}</span>
             )}
           </div>
-          {(review.reviewer_notes || review.principal_notes) && (
+          {(review.supervisor_notes || review.reviewer_notes || review.principal_notes) && (
             <div className="mt-2 space-y-1 text-xs text-white/55">
+              {review.supervisor_notes && <p>ملاحظة المشرف التربوي: {review.supervisor_notes}</p>}
               {review.reviewer_notes && <p>ملاحظة المراجع: {review.reviewer_notes}</p>}
               {review.principal_notes && <p>ملاحظة المدير: {review.principal_notes}</p>}
             </div>
           )}
           <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/35">
             {formatWhen(review.uploaded_at) && <span>رفع: {formatWhen(review.uploaded_at)}</span>}
+            {formatWhen(review.supervisor_reviewed_at) && (
+              <span>مشرف: {formatWhen(review.supervisor_reviewed_at)}</span>
+            )}
             {formatWhen(review.reviewer_reviewed_at) && (
-              <span>مراجعة: {formatWhen(review.reviewer_reviewed_at)}</span>
+              <span>مراجع: {formatWhen(review.reviewer_reviewed_at)}</span>
             )}
             {formatWhen(review.sent_to_parent_at) && (
               <span>نشر: {formatWhen(review.sent_to_parent_at)}</span>
@@ -264,6 +310,8 @@ function ReviewCard({
           )}
         </div>
       )}
+
+      <ReviewHistory events={events} />
     </div>
   );
 }
@@ -273,13 +321,16 @@ function NotesPrompt({
   onConfirm,
   onCancel,
   pending,
+  required,
 }: {
   label: string;
   onConfirm: (notes: string) => void;
   onCancel: () => void;
   pending?: boolean;
+  required?: boolean;
 }) {
   const [notes, setNotes] = useState('');
+  const trimmed = notes.trim();
   return (
     <div className="w-full rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">
       <p className="text-white/60 text-xs">{label}</p>
@@ -288,10 +339,15 @@ function NotesPrompt({
         rows={2}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="ملاحظات (اختياري)"
+        placeholder={required ? 'الملاحظات إلزامية' : 'ملاحظات (اختياري)'}
       />
       <div className="flex gap-2">
-        <button type="button" className={academicBtnPrimary} disabled={pending} onClick={() => onConfirm(notes)}>
+        <button
+          type="button"
+          className={academicBtnPrimary}
+          disabled={pending || (required && !trimmed)}
+          onClick={() => onConfirm(notes)}
+        >
           تأكيد
         </button>
         <button type="button" className={academicBtnSecondary} onClick={onCancel}>
@@ -347,8 +403,12 @@ export function AcademicExamReviewsPage() {
   const qc = useQueryClient();
   const isTeacher = role === 'teacher';
   const isReviewer = role === 'reviewer';
+  const isSupervisor = role === 'supervisor';
   const isPrincipal = role === 'principal';
   const isDeputy = role === 'deputy';
+  const supervisorLevel = user?.staff_education_level === 'middle' || user?.staff_education_level === 'high'
+    ? user.staff_education_level
+    : null;
 
   const [filesByType, setFilesByType] = useState(emptyFilesByType);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -359,6 +419,7 @@ export function AcademicExamReviewsPage() {
   const [uploadExtra, setUploadExtra] = useState('');
   const [activeUploadFile, setActiveUploadFile] = useState<File | null>(null);
   const [reviewerTab, setReviewerTab] = useState<ReviewerTab>('inbox');
+  const [supervisorTab, setSupervisorTab] = useState<ReviewerTab>('inbox');
   const [filterLevel, setFilterLevel] = useState<AcademicEducationLevel | ''>('');
   const [filterGrade, setFilterGrade] = useState<number | ''>('');
   const [filterType, setFilterType] = useState<AcademicExamReviewType | ''>('');
@@ -377,9 +438,14 @@ export function AcademicExamReviewsPage() {
   });
 
   const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ['academic-reviews', user?.id, role, principalTab, reviewerTab],
+    queryKey: ['academic-reviews', user?.id, role, principalTab, reviewerTab, supervisorTab, supervisorLevel],
     queryFn: () => {
       if (isTeacher && user) return academicExamReviewService.listByTeacher(user.id);
+      if (isSupervisor) {
+        return supervisorTab === 'inbox'
+          ? academicExamReviewService.listForSupervisor(supervisorLevel)
+          : academicExamReviewService.listAllForSupervisor(supervisorLevel);
+      }
       if (isReviewer) {
         return reviewerTab === 'inbox'
           ? academicExamReviewService.listForReviewer()
@@ -395,8 +461,20 @@ export function AcademicExamReviewsPage() {
     enabled: !!user,
   });
 
+  const reviewIds = reviews.map((r) => r.id);
+  const { data: reviewEvents = [] } = useQuery({
+    queryKey: ['academic-review-events', reviewIds.join(',')],
+    queryFn: () => academicExamReviewService.listEvents(reviewIds),
+    enabled: reviewIds.length > 0,
+  });
+  const eventsByReview = reviewEvents.reduce<Record<string, AcademicExamReviewEvent[]>>((acc, event) => {
+    (acc[event.review_id] ??= []).push(event);
+    return acc;
+  }, {});
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['academic-reviews'] });
+    qc.invalidateQueries({ queryKey: ['academic-review-events'] });
     qc.invalidateQueries({ queryKey: ['published-academic-reviews'] });
   };
 
@@ -448,7 +526,7 @@ export function AcademicExamReviewsPage() {
       toast.success(
         isPrincipal
           ? `تم رفع ونشر ${results.length} ملف لطلاب الصف`
-          : `تم رفع ${results.length} ملف — بانتظار المراجع`,
+          : `تم رفع ${results.length} ملف — بانتظار المشرف التربوي`,
       );
       setFilesByType(emptyFilesByType());
       setFileInputKey((k) => k + 1);
@@ -487,7 +565,7 @@ export function AcademicExamReviewsPage() {
       return result;
     },
     onSuccess: () => {
-      toast.success('تم إعادة الرفع للمراجع');
+      toast.success('تم رفع النسخة الجديدة — بانتظار المشرف التربوي');
       setReplaceId(null);
       setReplaceFile(null);
       setReplacePhase('idle');
@@ -501,39 +579,22 @@ export function AcademicExamReviewsPage() {
     },
   });
 
-  const submitMut = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      academicExamReviewService.submitToPrincipal(id, user!.id, notes),
-    onSuccess: () => {
-      toast.success('أُرسل للمدير للاعتماد');
+  const decideMut = useMutation({
+    mutationFn: ({ id, action, notes }: { id: string; action: 'approve' | 'reject'; notes?: string }) =>
+      academicExamReviewService.decide(id, action, notes),
+    onSuccess: (_row, vars) => {
+      toast.success(
+        vars.action === 'reject'
+          ? 'أُعيد للمعلم للتعديل'
+          : isSupervisor
+            ? 'أُرسل للمراجع'
+            : isReviewer
+              ? 'أُرسل للمدير للاعتماد'
+              : 'تم الاعتماد والنشر للطالب وولي الأمر',
+      );
       setActionFor(null);
-      setReviewerTab('all');
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const reviseMut = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
-      academicExamReviewService.requestRevision(id, notes, {
-        role: isReviewer ? 'reviewer' : 'principal',
-        userId: user!.id,
-      }),
-    onSuccess: () => {
-      toast.success('أُعيد للمعلم للتعديل');
-      setActionFor(null);
+      if (isSupervisor) setSupervisorTab('all');
       if (isReviewer) setReviewerTab('all');
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const publishMut = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      academicExamReviewService.publish(id, notes),
-    onSuccess: () => {
-      toast.success('تم الاعتماد والنشر للطالب وولي الأمر');
-      setActionFor(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -551,22 +612,28 @@ export function AcademicExamReviewsPage() {
   });
 
   const subtitle = isTeacher
-    ? 'ارفع الملف ليراجعه المراجع ثم يعتمد المدير النشر'
-    : isReviewer
-      ? 'راجع الملفات، عاينها داخل الشاشة، وتابع كل الطلبات والإجراءات'
-      : isPrincipal
-        ? 'ارفع ملفات كل أنواع المراجعة دفعة واحدة حسب المرحلة والصف، أو اعتمد ملفات المعلمين'
-        : 'متابعة الملفات المنشورة';
+    ? 'ارفع الملف ليعتمده المشرف التربوي ثم المراجع ثم المدير'
+    : isSupervisor
+      ? 'اعتمد الملف لينتقل للمراجع، أو أرجعه للمعلم مع ملاحظات إلزامية'
+      : isReviewer
+        ? 'راجع الملفات المعتمدة من المشرف، ثم أرسلها للمدير أو أعدها للمعلم'
+        : isPrincipal
+          ? 'ارفع ملفات كل أنواع المراجعة دفعة واحدة حسب المرحلة والصف، أو اعتمد ملفات المعلمين'
+          : 'متابعة الملفات المنشورة';
 
-  const emptyMessage = isReviewer
-    ? reviewerTab === 'inbox'
-      ? 'لا ملفات بانتظار المراجعة'
+  const emptyMessage = isSupervisor
+    ? supervisorTab === 'inbox'
+      ? 'لا ملفات بانتظار المشرف التربوي'
       : 'لا توجد طلبات بعد'
-    : isPrincipal && principalTab === 'inbox'
-      ? 'لا ملفات بانتظار اعتمادك'
-      : isPrincipal && principalTab === 'published' && (filterLevel || filterGrade || filterType)
-        ? 'لا توجد مراجعات مطابقة للتصفية'
-        : 'لا توجد مراجعات';
+    : isReviewer
+      ? reviewerTab === 'inbox'
+        ? 'لا ملفات بانتظار المراجعة'
+        : 'لا توجد طلبات بعد'
+      : isPrincipal && principalTab === 'inbox'
+        ? 'لا ملفات بانتظار اعتمادك'
+        : isPrincipal && principalTab === 'published' && (filterLevel || filterGrade || filterType)
+          ? 'لا توجد مراجعات مطابقة للتصفية'
+          : 'لا توجد مراجعات';
 
   const visibleReviews = reviews.filter((r) => {
     if (!isPrincipal || principalTab !== 'published') return true;
@@ -588,12 +655,12 @@ export function AcademicExamReviewsPage() {
         <div className="rounded-2xl border border-white/10 bg-[#111c44] p-5 mb-6 space-y-3">
           <div>
             <h3 className="text-white font-bold text-sm">
-              {isPrincipal ? 'رفع مراجعات الصف دفعة واحدة' : 'رفع ملفات للمراجع دفعة واحدة'}
+              {isPrincipal ? 'رفع مراجعات الصف دفعة واحدة' : 'رفع ملفات للمشرف التربوي دفعة واحدة'}
             </h3>
             <p className="text-white/50 text-xs mt-1">
               {isPrincipal
                 ? 'اختر المرحلة والصف والمادة، ثم ضع صورة أو PDF لكل نوع تريده واضغط رفع مرة واحدة — يُنشر فوراً لطلاب هذا الصف.'
-                : 'مسار الاعتماد: معلم → مراجع → مدير → نشر. يمكنك رفع أكثر من نوع في نفس العملية (صورة أو PDF).'}
+                : 'مسار الاعتماد: معلم → مشرف تربوي → مراجع → مدير → نشر. يمكنك رفع أكثر من نوع في نفس العملية (صورة أو PDF).'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="المرحلة">
@@ -711,9 +778,34 @@ export function AcademicExamReviewsPage() {
               : selectedUploads.length
                 ? isPrincipal
                   ? `رفع ونشر ${selectedUploads.length} ملفات للصف`
-                  : `رفع ${selectedUploads.length} ملفات للمراجع`
+                  : `رفع ${selectedUploads.length} ملفات للمشرف التربوي`
                 : 'اختر ملفاً واحداً على الأقل'}
           </button>
+        </div>
+      )}
+
+      {isSupervisor && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {(
+            [
+              { key: 'inbox' as const, label: 'وارد للمشرف التربوي' },
+              { key: 'all' as const, label: 'كل الطلبات والإجراءات' },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setSupervisorTab(t.key)}
+              className={clsx(
+                'px-3 py-1.5 rounded-full text-xs font-semibold border',
+                supervisorTab === t.key
+                  ? 'bg-gold-500/20 text-gold-300 border-gold-400/40'
+                  : 'bg-white/[0.04] text-white/55 border-white/10',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -820,10 +912,29 @@ export function AcademicExamReviewsPage() {
             <div key={r.id} className="space-y-2">
               <ReviewCard
                 review={r}
-                showActionTaken={isReviewer && reviewerTab === 'all'}
+                events={eventsByReview[r.id] ?? []}
+                showActionTaken={(isReviewer && reviewerTab === 'all') || (isSupervisor && supervisorTab === 'all')}
                 actions={
                   <>
-                    {isReviewer && reviewerTab === 'inbox' && r.status === 'pending' && (
+                    {isSupervisor && supervisorTab === 'inbox' && r.status === 'pending' && (
+                      <>
+                        <button
+                          type="button"
+                          className={academicBtnPrimary}
+                          onClick={() => setActionFor({ id: r.id, kind: 'submit' })}
+                        >
+                          <Send className="w-4 h-4" /> إرسال للمراجع
+                        </button>
+                        <button
+                          type="button"
+                          className={academicBtnDanger}
+                          onClick={() => setActionFor({ id: r.id, kind: 'revise' })}
+                        >
+                          <RotateCcw className="w-4 h-4" /> مطلوب تعديل
+                        </button>
+                      </>
+                    )}
+                    {isReviewer && reviewerTab === 'inbox' && r.status === 'awaitingReviewer' && (
                       <>
                         <button
                           type="button"
@@ -837,7 +948,7 @@ export function AcademicExamReviewsPage() {
                           className={academicBtnDanger}
                           onClick={() => setActionFor({ id: r.id, kind: 'revise' })}
                         >
-                          <RotateCcw className="w-4 h-4" /> يحتاج تعديل
+                          <RotateCcw className="w-4 h-4" /> مطلوب تعديل
                         </button>
                       </>
                     )}
@@ -886,26 +997,27 @@ export function AcademicExamReviewsPage() {
 
               {actionFor?.id === r.id && actionFor.kind === 'submit' && (
                 <NotesPrompt
-                  label="إرسال للمدير للاعتماد والنشر"
-                  pending={submitMut.isPending}
+                  label={isSupervisor ? 'إرسال للمراجع بعد اعتماد المشرف التربوي' : 'إرسال للمدير للاعتماد والنشر'}
+                  pending={decideMut.isPending}
                   onCancel={() => setActionFor(null)}
-                  onConfirm={(notes) => submitMut.mutate({ id: r.id, notes })}
+                  onConfirm={(notes) => decideMut.mutate({ id: r.id, action: 'approve', notes })}
                 />
               )}
               {actionFor?.id === r.id && actionFor.kind === 'revise' && (
                 <NotesPrompt
-                  label="سبب طلب التعديل من المعلم"
-                  pending={reviseMut.isPending}
+                  label="اكتب الملاحظات — ترجع للمعلم بحالة مطلوب تعديل"
+                  required
+                  pending={decideMut.isPending}
                   onCancel={() => setActionFor(null)}
-                  onConfirm={(notes) => reviseMut.mutate({ id: r.id, notes })}
+                  onConfirm={(notes) => decideMut.mutate({ id: r.id, action: 'reject', notes })}
                 />
               )}
               {actionFor?.id === r.id && actionFor.kind === 'publish' && (
                 <NotesPrompt
                   label="اعتماد الملف ونشره للطالب وولي الأمر"
-                  pending={publishMut.isPending}
+                  pending={decideMut.isPending}
                   onCancel={() => setActionFor(null)}
-                  onConfirm={(notes) => publishMut.mutate({ id: r.id, notes })}
+                  onConfirm={(notes) => decideMut.mutate({ id: r.id, action: 'approve', notes })}
                 />
               )}
               {actionFor?.id === r.id && actionFor.kind === 'delete' && (
@@ -971,7 +1083,7 @@ export function AcademicExamReviewsPage() {
 
       {isDeputy && (
         <p className="text-white/40 text-xs mt-4">
-          عرض المنشورات فقط — الاعتماد يتم عبر المراجع ثم المدير.
+          عرض المنشورات فقط — الاعتماد يتم عبر المشرف التربوي ثم المراجع ثم المدير.
         </p>
       )}
     </AcademicLayout>

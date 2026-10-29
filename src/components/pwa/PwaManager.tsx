@@ -34,7 +34,7 @@ function PwaUpdateBanner() {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    immediate: false,
+    immediate: true,
     onRegisteredSW(_url, registration) {
       if (!registration) return;
       // نتحقق من التحديث بعد فترة بهدوء وبشكل متباعد، دون أي استماع لـ visibilitychange أو pageshow

@@ -1,25 +1,31 @@
 /// <reference lib="webworker" />
-import { clientsClaim, skipWaiting } from 'workbox-core';
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
+import { clientsClaim } from 'workbox-core';
+import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { NetworkFirst, NetworkOnly } from 'workbox-strategies';
+import { NetworkOnly } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
 };
 
-skipWaiting();
+// لا نستدعي skipWaiting تلقائياً: التفعيل الفوري يكسر الصفحة المفتوحة
+// (HTML قديم + ملفات JS جديدة، أو العكس) ويُظهر شاشة بيضاء في الـ PWA
+self.addEventListener('message', (event) => {
+  const data = event.data as { type?: string } | string | undefined;
+  if (data === 'skipWaiting' || (typeof data === 'object' && data?.type === 'SKIP_WAITING')) {
+    void self.skipWaiting();
+  }
+});
+
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// صفحات التنقل (HTML) تُجلب دائماً من الشبكة أولاً لضمان تحميل أحدث نسخة بدون Ctrl+Shift+R
-const navigationRoute = new NavigationRoute(
-  new NetworkFirst({
-    cacheName: 'html-cache',
-    networkTimeoutSeconds: 3,
-  })
-);
+// التنقل يخدم index.html المتزامن مع نسخة الـ SW الحالية — لا NetworkFirst
+// حتى لا يُحمَّل HTML جديد مع كاش JS قديم بعد كل رفع
+const navigationRoute = new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+  denylist: [/^\/api\//, /\/uploads\//, /\/assets\//, /\/version\.json$/, /\/sw\.js$/],
+});
 registerRoute(navigationRoute);
 
 registerRoute(

@@ -39,13 +39,14 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['icon.jpeg', 'favicon.svg', 'apple-touch-icon.svg', 'icons.svg'],
       injectManifest: {
         // الحزمة الرئيسية تجاوزت 4.7MB بعد إضافة تصدير Word/PPT ومساعد الذكاء
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        // لا نضمّن html في التخزين المؤقت المسبق لضمان تحميل أحدث نسخة دائماً دون الحاجة لـ Ctrl+Shift+R
-        globPatterns: ['**/*.{js,css,ico,png,jpg,jpeg,svg,woff2,woff,ttf}'],
+        // index.html مع الأصول في نفس نسخة الـ SW حتى لا ينكسر التطبيق بعد الرفع
+        globPatterns: ['**/*.{html,js,css,ico,png,jpg,jpeg,svg,woff2,woff,ttf}'],
+        globIgnores: ['**/sw.js', '**/workbox-*.js', '**/registerSW.js'],
       },
       manifest: {
         name: PLATFORM_NAME,

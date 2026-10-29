@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { BookOpen, Calendar, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, UserX, Users } from 'lucide-react';
+import { BookOpen, Calendar, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, FileDown, UserX, Users } from 'lucide-react';
 import { academicAdminService } from '../../../lib/academic/adminService';
-import type { AcademicSemester, TeacherActivityEntry } from '../../../lib/academic/types';
+import type { AcademicSemester, HomeworkClassUploadRow, TeacherActivityEntry } from '../../../lib/academic/types';
 import {
   AcademicLayout,
   AcademicPageHeader,
   AcademicBadge,
+  academicBtnSecondary,
   academicInputClass,
 } from '../../../components/academic/AcademicUi';
+import { exportHomeworkDayMonitoringPdf, groupUploadsByClass } from '../../../lib/academic/homeworkDayReport';
 import { TapHandLoader } from '../../../components/ui/TapHandLoader';
 import {
   SEMESTER_LABELS,
@@ -18,6 +20,7 @@ import {
   getDefaultSemesterWeek,
   formatSemesterWeek,
 } from '../../../lib/academic/constants';
+import { formatRiyadhTime, getRiyadhDateString } from '../../../lib/competition/time';
 import {
   WhatsAppReminderToolbar,
   WhatsAppTeacherButton,
@@ -31,13 +34,13 @@ import {
 type Tab = 'homework' | 'weekly' | 'observation';
 
 function todayIso() {
-  return new Date().toISOString().split('T')[0];
+  return getRiyadhDateString();
 }
 
 function shiftDate(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, (m ?? 1) - 1, (d ?? 1) + days));
+  return dt.toISOString().slice(0, 10);
 }
 
 function formatArDate(iso: string) {
@@ -81,6 +84,56 @@ function SummaryBar({
           className="h-full rounded-full bg-gradient-to-l from-gold-500 to-[#01B574] transition-all"
           style={{ width: `${pct}%` }}
         />
+      </div>
+    </div>
+  );
+}
+
+function ClassUploadsPanel({
+  rows,
+}: {
+  rows: HomeworkClassUploadRow[];
+}) {
+  const groups = groupUploadsByClass(rows);
+  return (
+    <div className="rounded-2xl border border-[#01B574]/25 bg-[#01B574]/5 overflow-hidden flex flex-col min-h-[280px]">
+      <div className="px-4 py-3 border-b border-[#01B574]/20 flex items-center gap-2 font-bold text-sm text-[#01B574]">
+        <BookOpen className="w-4 h-4 shrink-0" />
+        الواجبات حسب الفصل
+        <span className="mr-auto text-xs font-semibold opacity-80">({groups.length} فصل)</span>
+      </div>
+      <div className="flex-1 overflow-y-auto max-h-[min(70vh,640px)] p-2 space-y-3">
+        {groups.length === 0 ? (
+          <p className="text-center text-[#A3AED0] text-sm py-8 px-4">لا توجد واجبات مرفوعة في هذا التاريخ</p>
+        ) : (
+          groups.map((group) => (
+            <section
+              key={group.class_label}
+              className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden"
+            >
+              <h3 className="px-3 py-2 text-sm font-bold text-gold-400 bg-white/[0.04] border-b border-white/10">
+                {group.class_label}
+              </h3>
+              <ul>
+                {group.items.map((item, idx) => (
+                  <li
+                    key={`${item.teacher_id}-${item.subject}-${idx}`}
+                    className="px-3 py-2.5 border-b border-white/5 last:border-0 flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-sm">{item.teacher_name}</p>
+                      <p className="text-[#A3AED0] text-xs mt-0.5">{item.subject}</p>
+                    </div>
+                    <p className="flex items-center gap-1 text-xs font-semibold text-[#01B574] tabular-nums">
+                      <Clock className="w-3.5 h-3.5" />
+                      {item.uploaded_at ? formatRiyadhTime(item.uploaded_at) : '—'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        )}
       </div>
     </div>
   );
@@ -137,8 +190,22 @@ function TeacherListPanel({
             >
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold text-sm">{t.teacher_name}</p>
+                {t.class_labels && t.class_labels.length > 0 && (
+                  <p className="text-white/80 text-xs mt-1 leading-relaxed">
+                    {t.class_labels.join(' · ')}
+                  </p>
+                )}
                 {t.summary && (
                   <p className="text-[#A3AED0] text-xs mt-1 leading-relaxed">{t.summary}</p>
+                )}
+                {t.uploaded_at && (
+                  <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#01B574]">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    رُفع الساعة {formatRiyadhTime(t.uploaded_at)}
+                    {t.item_count && t.item_count > 1 ? (
+                      <span className="text-[#A3AED0] font-medium">· {t.item_count} واجبات</span>
+                    ) : null}
+                  </p>
                 )}
               </div>
               {showWhatsApp && buildMessage && (
@@ -156,6 +223,7 @@ export function PrincipalAcademicMonitoringPage() {
   const planDefaults = getDefaultSemesterWeek();
   const [tab, setTab] = useState<Tab>('homework');
   const [hwDate, setHwDate] = useState(todayIso);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [semester, setSemester] = useState<AcademicSemester>(planDefaults.semester);
   const [week, setWeek] = useState(planDefaults.week);
 
@@ -252,6 +320,23 @@ export function PrincipalAcademicMonitoringPage() {
             >
               اليوم
             </button>
+            <button
+              type="button"
+              className={academicBtnSecondary}
+              disabled={!hwMonitoring || exportingPdf}
+              onClick={() => {
+                if (!hwMonitoring) return;
+                setExportingPdf(true);
+                void exportHomeworkDayMonitoringPdf(hwDateLabel, hwMonitoring)
+                  .catch((err) => {
+                    alert(err instanceof Error ? err.message : 'تعذّر إنشاء التقرير');
+                  })
+                  .finally(() => setExportingPdf(false));
+              }}
+            >
+              <FileDown className="w-4 h-4" />
+              {exportingPdf ? 'جاري تجهيز التقرير…' : 'تصدير تقرير PDF'}
+            </button>
           </div>
           <p className="text-white text-sm mt-3 font-medium">{hwDateLabel}</p>
         </div>
@@ -318,23 +403,21 @@ export function PrincipalAcademicMonitoringPage() {
               label="تذكير واتساب — واجب منزلي"
             />
           )}
-          <div className="grid lg:grid-cols-2 gap-4">
-            <TeacherListPanel
-              title="قاموا بإدخال الواجب"
-              icon={CheckCircle2}
-              teachers={hwMonitoring.completed}
-              variant="success"
-              emptyText="لا يوجد معلم أدخل واجباً في هذا التاريخ"
-            />
-            <TeacherListPanel
-              title="لم يقيموا بإدخال الواجب"
-              icon={UserX}
-              teachers={hwMonitoring.missing}
-              variant="warning"
-              emptyText="جميع المعلمين أدخلوا واجباتهم — ممتاز!"
-              showWhatsApp
-              buildMessage={hwMessage}
-            />
+          <div className="grid lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3">
+              <ClassUploadsPanel rows={hwMonitoring.class_uploads ?? []} />
+            </div>
+            <div className="lg:col-span-2">
+              <TeacherListPanel
+                title="لم يقيموا بإدخال الواجب"
+                icon={UserX}
+                teachers={hwMonitoring.missing}
+                variant="warning"
+                emptyText="جميع المعلمين أدخلوا واجباتهم — ممتاز!"
+                showWhatsApp
+                buildMessage={hwMessage}
+              />
+            </div>
           </div>
         </>
       ) : tab === 'weekly' && planMonitoring ? (

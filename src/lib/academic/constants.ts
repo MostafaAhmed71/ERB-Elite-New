@@ -26,6 +26,17 @@ export function formatGradeSection(level: AcademicEducationLevel, grade: number,
   return `${formatGradeLabel(level, grade)} — فصل ${section}`;
 }
 
+/** أسماء الفصول لواجب واحد */
+export function formatHomeworkClassLabels(
+  level: AcademicEducationLevel,
+  grade: number,
+  sections?: string[] | null,
+): string[] {
+  const secs = (sections ?? []).map((s) => s.trim()).filter(Boolean);
+  if (!secs.length) return [formatGradeLabel(level, grade)];
+  return secs.map((s) => formatGradeSection(level, grade, s));
+}
+
 /** عند غياب المرحلة — الصف الأول فقط */
 export function formatGradeOrdinal(grade: number): string {
   const ordinal = GRADE_ORDINAL_AR[grade] ?? String(grade);
@@ -66,12 +77,31 @@ export const EXAM_REVIEW_TYPES = Object.keys(EXAM_REVIEW_TYPE_LABELS) as Array<
 >;
 
 export const REVIEW_STATUS_LABELS = {
-  pending: 'بانتظار المراجع',
+  pending: 'بانتظار المشرف التربوي',
   approved: 'معتمد',
-  needsRevision: 'يحتاج تعديل',
+  needsRevision: 'مطلوب تعديل',
+  awaitingReviewer: 'بانتظار المراجع',
   awaitingPrincipal: 'بانتظار اعتماد المدير',
   sentToParent: 'منشور للطالب وولي الأمر',
 } as const;
+
+export const REVIEW_EVENT_LABELS: Record<string, string> = {
+  uploaded: 'رفع الملف',
+  archived: 'نسخة سابقة',
+  resubmitted: 'رفع نسخة معدّلة',
+  approved: 'اعتماد',
+  rejected: 'إرجاع للتعديل',
+  published: 'نشر للطلاب',
+};
+
+export const REVIEW_ACTOR_ROLE_LABELS: Record<string, string> = {
+  teacher: 'المعلم',
+  supervisor: 'المشرف التربوي',
+  reviewer: 'المراجع',
+  principal: 'المدير',
+  deputy: 'الوكيل',
+  admin: 'الإدارة',
+};
 
 export function gradesForLevel(level: AcademicEducationLevel): number[] {
   return level === 'high' ? HIGH_GRADES : MIDDLE_GRADES;

@@ -91,3 +91,6 @@ public/i.jpeg
 client_secret*.json
 scratch/
 .eslintcache
+# nested local clone + supabase cli scratch (added 2026-10-29)
+mohamad exam/
+supabase/.temp/

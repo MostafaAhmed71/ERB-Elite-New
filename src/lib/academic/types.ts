@@ -9,8 +9,17 @@ export type AcademicReviewStatus =
   | 'pending'
   | 'approved'
   | 'needsRevision'
+  | 'awaitingReviewer'
   | 'awaitingPrincipal'
   | 'sentToParent';
+
+export type AcademicReviewEventAction =
+  | 'uploaded'
+  | 'archived'
+  | 'resubmitted'
+  | 'approved'
+  | 'rejected'
+  | 'published';
 export type AcademicObservationStatus = 'pending' | 'inProgress' | 'completed' | 'cancelled';
 export type AcademicParentRequestStatus = 'pending' | 'assigned' | 'processed' | 'rejected';
 export type AcademicObservationAssignmentStatus = 'pending' | 'completed';
@@ -131,10 +140,31 @@ export interface AcademicExamReview {
   reviewer_id?: string | null;
   reviewer_notes?: string | null;
   reviewer_reviewed_at?: string | null;
+  supervisor_id?: string | null;
+  supervisor_notes?: string | null;
+  supervisor_reviewed_at?: string | null;
+  version_number?: number | null;
   submitted_to_principal_at?: string | null;
   uploaded_at: string;
   reviewed_at?: string | null;
   sent_to_parent_at?: string | null;
+}
+
+export interface AcademicExamReviewEvent {
+  id: string;
+  review_id: string;
+  version: number;
+  action: AcademicReviewEventAction | string;
+  actor_id?: string | null;
+  actor_role?: string | null;
+  actor_name?: string | null;
+  notes?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  from_status?: string | null;
+  to_status?: string | null;
+  created_at: string;
 }
 
 export interface AcademicObservationReport {
@@ -249,6 +279,22 @@ export interface TeacherActivityEntry {
   teacher_name: string;
   phone?: string | null;
   summary?: string;
+  /** وقت أول رفع فعلي (timestamptz) */
+  uploaded_at?: string | null;
+  item_count?: number;
+  /** الصفوف والفصول التي رُفع لها الواجب */
+  class_labels?: string[];
+}
+
+export interface HomeworkClassUploadRow {
+  education_level: AcademicEducationLevel;
+  grade: number;
+  section: string;
+  class_label: string;
+  teacher_id: string;
+  teacher_name: string;
+  subject: string;
+  uploaded_at?: string | null;
 }
 
 export interface AcademicHomeworkDayMonitoring {
@@ -256,6 +302,7 @@ export interface AcademicHomeworkDayMonitoring {
   completed: TeacherActivityEntry[];
   missing: TeacherActivityEntry[];
   total_teachers: number;
+  class_uploads: HomeworkClassUploadRow[];
 }
 
 export interface AcademicWeeklyPlanWeekMonitoring {

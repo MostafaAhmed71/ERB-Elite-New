@@ -6,6 +6,7 @@ import {
 } from './exportTemplateConfig';
 import type {
   AcademicExamReview,
+  AcademicExamReviewEvent,
   AcademicReviewStatus,
   AcademicSubject,
   AcademicSection,
@@ -17,6 +18,7 @@ import type {
   AcademicTeacherAssignment,
   AcademicMonitoringStats,
   AcademicHomeworkDayMonitoring,
+  HomeworkClassUploadRow,
   AcademicWeeklyPlanWeekMonitoring,
   AcademicObservationMonitoring,
   TeacherActivityEntry,
@@ -36,7 +38,7 @@ import { subjectsMatch } from './subjectHelpers';
 import { classesMatch, olympiadGradeToAcademic } from './gradeBridge';
 import { summarizeObservationEntry } from './observationHelpers';
 import { DEFAULT_AUTO_REMINDER_SETTINGS, EMPTY_WEEK_CALENDARS, normalizeAutoReminderSettings } from './types';
-import { formatGradeSection } from './constants';
+import { formatGradeLabel, formatGradeSection, formatHomeworkClassLabels } from './constants';
 import { normalizeWeekCalendars } from './semesterWeekCalendar';
 import { syncTeacherOlympiadFromAcademic } from './olympiadSyncService';
 import {
@@ -56,11 +58,39 @@ export const academicExamReviewService = {
     return data as AcademicExamReview[];
   },
 
+  async listForSupervisor(educationLevel?: AcademicEducationLevel | null) {
+    let query = supabase
+      .from('academic_exam_reviews')
+      .select('*')
+      .eq('status', 'pending')
+      .order('uploaded_at', { ascending: false });
+    if (educationLevel === 'middle' || educationLevel === 'high') {
+      query = query.eq('education_level', educationLevel);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as AcademicExamReview[];
+  },
+
+  async listAllForSupervisor(educationLevel?: AcademicEducationLevel | null) {
+    let query = supabase
+      .from('academic_exam_reviews')
+      .select('*')
+      .order('uploaded_at', { ascending: false })
+      .limit(200);
+    if (educationLevel === 'middle' || educationLevel === 'high') {
+      query = query.eq('education_level', educationLevel);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as AcademicExamReview[];
+  },
+
   async listForReviewer() {
     const { data, error } = await supabase
       .from('academic_exam_reviews')
       .select('*')
-      .eq('status', 'pending')
+      .eq('status', 'awaitingReviewer')
       .order('uploaded_at', { ascending: false });
     if (error) throw error;
     return data as AcademicExamReview[];
@@ -128,71 +158,41 @@ export const academicExamReviewService = {
     return data as AcademicExamReview;
   },
 
-  async submitToPrincipal(id: string, reviewerId: string, notes?: string) {
+  async listEvents(reviewIds: string[]) {
+    if (reviewIds.length === 0) return [] as AcademicExamReviewEvent[];
     const { data, error } = await supabase
-      .from('academic_exam_reviews')
-      .update({
-        status: 'awaitingPrincipal',
-        reviewer_id: reviewerId,
-        reviewer_notes: notes?.trim() || null,
-        reviewer_reviewed_at: new Date().toISOString(),
-        submitted_to_principal_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select()
-      .single();
+      .from('academic_exam_review_events')
+      .select('*')
+      .in('review_id', reviewIds)
+      .order('created_at', { ascending: true });
     if (error) throw error;
-    try {
-      await supabase.rpc('academic_notify_principals_review_ready', { p_review_id: id });
-    } catch (e) {
-      console.warn('notify principals failed', e);
-    }
+    return (data ?? []) as AcademicExamReviewEvent[];
+  },
+
+  async decide(id: string, action: 'approve' | 'reject', notes?: string) {
+    const { data, error } = await supabase.rpc('academic_review_decide', {
+      p_review_id: id,
+      p_action: action,
+      p_notes: notes?.trim() || null,
+    });
+    if (error) throw error;
     return data as AcademicExamReview;
+  },
+
+  async submitToPrincipal(id: string, _reviewerId: string, notes?: string) {
+    return this.decide(id, 'approve', notes);
   },
 
   async requestRevision(
     id: string,
     notes: string,
-    by: { role: 'reviewer' | 'principal'; userId: string },
+    _by?: { role: 'reviewer' | 'principal' | 'supervisor'; userId: string },
   ) {
-    const updates: Record<string, unknown> = {
-      status: 'needsRevision',
-      reviewed_at: new Date().toISOString(),
-    };
-    if (by.role === 'reviewer') {
-      updates.reviewer_id = by.userId;
-      updates.reviewer_notes = notes.trim() || null;
-      updates.reviewer_reviewed_at = new Date().toISOString();
-    } else {
-      updates.principal_notes = notes.trim() || null;
-    }
-    const { data, error } = await supabase
-      .from('academic_exam_reviews')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as AcademicExamReview;
+    return this.decide(id, 'reject', notes);
   },
 
   async publish(id: string, principalNotes?: string) {
-    const updates: Record<string, unknown> = {
-      status: 'sentToParent',
-      reviewed_at: new Date().toISOString(),
-      sent_to_parent_at: new Date().toISOString(),
-    };
-    if (principalNotes !== undefined) updates.principal_notes = principalNotes;
-    const { data, error } = await supabase
-      .from('academic_exam_reviews')
-      .update(updates)
-      .eq('id', id)
-      .eq('status', 'awaitingPrincipal')
-      .select()
-      .single();
-    if (error) throw error;
-    return data as AcademicExamReview;
+    return this.decide(id, 'approve', principalNotes);
   },
 
   async uploadReview(
@@ -271,24 +271,12 @@ export const academicExamReviewService = {
     onProgress?: HostingerUploadProgressFn,
   ) {
     const uploaded = await uploadExamReviewToHostinger(file, teacherId, onProgress);
-    const { data, error } = await supabase
-      .from('academic_exam_reviews')
-      .update({
-        file_name: uploaded.file_name,
-        file_url: uploaded.url,
-        file_type: uploaded.mime || 'application/pdf',
-        status: 'pending',
-        uploaded_at: new Date().toISOString(),
-        reviewer_notes: null,
-        principal_notes: null,
-        submitted_to_principal_at: null,
-        reviewer_reviewed_at: null,
-      })
-      .eq('id', id)
-      .eq('teacher_id', teacherId)
-      .eq('status', 'needsRevision')
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc('academic_resubmit_exam_review', {
+      p_review_id: id,
+      p_file_url: uploaded.url,
+      p_file_name: uploaded.file_name,
+      p_file_type: uploaded.mime || 'application/pdf',
+    });
     if (error) throw error;
     return data as AcademicExamReview;
   },
@@ -379,12 +367,16 @@ export const academicAdminService = {
   teacherActivityEntry(
     t: { id: string; full_name: string; phone?: string | null },
     summary?: string,
+    extra?: Pick<TeacherActivityEntry, 'uploaded_at' | 'item_count' | 'class_labels'>,
   ): TeacherActivityEntry {
     return {
       teacher_id: t.id,
       teacher_name: t.full_name,
       phone: t.phone ?? null,
       summary,
+      uploaded_at: extra?.uploaded_at,
+      item_count: extra?.item_count,
+      class_labels: extra?.class_labels,
     };
   },
 
@@ -460,32 +452,64 @@ export const academicAdminService = {
     const teachers = await this.listTeachersWithPhone();
     const { data: homeworks, error } = await supabase
       .from('academic_homeworks')
-      .select('teacher_id, teacher_name, subject, sections')
+      .select('teacher_id, teacher_name, subject, sections, created_at, education_level, grade')
       .eq('date', date);
     if (error) throw error;
 
-    const subjectsByTeacher = new Map<string, string[]>();
+    const byTeacher = new Map<string, { subjects: string[]; times: string[]; classes: string[] }>();
     for (const hw of homeworks ?? []) {
-      const list = subjectsByTeacher.get(hw.teacher_id) ?? [];
-      list.push(hw.subject);
-      subjectsByTeacher.set(hw.teacher_id, list);
+      const row = byTeacher.get(hw.teacher_id) ?? { subjects: [], times: [], classes: [] };
+      row.subjects.push(hw.subject);
+      if (hw.created_at) row.times.push(hw.created_at);
+      row.classes.push(
+        ...formatHomeworkClassLabels(hw.education_level, hw.grade, hw.sections),
+      );
+      byTeacher.set(hw.teacher_id, row);
     }
 
     const completed: TeacherActivityEntry[] = [];
     const missing: TeacherActivityEntry[] = [];
+    const class_uploads: HomeworkClassUploadRow[] = [];
+
+    for (const hw of homeworks ?? []) {
+      const sections = (hw.sections ?? []).map((s) => String(s).trim()).filter(Boolean);
+      const secs = sections.length ? sections : ['—'];
+      for (const section of secs) {
+        class_uploads.push({
+          education_level: hw.education_level,
+          grade: hw.grade,
+          section,
+          class_label: section === '—'
+            ? formatGradeLabel(hw.education_level, hw.grade)
+            : formatGradeSection(hw.education_level, hw.grade, section),
+          teacher_id: hw.teacher_id,
+          teacher_name: hw.teacher_name,
+          subject: hw.subject,
+          uploaded_at: hw.created_at ?? null,
+        });
+      }
+    }
 
     for (const t of teachers) {
-      const subjects = subjectsByTeacher.get(t.id);
-      if (subjects?.length) {
+      const row = byTeacher.get(t.id);
+      if (row?.subjects.length) {
+        const times = [...row.times].sort();
         completed.push(
-          this.teacherActivityEntry(t, [...new Set(subjects)].join('، ')),
+          this.teacherActivityEntry(t, [...new Set(row.subjects)].join('، '), {
+            uploaded_at: times[0] ?? null,
+            item_count: row.subjects.length,
+            class_labels: [...new Set(row.classes)],
+          }),
         );
       } else {
         missing.push(this.teacherActivityEntry(t));
       }
     }
 
-    completed.sort((a, b) => a.teacher_name.localeCompare(b.teacher_name, 'ar'));
+    completed.sort((a, b) => {
+      if (a.uploaded_at && b.uploaded_at) return a.uploaded_at.localeCompare(b.uploaded_at);
+      return a.teacher_name.localeCompare(b.teacher_name, 'ar');
+    });
     missing.sort((a, b) => a.teacher_name.localeCompare(b.teacher_name, 'ar'));
 
     return {
@@ -493,6 +517,7 @@ export const academicAdminService = {
       completed,
       missing,
       total_teachers: teachers.length,
+      class_uploads,
     };
   },
 
@@ -1123,6 +1148,10 @@ export const academicConfigService = {
 
   async getTeacherSignupCode() {
     return this.getString('teacher_signup_code', 'TEACH7K9M2X');
+  },
+
+  async getTeacherPasswordActivationCode() {
+    return this.getString('teacher_password_activation_code', '');
   },
 
   async getWhatsAppApiUrl(): Promise<string> {

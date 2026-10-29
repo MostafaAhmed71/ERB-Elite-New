@@ -34,6 +34,7 @@ export function PrincipalAcademicSettingsPage() {
   const qc = useQueryClient();
   const [code, setCode] = useState('');
   const [teacherCode, setTeacherCode] = useState('');
+  const [teacherPasswordCode, setTeacherPasswordCode] = useState('');
   const [levels, setLevels] = useState<AcademicEducationLevel[]>(['middle', 'high']);
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [reminders, setReminders] = useState<AcademicAutoReminderSettings>({
@@ -49,6 +50,7 @@ export function PrincipalAcademicSettingsPage() {
     queryFn: async () => {
       setCode(await academicConfigService.getParentActivationCode());
       setTeacherCode(await academicConfigService.getTeacherSignupCode());
+      setTeacherPasswordCode(await academicConfigService.getTeacherPasswordActivationCode());
       setLevels(await academicConfigService.getEnabledLevels());
       setWhatsappUrl(await academicConfigService.getWhatsAppApiUrl());
       setReminders(await academicConfigService.getAutoReminderSettings());
@@ -68,6 +70,10 @@ export function PrincipalAcademicSettingsPage() {
     mutationFn: async () => {
       await academicConfigService.update('parent_activation_code', code);
       await academicConfigService.update('teacher_signup_code', teacherCode.trim().toUpperCase());
+      await academicConfigService.update(
+        'teacher_password_activation_code',
+        teacherPasswordCode.trim().toUpperCase(),
+      );
       await academicConfigService.update('enabled_education_levels', levels);
       await academicConfigService.saveWhatsAppApiUrl(whatsappUrl);
       await academicConfigService.saveAutoReminderSettings(reminders);
@@ -152,6 +158,24 @@ export function PrincipalAcademicSettingsPage() {
         <label className="text-sm text-[#A3AED0] block">كود تفعيل المراجعات لولي الأمر
           <input className={academicInputClass} dir="ltr" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
         </label>
+
+        <div className="border-t border-white/10 pt-5 space-y-3">
+          <p className="text-white font-semibold text-sm">كود التفعيل الموحد</p>
+          <p className="text-[#A3AED0] text-xs leading-relaxed">
+            نفس الحقل في شاشة أول دخول للمعلم. اكتب الكود هنا، احفظ، ثم سلّمه للمعلمين ليدخلوه مع الجوال عند تعيين كلمة المرور.
+          </p>
+          <label className="text-sm text-[#A3AED0] block">
+            كود التفعيل الموحد
+            <input
+              className={academicInputClass}
+              dir="ltr"
+              value={teacherPasswordCode}
+              onChange={(e) => setTeacherPasswordCode(e.target.value.toUpperCase())}
+              placeholder="مثال: ELITE2026"
+              maxLength={64}
+            />
+          </label>
+        </div>
 
         <div className="border-t border-white/10 pt-5 space-y-3">
           <p className="text-white font-semibold text-sm">تسجيل المعلمين عبر Google</p>

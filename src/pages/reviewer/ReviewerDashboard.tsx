@@ -19,7 +19,7 @@ export function ReviewerDashboard() {
     <div className="space-y-6" dir="rtl">
       <PageHeader
         title={user?.full_name ?? 'المراجع'}
-        subtitle="صندوق مراجعة ملفات المعلمين قبل اعتماد المدير"
+        subtitle="صندوق مراجعة الملفات بعد اعتماد المشرف التربوي وقبل المدير"
         role={role ? ROLE_LABELS[role] : undefined}
         avatar={user?.full_name?.charAt(0) ?? 'م'}
       />
@@ -45,7 +45,7 @@ export function ReviewerDashboard() {
           <QuickLink icon={FileText} label="صندوق المراجعات" to="/academic/reviews" />
         </div>
         <p className="text-white/45 text-sm mt-4">
-          راجع ملفات المعلمين ثم أرسلها للمدير للاعتماد والنشر، أو أعدها للمعلم للتعديل.
+          راجع الملفات التي اعتمدها المشرف التربوي ثم أرسلها للمدير، أو أعدها للمعلم مع ملاحظات.
         </p>
         <Link to="/academic/reviews" className="text-gold-400 text-sm hover:underline mt-2 inline-block">
           فتح الصندوق ←
